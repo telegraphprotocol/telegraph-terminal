@@ -28,7 +28,7 @@ export function EmptyState({ onQuestionClick }: EmptyStateProps) {
             className="flex lg:flex-col flex-row lg:items-start items-center gap-4 p-4 rounded-2xl bg-card  border border-transparent hover:border-primary/20 transition-all text-left group cursor-pointer"
           >
             {/* Icon badge */}
-            <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center group-hover:bg-primary/25 transition-colors">
+            <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center group-hover:bg-primary/25 transition-colors flex-shrink-0">
               {iconMap[s.icon]}
             </div>
 
