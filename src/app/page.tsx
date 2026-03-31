@@ -1,65 +1,194 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useRef } from "react";
+import { Sidebar } from "@/components/sidebar";
+import { TopNav } from "@/components/top-nav";
+import { ChatArea } from "@/components/chat-area";
+import { ChatInput } from "@/components/chat-input";
+import { EmptyState } from "@/components/empty-state";
+import { TerminalPanel } from "@/components/terminal-panel";
+import {
+  promptScenarios,
+  ChatMessage,
+  TerminalLogEntry,
+  TerminalReceipt,
+  PromptScenario,
+} from "@/lib/mock-data";
+
+let msgCounter = 100;
+const STREAM_DURATION = 5000; // ms – total time for log streaming
 
 export default function Home() {
+  const [messages, setMessages]                   = useState<ChatMessage[]>([]);
+  const [isLoading, setIsLoading]                 = useState(false);
+  const [activeConversation, setActiveConversation] = useState<string | undefined>();
+  const [sidebarOpen, setSidebarOpen]             = useState(true);
+
+  // Terminal panel state
+  const [terminalLogs, setTerminalLogs]           = useState<TerminalLogEntry[]>([]);
+  const [terminalShowReceipt, setTerminalShowReceipt] = useState(false);
+  const [terminalReceipt, setTerminalReceipt]     = useState<TerminalReceipt | null>(null);
+
+  // Keep timeout IDs so we can cancel on new request
+  const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  const clearAllTimeouts = () => {
+    timeoutsRef.current.forEach(clearTimeout);
+    timeoutsRef.current = [];
+  };
+
+  const hasMessages  = messages.length > 0;
+  const showTerminal = hasMessages || isLoading;
+
+  // ── Core streaming logic ──────────────────────────────────────────────────
+
+  const triggerScenario = (scenario: PromptScenario, userText: string) => {
+    clearAllTimeouts();
+
+    // Show the user bubble immediately
+    const userMsg: ChatMessage = {
+      id: `msg-${++msgCounter}`,
+      role: "user",
+      content: [{ kind: "text", text: userText }],
+    };
+    setMessages([userMsg]);
+    setIsLoading(true);
+    setTerminalLogs([]);
+    setTerminalShowReceipt(false);
+    setTerminalReceipt(null);
+
+    // Stream each log entry evenly across STREAM_DURATION
+    const logs = scenario.terminalLogs;
+    const interval = STREAM_DURATION / (logs.length + 1);
+
+    logs.forEach((log, i) => {
+      const t = setTimeout(() => {
+        setTerminalLogs((prev) => [...prev, log]);
+      }, (i + 1) * interval);
+      timeoutsRef.current.push(t);
+    });
+
+    // After all logs: show receipt + assistant reply
+    const finalT = setTimeout(() => {
+      setTerminalShowReceipt(true);
+      setTerminalReceipt(scenario.receipt);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `msg-${++msgCounter}`,
+          role: "assistant",
+          content: [{ kind: "text", text: scenario.response }],
+        },
+      ]);
+      setIsLoading(false);
+    }, STREAM_DURATION);
+    timeoutsRef.current.push(finalT);
+  };
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
+
+  const handleSend = (text: string) => {
+    const scenario = promptScenarios.find((s) => s.prompt === text);
+    if (scenario) {
+      setActiveConversation(scenario.id);
+      triggerScenario(scenario, text);
+    } else {
+      // Generic fallback for free-text input
+      clearAllTimeouts();
+      setMessages([{
+        id: `msg-${++msgCounter}`,
+        role: "user",
+        content: [{ kind: "text", text }],
+      }]);
+      setIsLoading(true);
+      setTerminalLogs([]);
+      setTerminalShowReceipt(false);
+      setTerminalReceipt(null);
+      const t = setTimeout(() => {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `msg-${++msgCounter}`,
+            role: "assistant",
+            content: [{ kind: "text", text: "Processing your request…" }],
+          },
+        ]);
+        setIsLoading(false);
+      }, 2000);
+      timeoutsRef.current.push(t);
+    }
+  };
+
+  const handleNewChat = () => {
+    clearAllTimeouts();
+    setMessages([]);
+    setIsLoading(false);
+    setActiveConversation(undefined);
+    setTerminalLogs([]);
+    setTerminalShowReceipt(false);
+    setTerminalReceipt(null);
+    if (window.innerWidth < 768) setSidebarOpen(false);
+  };
+
+  const handleSelectConversation = (id: string) => {
+    setActiveConversation(id);
+    const scenario = promptScenarios.find((s) => s.id === id);
+    if (scenario) triggerScenario(scenario, scenario.prompt);
+    if (window.innerWidth < 768) setSidebarOpen(false);
+  };
+
+  // ── Render ────────────────────────────────────────────────────────────────
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="flex h-screen overflow-hidden bg-background">
+      {/* Mobile backdrop */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/60 md:hidden"
+          onClick={() => setSidebarOpen(false)}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+      )}
+
+      {/* Left sidebar */}
+      <Sidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        onToggle={() => setSidebarOpen((v) => !v)}
+        activeId={activeConversation}
+        onSelect={handleSelectConversation}
+        onNewChat={handleNewChat}
+      />
+
+      {/* Main area */}
+      <div className="flex flex-col flex-1 overflow-hidden min-w-0">
+        <TopNav
+          sidebarOpen={sidebarOpen}
+          onToggleSidebar={() => setSidebarOpen((v) => !v)}
+        />
+
+        <div className="flex flex-1 overflow-hidden">
+          {/* Chat area */}
+          <div className="flex flex-col flex-1 overflow-hidden min-w-0">
+            {hasMessages ? (
+              <ChatArea messages={messages} isLoading={isLoading} />
+            ) : (
+              <EmptyState onQuestionClick={handleSend} />
+            )}
+            <ChatInput onSend={handleSend} disabled={isLoading} />
+          </div>
+
+          {/* Right terminal panel — desktop only, visible during and after streaming */}
+          {showTerminal && (
+            <div className="hidden md:flex">
+              <TerminalPanel
+                logs={terminalLogs}
+                showReceipt={terminalShowReceipt}
+                receipt={terminalReceipt}
+              />
+            </div>
+          )}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      </div>
     </div>
   );
 }

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Background -->
+  <rect width="32" height="32" rx="7" fill="#0C0612"/>
+
+  <!-- Telegraph signal / zap shape in brand purple -->
+  <path
+    d="M18.5 5L9 17.5H15.5L13.5 27L23 14.5H16.5L18.5 5Z"
+    fill="#7A2EFF"
+  />
+</svg>
