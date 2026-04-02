@@ -65,10 +65,11 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
             <ArrowUp size={16} />
           </button>
         </div>
-
+        {/*
         <p className="text-center text-[10px] text-muted-foreground mt-3">
           Telegraph Intelligence Terminal is an AI model and can make mistakes.
         </p>
+        */}
       </div>
     </div>
   );
