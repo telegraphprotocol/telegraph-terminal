@@ -6,7 +6,10 @@ import { TopNav } from "@/components/top-nav";
 import { ChatArea } from "@/components/chat-area";
 import { ChatInput } from "@/components/chat-input";
 import { EmptyState } from "@/components/empty-state";
-import { TerminalPanel } from "@/components/terminal-panel";
+import {
+  MobileTerminalCollapsible,
+  TerminalPanel,
+} from "@/components/terminal-panel";
 import {
   promptScenarios,
   ChatMessage,
@@ -174,7 +177,19 @@ export default function Home() {
             ) : (
               <EmptyState onQuestionClick={handleSend} />
             )}
-            <ChatInput onSend={handleSend} disabled={isLoading} />
+            <div className="shrink-0 flex flex-col">
+              <ChatInput onSend={handleSend} disabled={isLoading} />
+              {showTerminal && (
+                <div className="md:hidden">
+                  <MobileTerminalCollapsible
+                    logs={terminalLogs}
+                    showReceipt={terminalShowReceipt}
+                    receipt={terminalReceipt}
+                    isLoading={isLoading}
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Right terminal panel — desktop only, visible during and after streaming */}
