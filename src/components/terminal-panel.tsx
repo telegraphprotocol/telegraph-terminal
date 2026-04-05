@@ -103,7 +103,7 @@ function TerminalFeed({
       </div>
 
       <div
-        className="pointer-events-none absolute right-0 left-0 h-12 transition-opacity duration-500"
+        className="pointer-events-none absolute right-0 left-0 h-12 transition-opacity duration-500 lg:block hidden"
         style={{
           bottom: receiptVisible ? RECEIPT_H : 0,
           opacity: receiptVisible ? 1 : 0,
