@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Sidebar } from "@/components/sidebar";
 import { TopNav } from "@/components/top-nav";
 import { ChatArea } from "@/components/chat-area";
@@ -27,7 +27,12 @@ export default function Home() {
   const [activeConversation, setActiveConversation] = useState<
     string | undefined
   >();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    if (mq.matches) setSidebarOpen(true);
+  }, []);
 
   // Terminal panel state
   const [terminalLogs, setTerminalLogs] = useState<TerminalLogEntry[]>([]);
