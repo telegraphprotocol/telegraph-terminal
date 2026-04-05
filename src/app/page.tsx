@@ -22,15 +22,18 @@ let msgCounter = 100;
 const STREAM_DURATION = 5000; // ms – total time for log streaming
 
 export default function Home() {
-  const [messages, setMessages]                   = useState<ChatMessage[]>([]);
-  const [isLoading, setIsLoading]                 = useState(false);
-  const [activeConversation, setActiveConversation] = useState<string | undefined>();
-  const [sidebarOpen, setSidebarOpen]             = useState(true);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [activeConversation, setActiveConversation] = useState<
+    string | undefined
+  >();
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   // Terminal panel state
-  const [terminalLogs, setTerminalLogs]           = useState<TerminalLogEntry[]>([]);
+  const [terminalLogs, setTerminalLogs] = useState<TerminalLogEntry[]>([]);
   const [terminalShowReceipt, setTerminalShowReceipt] = useState(false);
-  const [terminalReceipt, setTerminalReceipt]     = useState<TerminalReceipt | null>(null);
+  const [terminalReceipt, setTerminalReceipt] =
+    useState<TerminalReceipt | null>(null);
 
   // Keep timeout IDs so we can cancel on new request
   const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -40,7 +43,7 @@ export default function Home() {
     timeoutsRef.current = [];
   };
 
-  const hasMessages  = messages.length > 0;
+  const hasMessages = messages.length > 0;
   const showTerminal = hasMessages || isLoading;
 
   // ── Core streaming logic ──────────────────────────────────────────────────
@@ -65,9 +68,12 @@ export default function Home() {
     const interval = STREAM_DURATION / (logs.length + 1);
 
     logs.forEach((log, i) => {
-      const t = setTimeout(() => {
-        setTerminalLogs((prev) => [...prev, log]);
-      }, (i + 1) * interval);
+      const t = setTimeout(
+        () => {
+          setTerminalLogs((prev) => [...prev, log]);
+        },
+        (i + 1) * interval,
+      );
       timeoutsRef.current.push(t);
     });
 
@@ -98,11 +104,13 @@ export default function Home() {
     } else {
       // Generic fallback for free-text input
       clearAllTimeouts();
-      setMessages([{
-        id: `msg-${++msgCounter}`,
-        role: "user",
-        content: [{ kind: "text", text }],
-      }]);
+      setMessages([
+        {
+          id: `msg-${++msgCounter}`,
+          role: "user",
+          content: [{ kind: "text", text }],
+        },
+      ]);
       setIsLoading(true);
       setTerminalLogs([]);
       setTerminalShowReceipt(false);
@@ -172,24 +180,28 @@ export default function Home() {
         <div className="flex flex-1 overflow-hidden">
           {/* Chat area */}
           <div className="flex flex-col flex-1 overflow-hidden min-w-0">
-            {hasMessages ? (
-              <ChatArea messages={messages} isLoading={isLoading} />
-            ) : (
-              <EmptyState onQuestionClick={handleSend} />
-            )}
-            <div className="shrink-0 flex flex-col">
-              <ChatInput onSend={handleSend} disabled={isLoading} />
-              {showTerminal && (
-                <div className="md:hidden">
-                  <MobileTerminalCollapsible
-                    logs={terminalLogs}
-                    showReceipt={terminalShowReceipt}
-                    receipt={terminalReceipt}
-                    isLoading={isLoading}
-                  />
-                </div>
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              {hasMessages ? (
+                <ChatArea
+                  messages={messages}
+                  isLoading={isLoading}
+                  mobileTerminal={
+                    showTerminal ? (
+                      <div className="md:hidden">
+                        <MobileTerminalCollapsible
+                          logs={terminalLogs}
+                          showReceipt={terminalShowReceipt}
+                          receipt={terminalReceipt}
+                        />
+                      </div>
+                    ) : null
+                  }
+                />
+              ) : (
+                <EmptyState onQuestionClick={handleSend} />
               )}
             </div>
+            <ChatInput onSend={handleSend} disabled={isLoading} />
           </div>
 
           {/* Right terminal panel — desktop only, visible during and after streaming */}

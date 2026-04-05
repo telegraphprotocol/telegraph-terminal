@@ -52,13 +52,13 @@ function TerminalFeed({
   return (
     <div
       className={cn(
-        "relative flex min-h-0 flex-1 flex-col overflow-hidden",
-        className
+        "relative flex min-h-0 flex-1 flex-col overflow-hidden lg:rounded-lg",
+        className,
       )}
     >
       <div
         ref={logContainerRef}
-        className="flex-1 overflow-y-auto px-5"
+        className="flex-1 overflow-y-auto lg:px-5 px-4 lg:pt-0 pt-2"
         style={{ paddingBottom: receiptVisible ? RECEIPT_H + 20 : 16 }}
       >
         {logs.length === 0 ? (
@@ -68,7 +68,7 @@ function TerminalFeed({
             {entriesWithHeader.map(({ log, showHeader }, i) => (
               <div key={i} className="terminal-log-entry">
                 {showHeader && (
-                  <div className={i > 0 ? "mt-6" : ""}>
+                  <div className={i > 0 ? "lg:mt-6 mt-4" : ""}>
                     <div className="flex items-center gap-3 py-2">
                       <span className="min-w-20 text-xs font-medium text-foreground/70">
                         Time
@@ -81,7 +81,7 @@ function TerminalFeed({
                   </div>
                 )}
 
-                <div className="flex items-center gap-3 border-b border-border/40 py-3">
+                <div className="flex items-center gap-3 border-b border-border/40 lg:py-3 py-2">
                   <div className="flex min-w-20 shrink-0 items-center justify-center rounded-full bg-muted px-2.5 py-1.5">
                     <span className="text-[10px] font-medium tabular-nums leading-none whitespace-nowrap text-foreground">
                       {log.time}
@@ -114,13 +114,13 @@ function TerminalFeed({
 
       <div
         className={cn(
-          "absolute right-0 bottom-0 left-0 border-t border-border bg-background/40 px-5 py-5 backdrop-blur-lg transition-all duration-500 ease-out",
+          "absolute right-0 bottom-0 left-0 border-t border-border bg-background/40 lg:px-5 px-4 py-5 backdrop-blur-lg transition-all duration-500 ease-out rounded-b-lg",
           receiptVisible
             ? "translate-y-0 opacity-100"
-            : "pointer-events-none translate-y-4 opacity-0"
+            : "pointer-events-none translate-y-4 opacity-0",
         )}
       >
-        <p className="mb-3 text-[13px] font-medium tracking-wide text-foreground">
+        <p className="lg:mb-3 mb-2 text-[13px] font-medium tracking-wide text-foreground">
           Receipt Generated
         </p>
         {receipt && (
@@ -154,16 +154,11 @@ export function MobileTerminalCollapsible({
   logs,
   showReceipt,
   receipt,
-  isLoading,
-}: TerminalPanelProps & { isLoading: boolean }) {
+}: TerminalPanelProps) {
   const [open, setOpen] = useState(false);
 
-  useEffect(() => {
-    if (isLoading) setOpen(true);
-  }, [isLoading]);
-
   return (
-    <div className="border-t border-border bg-background">
+    <div className="border border-border bg-background rounded-lg">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -177,34 +172,13 @@ export function MobileTerminalCollapsible({
           size={18}
           className={cn(
             "shrink-0 text-muted-foreground transition-transform duration-200",
-            open && "rotate-180"
+            open && "rotate-180",
           )}
           aria-hidden
         />
       </button>
       {open && (
-        <div className="flex max-h-[min(50vh,360px)] min-h-[200px] flex-col border-t border-border">
-          <div className="flex shrink-0 items-center gap-1.5 border-b border-border/60 px-4 py-2">
-            <span className="text-xs font-medium text-foreground">Terminal</span>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger>
-                  <button
-                    type="button"
-                    aria-label="Terminal info"
-                    className="inline-flex items-center text-muted-foreground"
-                  >
-                    <HelpCircle size={12} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  Streams real-time execution logs for provider routing, model
-                  inference, validation checks, and final onchain settlement
-                  receipt generation.
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
+        <div className="flex max-h-[min(50vh,360px)] min-h-[200px] flex-col border-t border-border b">
           <TerminalFeed
             logs={logs}
             showReceipt={showReceipt}
