@@ -197,6 +197,7 @@ export default function Home() {
                           logs={terminalLogs}
                           showReceipt={terminalShowReceipt}
                           receipt={terminalReceipt}
+                          isLoading={isLoading}
                         />
                       </div>
                     ) : null

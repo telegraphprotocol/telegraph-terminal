@@ -154,15 +154,22 @@ export function MobileTerminalCollapsible({
   logs,
   showReceipt,
   receipt,
-}: TerminalPanelProps) {
+  isLoading,
+}: TerminalPanelProps & { isLoading: boolean }) {
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isLoading) setOpen(false);
+  }, [isLoading]);
+
+  const expanded = isLoading || open;
 
   return (
     <div className="border border-border bg-background rounded-lg">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
+        aria-expanded={expanded}
         className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left transition-colors hover:bg-accent/50"
       >
         <span className="text-sm font-medium text-foreground">
@@ -172,13 +179,13 @@ export function MobileTerminalCollapsible({
           size={18}
           className={cn(
             "shrink-0 text-muted-foreground transition-transform duration-200",
-            open && "rotate-180",
+            expanded && "rotate-180",
           )}
           aria-hidden
         />
       </button>
-      {open && (
-        <div className="flex max-h-[min(50vh,360px)] min-h-[200px] flex-col border-t border-border b">
+      {expanded && (
+        <div className="flex max-h-[min(50vh,360px)] min-h-[200px] flex-col border-t border-border">
           <TerminalFeed
             logs={logs}
             showReceipt={showReceipt}
