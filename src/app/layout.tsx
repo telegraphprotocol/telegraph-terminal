@@ -22,10 +22,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} h-full antialiased`} suppressHydrationWarning>
-      <body className="min-h-full flex flex-col bg-background text-foreground">
+    <html
+      lang="en"
+      className={`${inter.variable} h-dvh overflow-hidden antialiased`}
+      suppressHydrationWarning
+    >
+      <body className="flex h-dvh min-h-0 flex-col overflow-hidden bg-background text-foreground">
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
-          {children}
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            {children}
+          </div>
         </ThemeProvider>
       </body>
     </html>

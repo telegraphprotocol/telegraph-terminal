@@ -156,7 +156,7 @@ export default function Home() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background md:flex-row">
       {/* Mobile backdrop */}
       {sidebarOpen && (
         <div
@@ -176,7 +176,7 @@ export default function Home() {
       />
 
       {/* Main area */}
-      <div className="flex flex-col flex-1 overflow-hidden min-w-0">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <TopNav
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen((v) => !v)}

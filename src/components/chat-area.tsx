@@ -61,7 +61,7 @@ export function ChatArea({
   );
 
   return (
-    <div className="flex-1 overflow-y-auto py-6">
+    <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain py-6 [-webkit-overflow-scrolling:touch]">
       <div className="mx-auto w-full max-w-[640px] space-y-6 px-4">
         {lastUserIdx >= 0 ? (
           <>
