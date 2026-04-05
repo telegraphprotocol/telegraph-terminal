@@ -24,6 +24,8 @@ interface TerminalFeedProps extends TerminalPanelProps {
 }
 
 /** Shared log list + receipt (used by desktop aside and mobile collapsible). */
+const WAITING_HINT_MS = 2000;
+
 function TerminalFeed({
   logs,
   showReceipt,
@@ -31,6 +33,17 @@ function TerminalFeed({
   className,
 }: TerminalFeedProps) {
   const logContainerRef = useRef<HTMLDivElement>(null);
+  const [showWaitingHint, setShowWaitingHint] = useState(false);
+
+  useEffect(() => {
+    if (logs.length > 0) {
+      setShowWaitingHint(false);
+      return;
+    }
+    setShowWaitingHint(false);
+    const t = setTimeout(() => setShowWaitingHint(true), WAITING_HINT_MS);
+    return () => clearTimeout(t);
+  }, [logs]);
 
   useEffect(() => {
     const container = logContainerRef.current;
@@ -62,7 +75,11 @@ function TerminalFeed({
         style={{ paddingBottom: receiptVisible ? RECEIPT_H + 20 : 16 }}
       >
         {logs.length === 0 ? (
-          <p className="text-xs text-muted-foreground">Waiting for request…</p>
+          showWaitingHint ? (
+            <p className="text-xs text-muted-foreground">
+              Waiting for request…
+            </p>
+          ) : null
         ) : (
           <div>
             {entriesWithHeader.map(({ log, showHeader }, i) => (
@@ -165,12 +182,12 @@ export function MobileTerminalCollapsible({
   const expanded = isLoading || open;
 
   return (
-    <div className="border border-border bg-background rounded-lg">
+    <div className="overflow-hidden rounded-lg border border-border bg-background">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={expanded}
-        className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left transition-colors hover:bg-accent/50"
+        className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left transition-colors duration-200 hover:bg-accent/50"
       >
         <span className="text-sm font-medium text-foreground">
           Live Settlement &amp; Logic Feed
@@ -178,22 +195,29 @@ export function MobileTerminalCollapsible({
         <ChevronDown
           size={18}
           className={cn(
-            "shrink-0 text-muted-foreground transition-transform duration-200",
+            "shrink-0 text-muted-foreground transition-transform duration-300 ease-out motion-reduce:transition-none",
             expanded && "rotate-180",
           )}
           aria-hidden
         />
       </button>
-      {expanded && (
-        <div className="flex max-h-[min(50vh,360px)] min-h-[200px] flex-col border-t border-border">
-          <TerminalFeed
-            logs={logs}
-            showReceipt={showReceipt}
-            receipt={receipt}
-            className="min-h-0 flex-1"
-          />
+      <div
+        className={cn(
+          "grid border-t border-border transition-[grid-template-rows] duration-300 ease-out motion-reduce:duration-0",
+          expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+        )}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div className="flex max-h-[min(50vh,360px)] min-h-[200px] flex-col">
+            <TerminalFeed
+              logs={logs}
+              showReceipt={showReceipt}
+              receipt={receipt}
+              className="min-h-0 flex-1"
+            />
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

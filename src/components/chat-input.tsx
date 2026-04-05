@@ -39,7 +39,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
   return (
     <div className="pb-4 pt-2 bg-background">
       <div className="w-full max-w-[640px] mx-auto px-4">
-        <div className="mb-3 flex items-center gap-2 rounded-full bg-card px-3 py-2.5 focus-within:border-primary/50 transition-colors">
+        <div className="mb-2 flex items-center gap-2 rounded-full bg-card px-3 py-2.5 focus-within:border-primary/50 transition-colors">
           <button className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors shrink-0 mb-0.5">
             <Paperclip size={16} />
           </button>
