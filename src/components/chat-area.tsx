@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Sparkles, Brain } from "lucide-react";
 import { ChatMessage } from "@/lib/mock-data";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface ChatAreaProps {
   messages: ChatMessage[];
   isLoading?: boolean;
-  /** Shown on small screens between the latest user bubble and assistant content */
   mobileTerminal?: ReactNode;
 }
 
@@ -31,14 +31,19 @@ export function ChatArea({
   }
 
   const renderMessage = (message: ChatMessage) => (
-    <div key={message.id}>
+    <motion.div 
+      key={message.id}
+      initial={{ opacity: 0, y: 10, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+    >
       {message.role === "user" ? (
         <div className="flex justify-end">
-          <div className="max-w-[85%] rounded-2xl rounded-tr-sm bg-muted px-4 py-3 sm:max-w-[70%]">
+          <div className="max-w-[85%] rounded-3xl rounded-tr-sm bg-primary/10 border border-primary/20 px-5 py-3.5 sm:max-w-[70%] shadow-sm">
             {message.content.map((c, i) => (
               <p
                 key={i}
-                className="text-sm leading-relaxed text-foreground"
+                className="text-[14px] font-medium leading-relaxed text-foreground/90"
               >
                 {c.text}
               </p>
@@ -46,43 +51,71 @@ export function ChatArea({
           </div>
         </div>
       ) : (
-        <div className="assistant-message-in max-w-2xl">
-          {message.content.map((c, i) => (
-            <p
-              key={i}
-              className="text-sm leading-relaxed text-foreground"
-            >
-              {c.text}
-            </p>
-          ))}
+        <div className="flex items-start gap-4 max-w-2xl">
+          <div className="w-8 h-8 rounded-xl bg-gradient-premium flex items-center justify-center shrink-0 shadow-lg shadow-primary/20">
+            <Sparkles size={14} className="text-white" />
+          </div>
+          <div className="flex-1 space-y-2 pt-1">
+             {message.content.map((c, i) => (
+              <p
+                key={i}
+                className="text-[15px] leading-relaxed text-foreground/90"
+              >
+                {c.text}
+                {!c.text && <span className="inline-block w-1 h-4 bg-primary animate-pulse ml-0.5" />}
+              </p>
+            ))}
+          </div>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain py-6 [-webkit-overflow-scrolling:touch]">
-      <div className="mx-auto w-full max-w-[640px] space-y-6 px-4">
-        {lastUserIdx >= 0 ? (
-          <>
-            {messages.slice(0, lastUserIdx + 1).map(renderMessage)}
-            {mobileTerminal}
-            {messages.slice(lastUserIdx + 1).map(renderMessage)}
-          </>
-        ) : (
-          <>
-            {messages.map(renderMessage)}
-            {mobileTerminal}
-          </>
-        )}
+    <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain py-8 custom-scrollbar">
+      <div className="mx-auto w-full max-w-[720px] space-y-8 px-6">
+        <AnimatePresence mode="popLayout">
+          {lastUserIdx >= 0 ? (
+            <>
+              {messages.slice(0, lastUserIdx + 1).map(renderMessage)}
+              <motion.div 
+                key="mobile-terminal"
+                layout
+                className="my-4"
+              >
+                {mobileTerminal}
+              </motion.div>
+              {messages.slice(lastUserIdx + 1).map(renderMessage)}
+            </>
+          ) : (
+            <>
+              {messages.map(renderMessage)}
+              <motion.div 
+                key="mobile-terminal-empty"
+                layout
+                className="my-4"
+              >
+                {mobileTerminal}
+              </motion.div>
+            </>
+          )}
 
-        {/* Loading indicator */}
-        {isLoading && (
-          <div className="flex items-center gap-2 text-muted-foreground max-w-2xl">
-            <Loader2 size={18} className="animate-spin text-primary" />
-            <span className="text-sm">Reasoning through the steps…</span>
-          </div>
-        )}
+          {/* Loading indicator */}
+          {isLoading && !messages.some(m => m.role === 'assistant' && m.id.includes('assistant')) && (
+            <motion.div 
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0 }}
+              className="flex items-center gap-3 text-muted-foreground/80 max-w-2xl pl-12"
+            >
+              <div className="relative">
+                 <Brain size={18} className="text-primary/60 animate-pulse" />
+                 <div className="absolute -inset-1 bg-primary/20 blur-md rounded-full -z-10" />
+              </div>
+              <span className="text-[13px] font-semibold tracking-tight uppercase tracking-widest opacity-60">Consulting neural subnets...</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <div ref={bottomRef} />
       </div>
