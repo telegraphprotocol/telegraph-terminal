@@ -77,37 +77,37 @@
   --sidebar-ring: rgba(122, 46, 255, 1);
 }
 
-/* Dark theme */
+/* Dark theme - Kraken Dashboard Optimized */
 .dark {
-  --background: rgba(12, 6, 18, 1);
+  --background: #0C0612;
   --foreground: rgba(255, 255, 255, 1);
-  --card: rgba(23, 18, 32, 1);
+  --card: #171220;
   --card-foreground: rgba(255, 255, 255, 1);
-  --popover: rgba(24, 18, 32, 1);
+  --popover: #181220;
   --popover-foreground: rgba(255, 255, 255, 1);
-  --primary: rgba(122, 46, 255, 1);
+  --primary: #7A2EFF;
   --primary-foreground: rgba(255, 255, 255, 1);
-  --secondary: rgba(33, 19, 56, 1);
+  --secondary: #211338;
   --secondary-foreground: rgba(255, 255, 255, 1);
-  --muted: rgba(40, 38, 54, 1);
-  --muted-foreground: rgba(149, 151, 172, 1);
-  --accent: rgba(44, 39, 56, 1);
+  --muted: #282636;
+  --muted-foreground: #9597AC;
+  --accent: #2c2738;
   --accent-foreground: rgba(255, 255, 255, 1);
-  --destructive: rgba(236, 53, 50, 1);
-  --border: rgba(33, 34, 44, 1);
-  --input: rgba(33, 34, 44, 1);
-  --ring: rgba(122, 46, 255, 1);
-  --success: rgba(16, 172, 107, 1);
-  --warning: rgba(240, 173, 78, 1);
-  --danger: rgba(217, 83, 79, 1);
-  --sidebar: rgba(16, 10, 24, 1);
+  --destructive: #ec3532;
+  --border: #21222C;
+  --input: #21222C;
+  --ring: #7A2EFF;
+  --success: #10ac6b;
+  --warning: #f0ad4e;
+  --danger: #d9534f;
+  --sidebar: #0C0612;
   --sidebar-foreground: rgba(255, 255, 255, 1);
-  --sidebar-primary: rgba(122, 46, 255, 1);
+  --sidebar-primary: #7A2EFF;
   --sidebar-primary-foreground: rgba(255, 255, 255, 1);
-  --sidebar-accent: rgba(33, 19, 56, 1);
+  --sidebar-accent: #211338;
   --sidebar-accent-foreground: rgba(255, 255, 255, 1);
-  --sidebar-border: rgba(33, 34, 44, 1);
-  --sidebar-ring: rgba(122, 46, 255, 1);
+  --sidebar-border: #21222C;
+  --sidebar-ring: #7A2EFF;
 }
 
 @layer base {
