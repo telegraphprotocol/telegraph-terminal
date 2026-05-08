@@ -1,9 +1,27 @@
 "use client";
 
-import { PenSquare, PanelLeftClose, Search, Settings, HelpCircle } from "lucide-react";
-import { conversationHistory } from "@/lib/mock-data";
+import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
+import {
+  PenSquare,
+  PanelLeftClose,
+  Search,
+  Settings,
+  HelpCircle,
+  MoreHorizontal,
+  Archive,
+  Trash2,
+  RotateCcw,
+} from "lucide-react";
+import { conversationHistory, type ConversationGroup } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+
+export type LiveChatSidebarActions = {
+  onArchive: (id: string) => void;
+  onRestore: (id: string) => void;
+  onDelete: (id: string) => void;
+};
 
 interface SidebarProps {
   isOpen: boolean;
@@ -12,6 +30,10 @@ interface SidebarProps {
   activeId?: string;
   onSelect?: (id: string) => void;
   onNewChat?: () => void;
+  /** When set (e.g. live terminal), replaces mock demo history */
+  historyGroups?: ConversationGroup[];
+  /** Live terminal: row menu + archive/delete with confirmation */
+  liveChatActions?: LiveChatSidebarActions;
 }
 
 export function Sidebar({
@@ -21,8 +43,38 @@ export function Sidebar({
   activeId,
   onSelect,
   onNewChat,
+  historyGroups,
+  liveChatActions,
   showHistory = true,
 }: SidebarProps & { showHistory?: boolean }) {
+  const groups = historyGroups ?? conversationHistory;
+  /** Portal menu — avoids clipping from sidebar `overflow-hidden` / scroll containers. */
+  const [openChatMenu, setOpenChatMenu] = useState<{
+    id: string;
+    archived: boolean;
+    anchor: DOMRect;
+  } | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const menuPortalRef = useRef<HTMLUListElement>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!openChatMenu) return;
+    const close = (e: MouseEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (!t) return;
+      if (menuPortalRef.current?.contains(t)) return;
+      if (t.closest(`[data-chat-menu-trigger="${openChatMenu.id}"]`)) return;
+      setOpenChatMenu(null);
+    };
+    document.addEventListener("mousedown", close, true);
+    return () => document.removeEventListener("mousedown", close, true);
+  }, [openChatMenu]);
+
   return (
     <aside
       className={cn(
@@ -64,36 +116,80 @@ export function Sidebar({
         {showHistory && (
           <nav className="flex-1 overflow-y-auto px-3 pb-4 custom-scrollbar">
             <AnimatePresence mode="popLayout">
-              {conversationHistory.map((group) => (
+              {groups.map((group) => (
                 <div key={group.label} className="mt-4">
                   <p className="px-3 mb-2 text-[10px] font-bold text-muted-foreground/60 uppercase tracking-[0.2em]">
                     {group.label}
                   </p>
                   <ul className="space-y-1">
                     {group.items.map((item) => (
-                      <motion.li 
+                      <motion.li
                         key={item.id}
                         initial={{ opacity: 0, x: -5 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.3 }}
+                        className="relative"
                       >
-                        <button
-                          onClick={() => onSelect?.(item.id)}
+                        <div
                           className={cn(
-                            "w-full text-left px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-300 group relative overflow-hidden",
+                            "flex items-center gap-1 rounded-xl transition-all duration-300 group relative",
                             activeId === item.id
                               ? "bg-primary/10 text-primary shadow-[inset_0_0_0_1px_rgba(140,89,255,0.2)]"
                               : "text-foreground/70 hover:bg-accent/50 hover:text-foreground",
                           )}
                         >
-                          <span className="relative z-10 truncate block">{item.title}</span>
-                          {activeId === item.id && (
-                            <motion.div 
-                              layoutId="active-pill"
-                              className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-primary rounded-r-full"
-                            />
-                          )}
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onSelect?.(item.id);
+                              setOpenChatMenu(null);
+                            }}
+                            className="relative flex-1 min-w-0 text-left px-3 py-2.5 text-[13px] font-medium"
+                          >
+                            <span className="relative z-10 truncate block">{item.title}</span>
+                            {activeId === item.id && (
+                              <motion.div
+                                layoutId="active-pill"
+                                className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-primary rounded-r-full"
+                              />
+                            )}
+                          </button>
+                          {liveChatActions ? (
+                            <div className="relative shrink-0 pr-1.5">
+                              <button
+                                type="button"
+                                data-chat-menu-trigger={item.id}
+                                aria-label="Chat options"
+                                aria-expanded={openChatMenu?.id === item.id}
+                                aria-haspopup="menu"
+                                className={cn(
+                                  "rounded-full border border-border/60 p-1 text-muted-foreground hover:bg-background/80 hover:text-foreground transition-colors",
+                                  openChatMenu?.id === item.id &&
+                                    "bg-background/80 text-primary border-primary/30",
+                                )}
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const btn = e.currentTarget as HTMLElement;
+                                  setOpenChatMenu((prev) =>
+                                    prev?.id === item.id
+                                      ? null
+                                      : {
+                                          id: item.id,
+                                          archived: !!item.archived,
+                                          anchor: btn.getBoundingClientRect(),
+                                        },
+                                  );
+                                }}
+                              >
+                                <MoreHorizontal size={14} strokeWidth={2.25} />
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
                       </motion.li>
                     ))}
                   </ul>
@@ -128,6 +224,115 @@ export function Sidebar({
           </div>
         </div>
       </div>
+
+      {mounted &&
+        openChatMenu &&
+        liveChatActions &&
+        createPortal(
+          <ul
+            ref={menuPortalRef}
+            role="menu"
+            className="fixed z-[250] min-w-[160px] rounded-xl border border-border/60 bg-popover py-1 shadow-xl backdrop-blur-xl"
+            style={{
+              top: openChatMenu.anchor.bottom + 4,
+              left: Math.max(
+                8,
+                Math.min(
+                  typeof window !== "undefined"
+                    ? window.innerWidth - 168
+                    : 0,
+                  openChatMenu.anchor.right - 160,
+                ),
+              ),
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            {!openChatMenu.archived ? (
+              <li role="none">
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] font-medium text-foreground hover:bg-accent"
+                  onClick={() => {
+                    liveChatActions.onArchive(openChatMenu.id);
+                    setOpenChatMenu(null);
+                  }}
+                >
+                  <Archive size={14} />
+                  Archive
+                </button>
+              </li>
+            ) : (
+              <li role="none">
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] font-medium text-foreground hover:bg-accent"
+                  onClick={() => {
+                    liveChatActions.onRestore(openChatMenu.id);
+                    setOpenChatMenu(null);
+                  }}
+                >
+                  <RotateCcw size={14} />
+                  Restore
+                </button>
+              </li>
+            )}
+            <li role="none">
+              <button
+                type="button"
+                role="menuitem"
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] font-medium text-red-400 hover:bg-red-500/10"
+                onClick={() => {
+                  setOpenChatMenu(null);
+                  setDeleteConfirmId(openChatMenu.id);
+                }}
+              >
+                <Trash2 size={14} />
+                Delete
+              </button>
+            </li>
+          </ul>,
+          document.body,
+        )}
+
+      {deleteConfirmId && liveChatActions ? (
+        <div
+          className="fixed inset-0 z-[260] flex items-center justify-center bg-black/55 p-4 backdrop-blur-[2px]"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="delete-chat-title"
+          aria-describedby="delete-chat-desc"
+        >
+          <div className="w-full max-w-sm rounded-2xl border border-border/60 bg-card p-6 shadow-2xl">
+            <h2 id="delete-chat-title" className="text-lg font-bold text-foreground">
+              Delete this chat?
+            </h2>
+            <p id="delete-chat-desc" className="mt-2 text-sm text-muted-foreground leading-relaxed">
+              This removes the conversation from this browser. You can’t undo it.
+            </p>
+            <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
+              <button
+                type="button"
+                className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium whitespace-nowrap text-muted-foreground hover:bg-muted transition-colors"
+                onClick={() => setDeleteConfirmId(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl bg-red-600 px-5 py-2.5 text-sm font-semibold whitespace-nowrap text-white hover:bg-red-500 transition-colors"
+                onClick={() => {
+                  liveChatActions.onDelete(deleteConfirmId);
+                  setDeleteConfirmId(null);
+                }}
+              >
+                Delete chat
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </aside>
   );
 }

@@ -1,134 +1,290 @@
 "use client";
 
+import { KrakenFeed } from "@/components/kraken/kraken-feed";
+import { KrakenSkillCards } from "@/components/kraken/kraken-skill-cards";
+import { KrakenAnalytics } from "@/components/kraken/kraken-analytics";
+import { KrakenAlerts } from "@/components/kraken/kraken-alerts";
+import { Search, Bell, Menu, LayoutDashboard, Database, Shield, Zap, MessageSquare } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { motion } from "framer-motion";
-import { Zap, Shield, Globe, ArrowRight } from "lucide-react";
+import { apiClient } from "@/lib/api-client";
+import { DaemonCategory, DaemonResultItem } from "@/lib/engine-daemon-types";
 
-export default function Home() {
+export default function KrakenDashboard() {
+  const [signals, setSignals] = useState<DaemonResultItem[]>([]);
+  const [topSignals, setTopSignals] = useState<DaemonResultItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [daemonError, setDaemonError] = useState<string | null>(null);
+  const [category, setCategory] = useState<DaemonCategory | "">("");
+  const [sort, setSort] = useState<"recent" | "interest" | "affected" | "audience">("recent");
+  const [sinceHours, setSinceHours] = useState(24);
+  const [offset, setOffset] = useState(0);
+  const limit = 20;
+  const [total, setTotal] = useState(0);
+
+  const categories: Array<DaemonCategory | ""> = useMemo(
+    () => ["", "POLITICS", "ECONOMICS", "GEOPOLITICS", "TECHNOLOGY", "CLIMATE", "HEALTH", "FINANCE", "CRYPTO", "SPORTS", "SCIENCE", "SOCIAL", "OTHER"],
+    [],
+  );
+
+  useEffect(() => {
+    document.title = "Kraken Intelligence Dashboard";
+  }, []);
+
+  useEffect(() => {
+    let ignore = false;
+    const load = async () => {
+      setIsLoading(true);
+      setDaemonError(null);
+      try {
+        const [page, top, health] = await Promise.all([
+          apiClient.fetchSignals({
+            since_hours: sinceHours,
+            category: category || undefined,
+            sort,
+            order: "desc",
+            limit,
+            offset,
+            min_interest: 1,
+          }),
+          apiClient.getTopSignals({
+            since_hours: 1,
+            category: category || undefined,
+            limit: 10,
+          }),
+          apiClient.getHealth(),
+        ]);
+
+        if (ignore) return;
+        if (health.status.toLowerCase() !== "ok") {
+          throw new Error(`Daemon health check returned "${health.status}"`);
+        }
+        const collectorOnly = page.results.filter(
+          (row) =>
+            row.source !== "user" &&
+            ["reddit", "gdelt", "polymarket", "hackernews", "openmeteo"].includes(row.source),
+        );
+        setSignals(collectorOnly);
+        setTopSignals(top.results);
+        setTotal(page.total);
+      } catch (error) {
+        if (ignore) return;
+        setDaemonError(error instanceof Error ? error.message : "Failed to load daemon data");
+      } finally {
+        if (!ignore) setIsLoading(false);
+      }
+    };
+
+    load();
+    const timer = setInterval(load, 30000);
+    return () => {
+      ignore = true;
+      clearInterval(timer);
+    };
+  }, [category, sort, sinceHours, offset]);
+
   return (
-    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#0a0510] selection:bg-primary/30">
-      {/* Background Ambient Effects */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-[20%] -left-[10%] w-[60%] h-[60%] rounded-full bg-primary/20 blur-[120px] animate-pulse" />
-        <div className="absolute top-[40%] -right-[10%] w-[50%] h-[50%] rounded-full bg-purple-600/10 blur-[100px]" />
-        <div className="absolute bottom-[-10%] left-[20%] w-[40%] h-[40%] rounded-full bg-blue-500/10 blur-[120px]" />
-        
-        {/* Grid pattern */}
-        <div 
-          className="absolute inset-0 opacity-[0.03]" 
-          style={{ 
-            backgroundImage: `radial-gradient(circle at 1px 1px, rgba(255,255,255,1) 1px, transparent 0)`,
-            backgroundSize: '40px 40px' 
-          }} 
-        />
-      </div>
-
-      <div className="relative z-10 w-full max-w-5xl px-6 py-12 flex flex-col items-center text-center">
-        {/* Badge */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-primary/20 bg-primary/5 text-primary text-[11px] font-bold uppercase tracking-[0.2em] mb-8"
-        >
-          <Zap size={12} />
-          Now Live: Neural Gateway v1.4
-        </motion.div>
-
-        {/* Hero Title */}
-        <motion.h1
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.1 }}
-          className="text-5xl md:text-8xl font-black tracking-tight text-white mb-6"
-        >
-          Telegraph <br />
-          <span className="text-gradient-premium">Intelligence</span> Terminal
-        </motion.h1>
-
-        {/* Subtitle */}
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.2 }}
-          className="max-w-2xl text-lg md:text-xl text-muted-foreground leading-relaxed mb-12"
-        >
-          The decentralized command center for next-generation AI agents. 
-          Analyze subnets, settle transactions, and verify proof-of-compute 
-          across the neural web in real-time.
-        </motion.p>
-
-        {/* Call to Actions */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-          className="flex flex-col sm:flex-row gap-4 mb-20"
-        >
-          <Link
-            href="/demo"
-            className="group relative flex items-center justify-center gap-2 h-14 px-10 rounded-2xl bg-gradient-premium text-white font-bold transition-all hover:scale-105 hover:shadow-[0_0_40px_-5px_rgba(140,89,255,0.6)] active:scale-95"
-          >
-            Launch Terminal
-            <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-          </Link>
-          
-          <Link
-            href="/live"
-            className="flex items-center justify-center gap-2 h-14 px-10 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md text-white font-bold transition-all hover:bg-white/10 active:scale-95"
-          >
-            Go Live
-            <Globe size={18} className="opacity-60" />
-          </Link>
-        </motion.div>
-
-        {/* Features Preview */}
-        <motion.div
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1, delay: 0.4 }}
-          className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full"
-        >
-          {[
-            { 
-              icon: Zap, 
-              title: "Millisecond Settlement", 
-              desc: "On-chain verification for every AI inference across top subnets." 
-            },
-            { 
-              icon: Shield, 
-              title: "Verified Intelligence", 
-              desc: "Zero-knowledge proofs ensure the authenticity of every generated signal." 
-            },
-            { 
-              icon: Globe, 
-              title: "Multi-Subnet Routing", 
-              desc: "Intelligent request dispatching to the most optimized neural providers." 
-            }
-          ].map((feature, i) => (
-            <div 
-              key={i} 
-              className="group p-8 rounded-3xl border border-white/5 bg-white/[0.02] backdrop-blur-sm text-left hover:bg-white/[0.04] transition-all duration-500"
-            >
-              <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary mb-6 group-hover:scale-110 group-hover:bg-primary/20 transition-all">
-                <feature.icon size={24} />
-              </div>
-              <h3 className="text-lg font-bold text-white mb-3">{feature.title}</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">{feature.desc}</p>
+    <div className="flex h-screen bg-background overflow-hidden font-sans">
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Top Header */}
+        <header className="h-[64px] border-b border-border/50 flex items-center justify-between px-6 bg-background/50 backdrop-blur-xl z-20">
+          <div className="flex items-center gap-6 flex-1">
+            <div className="flex items-center">
+              <svg width="151" height="26" viewBox="0 0 151 26" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M33.4999 1.5H37.0999V11L46.6999 1.5H51.4999L42.8999 9.8L51.8999 23.8H47.0999L40.0999 12.5L36.9999 15.5V23.9H33.3999L33.4999 1.5Z" fill="#5841D8"/>
+                <path d="M53.8999 1.5H57.4999V5.4C57.7999 4.7 58.4999 3.7 59.5999 2.7C60.6999 1.6 61.9999 1.1 63.4999 1.1C63.5999 1.1 63.6999 1.1 63.8999 1.1C64.0999 1.1 64.3999 1.1 64.7999 1.2V5.2C64.5999 5.2 64.3999 5.1 64.1999 5.1C63.9999 5.1 63.7999 5.1 63.5999 5.1C61.6999 5.1 60.2999 5.7 59.2999 6.9C58.2999 8.1 57.7999 9.5 57.7999 11.1V23.9H53.9999L53.8999 1.5Z" fill="#5841D8"/>
+                <path d="M78.7002 10.3C79.6002 10.2 80.1002 9.8 80.4002 9.2C80.6002 8.9 80.6002 8.4 80.6002 7.8C80.6002 6.5 80.1002 5.6 79.2002 5C78.3002 4.4 77.0002 4.1 75.3002 4.1C73.3002 4.1 72.0002 4.6 71.1002 5.7C70.6002 6.3 70.3002 7.2 70.2002 8.3H66.7002C66.8002 5.5 67.7002 3.6 69.4002 2.6C71.2002 1.5 73.1002 1 75.4002 1C78.0002 1 80.1002 1.5 81.8002 2.5C83.4002 3.5 84.2002 5.1 84.2002 7.2V20C84.2002 20.4 84.3002 20.7 84.4002 20.9C84.6002 21.1 84.9002 21.3 85.4002 21.3C85.6002 21.3 85.8002 21.3 86.0002 21.3C86.2002 21.3 86.4002 21.2 86.7002 21.2V24C86.1002 24.2 85.7002 24.3 85.4002 24.3C85.1002 24.3 84.7002 24.4 84.2002 24.4C82.9002 24.4 82.0002 23.9 81.4002 23C81.1002 22.5 80.9002 21.8 80.8002 20.9C80.0002 21.9 78.9002 22.8 77.5002 23.5C76.1002 24.2 74.5002 24.6 72.8002 24.6C70.7002 24.6 69.0002 24 67.7002 22.7C66.4002 21.4 65.7002 19.9 65.7002 18C65.7002 15.9 66.3002 14.3 67.6002 13.2C68.9002 12.1 70.6002 11.4 72.7002 11.1L78.7002 10.3ZM70.8002 20.4C71.6002 21 72.5002 21.3 73.6002 21.3C74.9002 21.3 76.2002 21 77.4002 20.4C79.5002 19.4 80.5002 17.7 80.5002 15.4V12.4C80.0002 12.7 79.5002 12.9 78.7002 13.1C77.9002 13.3 77.3002 13.4 76.6002 13.5L74.4002 14C73.0002 14.2 72.0002 14.5 71.3002 14.9C70.1002 15.6 69.6002 16.6 69.6002 18C69.6002 19 70.0002 19.8 70.8002 20.4Z" fill="#5841D8"/>
+                <path d="M89.2001 1.5H92.8001V11L102.4 1.5H107.2L98.6001 9.8L107.6 23.8H102.8L95.8001 12.5L92.7001 15.5V23.9H89.1001L89.2001 1.5Z" fill="#5841D8"/>
+                <path d="M122.9 2.2C124.4 2.9 125.5 3.9 126.3 5.1C127 6.2 127.5 7.5 127.8 9C128 10 128.1 11.7 128.1 13.9H111.9C112 16.2 112.5 18 113.5 19.4C114.5 20.8 116 21.5 118.1 21.5C120 21.5 121.6 20.9 122.7 19.6C123.3 18.8 123.8 18 124.1 17H127.8C127.7 17.8 127.4 18.7 126.8 19.7C126.3 20.7 125.6 21.5 125 22.2C123.9 23.3 122.5 24.1 120.8 24.4C119.9 24.6 118.9 24.7 117.8 24.7C115 24.7 112.7 23.7 110.8 21.7C108.9 19.7 107.9 16.9 107.9 13.3C107.9 9.7 108.9 6.8 110.8 4.6C112.7 2.4 115.3 1.2 118.4 1.2C119.9 0.999999 121.4 1.4 122.9 2.2ZM124.3 10.9C124.1 9.3 123.8 8 123.2 7C122.2 5.2 120.5 4.3 118.1 4.3C116.4 4.3 115 4.9 113.8 6.2C112.6 7.4 112 9 112 10.9H124.3Z" fill="#5841D8"/>
+                <path d="M131.4 1.5H135V4.7C136.1 3.4 137.2 2.5 138.4 1.9C139.6 1.3 140.9 1 142.3 1C145.5 1 147.6 2.1 148.7 4.3C149.3 5.5 149.6 7.2 149.6 9.5V23.8H145.8V9.8C145.8 8.4 145.6 7.3 145.2 6.5C144.5 5.1 143.3 4.4 141.6 4.4C140.7 4.4 140 4.5 139.4 4.7C138.4 5 137.5 5.6 136.7 6.5C136.1 7.2 135.7 8 135.5 8.8C135.3 9.6 135.2 10.7 135.2 12.2V23.9H131.5L131.4 1.5Z" fill="#5841D8"/>
+                <path d="M15.2 1.5C7.4 1.5 1 7.8 1 15.7V21.8C1 22.9 1.9 23.8 3 23.8C4.1 23.8 5 22.9 5 21.8V15.7C5 14.6 5.9 13.7 7 13.7C8.1 13.7 9 14.6 9 15.7V21.8C9 22.9 9.9 23.8 11 23.8C12.1 23.8 13 22.9 13 21.8V15.7C13 14.6 13.9 13.7 15 13.7C16.1 13.7 17 14.6 17 15.7V21.8C17 22.9 17.9 23.8 19 23.8C20.1 23.8 21 22.9 21 21.8V15.7C21 14.6 21.9 13.7 23 13.7C24.1 13.7 25 14.6 25 15.7V21.8C25 22.9 25.9 23.8 27 23.8C28.1 23.8 29 22.9 29 21.8V15.7C29.5 7.8 23.1 1.5 15.2 1.5Z" fill="#5841D8"/>
+              </svg>
             </div>
+            
+            <div className="relative max-w-md w-full ml-4">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9597AC]" size={16} />
+              <input 
+                type="text" 
+                placeholder="Search intelligence feed, wallets, or protocols..." 
+                className="w-full h-10 pl-10 pr-4 bg-background border border-input rounded-lg text-sm text-white placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 transition-all"
+              />
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            <Link
+              href="/intelligence-terminal"
+              className="p-2 rounded-xl hover:bg-primary/10 text-muted-foreground hover:text-primary transition-all relative"
+              title="Open Telegraph Intelligence Terminal"
+            >
+              <MessageSquare size={20} />
+              <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full border-2 border-background" />
+            </Link>
+            <button className="hover:opacity-80 transition-all focus:outline-none hidden sm:block">
+              <svg width="133" height="36" viewBox="0 0 133 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="0.5" y="0.5" width="132" height="35" rx="7.5" stroke="#21222C"/>
+                <circle cx="20" cy="18" r="8" fill="white"/>
+                <g clipPath="url(#clip1_64_2283)">
+                  <path d="M20.672 20.6603V16.591C20.672 15.5521 19.8495 14.7295 18.8105 14.7295V21.2663C18.8105 22.2187 19.5465 22.9979 20.4989 22.9979C20.5421 22.9979 20.5421 22.9979 20.5854 22.9979C21.0183 23.0412 21.4945 22.9114 21.8409 22.6083C20.7586 22.5218 20.672 21.8724 20.672 20.6603Z" fill="black"/>
+                  <path d="M16.6893 12.9991C15.7802 12.9991 15.001 13.7784 15.001 14.7307H22.62C23.5724 14.7307 24.3083 13.9515 24.3083 12.9991C24.3516 12.9991 16.6893 12.9991 16.6893 12.9991Z" fill="black"/>
+                </g>
+                <path d="M37.1186 23.5V13.3182H40.8473C41.5698 13.3182 42.1681 13.4375 42.642 13.6761C43.116 13.9115 43.4706 14.2313 43.706 14.6357C43.9413 15.0367 44.0589 15.4891 44.0589 15.9929C44.0589 16.4171 43.9811 16.7751 43.8253 17.0668C43.6695 17.3551 43.4607 17.5871 43.1989 17.7628C42.9403 17.9351 42.6553 18.0611 42.3438 18.1406V18.2401C42.6818 18.2566 43.0116 18.366 43.3331 18.5682C43.6579 18.767 43.9264 19.0504 44.1385 19.4183C44.3506 19.7862 44.4567 20.2337 44.4567 20.7607C44.4567 21.281 44.334 21.7483 44.0888 22.1626C43.8468 22.5736 43.4723 22.9001 42.9652 23.142C42.4581 23.3807 41.8101 23.5 41.0213 23.5H37.1186ZM38.6548 22.1825H40.8722C41.608 22.1825 42.1349 22.04 42.4531 21.755C42.7713 21.4699 42.9304 21.1136 42.9304 20.6861C42.9304 20.3646 42.8492 20.0696 42.6868 19.8011C42.5244 19.5327 42.2924 19.3189 41.9908 19.1598C41.6925 19.0007 41.3378 18.9212 40.9268 18.9212H38.6548V22.1825ZM38.6548 17.723H40.7131C41.0578 17.723 41.3677 17.6567 41.6428 17.5241C41.9212 17.3916 42.1416 17.206 42.304 16.9673C42.4697 16.7254 42.5526 16.4403 42.5526 16.1122C42.5526 15.6913 42.4051 15.3383 42.1101 15.0533C41.8151 14.7682 41.3627 14.6257 40.7528 14.6257H38.6548V17.723ZM46.1594 23.5V15.8636H47.646V23.5H46.1594ZM46.9102 14.6854C46.6516 14.6854 46.4296 14.5992 46.244 14.4268C46.0617 14.2512 45.9705 14.0424 45.9705 13.8004C45.9705 13.5552 46.0617 13.3464 46.244 13.174C46.4296 12.9983 46.6516 12.9105 46.9102 12.9105C47.1687 12.9105 47.3891 12.9983 47.5714 13.174C47.757 13.3464 47.8498 13.5552 47.8498 13.8004C47.8498 14.0424 47.757 14.2512 47.5714 14.4268C47.3891 14.5992 47.1687 14.6854 46.9102 14.6854ZM53.2104 15.8636V17.0568H49.0392V15.8636H53.2104ZM50.1578 14.0341H51.6444V21.2578C51.6444 21.5462 51.6874 21.7633 51.7736 21.9091C51.8598 22.0516 51.9708 22.1494 52.1067 22.2024C52.2459 22.2521 52.3967 22.277 52.5591 22.277C52.6784 22.277 52.7828 22.2687 52.8723 22.2521C52.9618 22.2356 53.0314 22.2223 53.0811 22.2124L53.3496 23.4403C53.2634 23.4735 53.1408 23.5066 52.9817 23.5398C52.8226 23.5762 52.6238 23.5961 52.3851 23.5994C51.994 23.6061 51.6294 23.5365 51.2914 23.3906C50.9533 23.2448 50.6799 23.0194 50.4711 22.7145C50.2623 22.4096 50.1578 22.0268 50.1578 21.5661V14.0341ZM58.4194 15.8636V17.0568H54.2482V15.8636H58.4194ZM55.3668 14.0341H56.8533V21.2578C56.8533 21.5462 56.8964 21.7633 56.9826 21.9091C57.0688 22.0516 57.1798 22.1494 57.3157 22.2024C57.4549 22.2521 57.6057 22.277 57.7681 22.277C57.8874 22.277 57.9918 22.2687 58.0813 22.2521C58.1708 22.2356 58.2404 22.2223 58.2901 22.2124L58.5586 23.4403C58.4724 23.4735 58.3498 23.5066 58.1907 23.5398C58.0316 23.5762 57.8327 23.5961 57.5941 23.5994C57.203 23.6061 56.8384 23.5365 56.5004 23.3906C56.1623 23.2448 55.8888 23.0194 55.68 22.7145C55.4712 22.4096 55.3668 22.0268 55.3668 21.5661V14.0341ZM63.2729 23.6541C62.5205 23.6541 61.8726 23.4934 61.329 23.1719C60.7888 22.8471 60.3712 22.3913 60.0762 21.8047C59.7845 21.2147 59.6387 20.5237 59.6387 19.7315C59.6387 18.9493 59.7845 18.2599 60.0762 17.6634C60.3712 17.0668 60.7821 16.6011 61.3091 16.2663C61.8394 15.9316 62.4592 15.7642 63.1685 15.7642C63.5994 15.7642 64.017 15.8355 64.4213 15.978C64.8257 16.1205 65.1886 16.3442 65.5101 16.6491C65.8316 16.9541 66.0852 17.3501 66.2708 17.8374C66.4564 18.3213 66.5492 18.9096 66.5492 19.6023V20.1293H60.4789V19.0156H65.0925C65.0925 18.6245 65.013 18.2782 64.8539 17.9766C64.6948 17.6716 64.4711 17.4313 64.1827 17.2557C63.8977 17.08 63.5629 16.9922 63.1784 16.9922C62.7608 16.9922 62.3962 17.0949 62.0847 17.3004C61.7765 17.5026 61.5378 17.7678 61.3688 18.0959C61.2031 18.4207 61.1202 18.7737 61.1202 19.1548V20.0249C61.1202 20.5353 61.2097 20.9695 61.3887 21.3274C61.571 21.6854 61.8245 21.9588 62.1493 22.1477C62.4741 22.3333 62.8536 22.4261 63.2878 22.4261C63.5695 22.4261 63.8264 22.3864 64.0584 22.3068C64.2904 22.224 64.4909 22.1013 64.66 21.9389C64.829 21.7765 64.9583 21.576 65.0478 21.3374L66.4547 21.5909C66.342 22.0052 66.1399 22.3681 65.8482 22.6797C65.5598 22.9879 65.1969 23.2282 64.7594 23.4006C64.3252 23.5696 63.8297 23.6541 63.2729 23.6541ZM69.685 18.9659V23.5H68.1985V15.8636H69.6254V17.1065H69.7198C69.8955 16.7022 70.1706 16.3774 70.5451 16.1321C70.9229 15.8868 71.3986 15.7642 71.9719 15.7642C72.4923 15.7642 72.948 15.8736 73.3391 16.0923C73.7302 16.3078 74.0335 16.6293 74.2489 17.0568C74.4644 17.4844 74.5721 18.013 74.5721 18.6428V23.5H73.0856V18.8217C73.0856 18.2682 72.9414 17.8357 72.6531 17.5241C72.3647 17.2093 71.9686 17.0518 71.4648 17.0518C71.1201 17.0518 70.8136 17.1264 70.5451 17.2756C70.2799 17.4247 70.0695 17.6435 69.9137 17.9318C69.7612 18.2169 69.685 18.5616 69.685 18.9659ZM82.288 17.728L80.9407 17.9666C80.8844 17.7943 80.7949 17.6302 80.6722 17.4744C80.5529 17.3187 80.3905 17.1911 80.185 17.0916C79.9795 16.9922 79.7227 16.9425 79.4144 16.9425C78.9935 16.9425 78.6422 17.0369 78.3604 17.2259C78.0787 17.4115 77.9379 17.6518 77.9379 17.9467C77.9379 18.2019 78.0323 18.4074 78.2212 18.5632C78.4102 18.719 78.7151 18.8466 79.136 18.946L80.3491 19.2244C81.0517 19.3868 81.5754 19.6371 81.9201 19.9751C82.2648 20.3132 82.4371 20.7524 82.4371 21.2926C82.4371 21.75 82.3046 22.1577 82.0394 22.5156C81.7776 22.8703 81.4113 23.1487 80.9407 23.3509C80.4734 23.553 79.9315 23.6541 79.315 23.6541C78.4599 23.6541 77.7622 23.4718 77.2219 23.1072C76.6817 22.7393 76.3503 22.2173 76.2276 21.5412L77.6644 21.3224C77.7539 21.697 77.9379 21.9804 78.2163 22.1726C78.4947 22.3615 78.8576 22.456 79.305 22.456C79.7923 22.456 80.1817 22.3549 80.4734 22.1527C80.765 21.9472 80.9109 21.697 80.9109 21.402C80.9109 21.1634 80.8214 20.9628 80.6424 20.8004C80.4667 20.638 80.1966 20.5154 79.832 20.4325L78.5394 20.1491C77.8268 19.9867 77.2998 19.7282 76.9585 19.3736C76.6204 19.0189 76.4513 18.5698 76.4513 18.0263C76.4513 17.5755 76.5773 17.1811 76.8292 16.843C77.0811 16.505 77.4291 16.2415 77.8732 16.0526C78.3174 15.8603 78.8261 15.7642 79.3995 15.7642C80.2248 15.7642 80.8744 15.9432 81.3484 16.3011C81.8223 16.6558 82.1355 17.1314 82.288 17.728ZM87.2882 23.6541C86.5723 23.6541 85.9475 23.4901 85.4139 23.1619C84.8803 22.8338 84.466 22.3748 84.171 21.7848C83.876 21.1948 83.7285 20.5054 83.7285 19.7166C83.7285 18.9245 83.876 18.2318 84.171 17.6385C84.466 17.0452 84.8803 16.5845 85.4139 16.2564C85.9475 15.9283 86.5723 15.7642 87.2882 15.7642C88.0041 15.7642 88.6288 15.9283 89.1625 16.2564C89.6961 16.5845 90.1104 17.0452 90.4054 17.6385C90.7003 18.2318 90.8478 18.9245 90.8478 19.7166C90.8478 20.5054 90.7003 21.1948 90.4054 21.7848C90.1104 22.3748 89.6961 22.8338 89.1625 23.1619C88.6288 23.4901 88.0041 23.6541 87.2882 23.6541ZM87.2931 22.4062C87.7572 22.4062 88.1416 22.2836 88.4466 22.0384C88.7515 21.7931 88.9769 21.4666 89.1227 21.0589C89.2718 20.6513 89.3464 20.2022 89.3464 19.7116C89.3464 19.2244 89.2718 18.777 89.1227 18.3693C88.9769 17.9583 88.7515 17.6286 88.4466 17.38C88.1416 17.1314 87.7572 17.0071 87.2931 17.0071C86.8258 17.0071 86.438 17.1314 86.1298 17.38C85.8249 17.6286 85.5978 17.9583 85.4487 18.3693C85.3029 18.777 85.2299 19.2244 85.2299 19.7116C85.2299 20.2022 85.3029 20.6513 85.4487 21.0589C85.5978 21.4666 85.8249 21.7931 86.1298 22.0384C86.438 22.2836 86.8258 22.4062 87.2931 22.4062ZM92.5071 23.5V15.8636H93.9439V17.0767H94.0234C94.1626 16.6657 94.4079 16.3426 94.7592 16.1072C95.1139 15.8686 95.5149 15.7493 95.9624 15.7493C96.0552 15.7493 96.1645 15.7526 96.2905 15.7592C96.4197 15.7659 96.5208 15.7741 96.5938 15.7841V17.206C96.5341 17.1894 96.428 17.1712 96.2756 17.1513C96.1231 17.1281 95.9706 17.1165 95.8182 17.1165C95.4669 17.1165 95.1536 17.1911 94.8786 17.3402C94.6068 17.486 94.3913 17.6899 94.2322 17.9517C94.0732 18.2102 93.9936 18.5052 93.9936 18.8366V23.5H92.5071Z" fill="white"/>
+                <path fillRule="evenodd" clipRule="evenodd" d="M108.529 15.5286C108.789 15.2682 109.211 15.2682 109.472 15.5286L113 19.0572L116.529 15.5286C116.789 15.2682 117.211 15.2682 117.472 15.5286C117.732 15.7889 117.732 16.2111 117.472 16.4714L113.472 20.4714C113.211 20.7318 112.789 20.7318 112.529 20.4714L108.529 16.4714C108.268 16.2111 108.268 15.7889 108.529 15.5286Z" fill="white"/>
+                <defs>
+                  <clipPath id="clip1_64_2283">
+                    <rect width="9.35065" height="10" fill="white" transform="translate(15.0005 12.9996)"/>
+                  </clipPath>
+                </defs>
+              </svg>
+            </button>
+            
+            <button className="p-2 rounded-xl hover:bg-muted/30 text-muted-foreground hover:text-white transition-all relative">
+              <Bell size={20} />
+              <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full border-2 border-background" />
+            </button>
+            <div className="flex items-center gap-2 px-2 py-1 rounded-xl border border-border/50 bg-muted/10">
+              <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center text-[10px] font-bold text-white">
+                ME
+              </div>
+              <Menu size={16} className="text-muted-foreground" />
+            </div>
+          </div>
+        </header>
+
+        {/* Sub-nav */}
+        <div className="h-[44px] border-b border-border/50 flex items-center px-6 gap-8 bg-background/30 overflow-x-auto no-scrollbar">
+          {[
+            { label: "Dashboard", active: true, icon: LayoutDashboard, href: "/" },
+            { label: "Intelligence Feed", icon: Database, href: "#" },
+            { label: "Protocol Health", icon: Shield, href: "#" },
+            { label: "Settlements", icon: Zap, href: "#" },
+          ].map((item) => (
+            <Link 
+              key={item.label}
+              href={item.href}
+              className={cn(
+                "flex items-center gap-2 text-xs font-bold tracking-tight whitespace-nowrap transition-colors",
+                item.active ? "text-white" : "text-muted-foreground hover:text-white"
+              )}
+            >
+              <item.icon size={14} className={item.active ? "text-primary" : ""} />
+              {item.label}
+            </Link>
           ))}
-        </motion.div>
+        </div>
+
+        {/* Main Dashboard Scrollable Area */}
+        <main className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent">
+          <div className="max-w-[1440px] mx-auto flex gap-8">
+            
+            {/* Main Content (Left + Center) */}
+            <div className="flex-1 flex flex-col gap-8 min-w-0">
+              {/* Top Section: Feed */}
+              <section className="flex flex-col gap-4">
+                {daemonError && (
+                  <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+                    Daemon read API error: {daemonError}
+                  </div>
+                )}
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <select
+                      value={category}
+                      onChange={(e) => {
+                        setCategory(e.target.value as DaemonCategory | "");
+                        setOffset(0);
+                      }}
+                      className="h-9 px-3 rounded-lg bg-muted/60 border border-border/50 text-xs text-foreground"
+                    >
+                      {categories.map((value) => (
+                        <option key={value || "ALL"} value={value}>
+                          {value || "ALL CATEGORIES"}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={sort}
+                      onChange={(e) => {
+                        setSort(e.target.value as "recent" | "interest" | "affected" | "audience");
+                        setOffset(0);
+                      }}
+                      className="h-9 px-3 rounded-lg bg-muted/60 border border-border/50 text-xs text-foreground"
+                    >
+                      <option value="recent">RECENT</option>
+                      <option value="interest">INTEREST</option>
+                      <option value="affected">AFFECTED</option>
+                      <option value="audience">AUDIENCE</option>
+                    </select>
+                    <select
+                      value={sinceHours}
+                      onChange={(e) => {
+                        setSinceHours(Number(e.target.value));
+                        setOffset(0);
+                      }}
+                      className="h-9 px-3 rounded-lg bg-muted/60 border border-border/50 text-xs text-foreground"
+                    >
+                      <option value={1}>LAST 1H</option>
+                      <option value={6}>LAST 6H</option>
+                      <option value={24}>LAST 24H</option>
+                      <option value={72}>LAST 72H</option>
+                    </select>
+                  </div>
+                  <button className="h-9 px-3 rounded-lg bg-muted/60 border border-border/50 text-xs text-muted-foreground hover:text-white transition-colors">
+                    Export CSV
+                  </button>
+                </div>
+                <KrakenFeed items={signals} loading={isLoading} />
+                <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+                  <span>
+                    Showing {Math.min(signals.length, limit)} of {total} results
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      disabled={offset === 0}
+                      onClick={() => setOffset((prev) => Math.max(0, prev - limit))}
+                      className="h-8 px-2 rounded border border-border/50 disabled:opacity-40"
+                    >
+                      Prev
+                    </button>
+                    <button
+                      disabled={offset + limit >= total}
+                      onClick={() => setOffset((prev) => prev + limit)}
+                      className="h-8 px-2 rounded border border-border/50 disabled:opacity-40"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              </section>
+
+              {/* Middle Section: Skill Cards */}
+              <section className="flex flex-col gap-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-6 bg-primary rounded-full" />
+                  <h2 className="text-xl font-bold text-white tracking-tight">Active Protocols</h2>
+                </div>
+                <KrakenSkillCards />
+              </section>
+
+              {/* Bottom Section: Analytics */}
+              <section className="flex flex-col gap-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-6 bg-primary rounded-full" />
+                  <h2 className="text-xl font-bold text-white tracking-tight">Protocol Efficiency</h2>
+                </div>
+                <KrakenAnalytics items={signals} loading={isLoading} />
+              </section>
+            </div>
+
+            {/* Right Sidebar (Alerts) */}
+            <aside className="w-[420px] shrink-0 hidden xl:flex flex-col gap-6">
+              <KrakenAlerts alerts={topSignals} loading={isLoading} />
+            </aside>
+          </div>
+        </main>
       </div>
-      
-      {/* Footer link */}
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 0.4 }}
-        transition={{ delay: 1 }}
-        className="absolute bottom-8 text-[10px] text-white font-bold uppercase tracking-[0.4em]"
-      >
-        Built by Telegraph Protocol
-      </motion.div>
-    </main>
+    </div>
   );
 }
+

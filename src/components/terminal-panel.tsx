@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, HelpCircle, Activity, ShieldCheck, Zap } from "lucide-react";
-import { TerminalLogEntry, TerminalReceipt } from "@/lib/mock-data";
+import { TerminalLogEntry } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -11,11 +11,19 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { motion, AnimatePresence } from "framer-motion";
+import { LiveTerminalReceipt } from "@/lib/hooks/use-live-executor";
+import { TerminalReceipt } from "@/lib/mock-data";
+
+type TerminalReceiptLike = LiveTerminalReceipt | TerminalReceipt;
+
+function isLiveReceipt(receipt: TerminalReceiptLike): receipt is LiveTerminalReceipt {
+  return "subnet" in receipt;
+}
 
 interface TerminalPanelProps {
   logs: TerminalLogEntry[];
   showReceipt: boolean;
-  receipt: TerminalReceipt | null;
+  receipt: TerminalReceiptLike | null;
 }
 
 const RECEIPT_H = 180; // px — bottom padding so last log is never hidden behind receipt
@@ -24,8 +32,6 @@ interface TerminalFeedProps extends TerminalPanelProps {
   className?: string;
 }
 
-const WAITING_HINT_MS = 2000;
-
 function TerminalFeed({
   logs,
   showReceipt,
@@ -33,17 +39,6 @@ function TerminalFeed({
   className,
 }: TerminalFeedProps) {
   const logContainerRef = useRef<HTMLDivElement>(null);
-  const [showWaitingHint, setShowWaitingHint] = useState(false);
-
-  useEffect(() => {
-    if (logs.length > 0) {
-      setShowWaitingHint(false);
-      return;
-    }
-    setShowWaitingHint(false);
-    const t = setTimeout(() => setShowWaitingHint(true), WAITING_HINT_MS);
-    return () => clearTimeout(t);
-  }, [logs]);
 
   useEffect(() => {
     const container = logContainerRef.current;
@@ -75,7 +70,7 @@ function TerminalFeed({
         style={{ paddingBottom: receiptVisible ? RECEIPT_H + 20 : 16 }}
       >
         {logs.length === 0 ? (
-          showWaitingHint ? (
+          true ? (
             <motion.p 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -163,12 +158,20 @@ function TerminalFeed({
 
             {receipt && (
               <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-                {[
-                  { label: "Subnet Provider", value: receipt.provider, icon: Activity },
-                  { label: "Confidence Score", value: receipt.confidence, icon: ShieldCheck },
-                  { label: "Network Fee", value: receipt.settlementCost, icon: Zap },
-                  { label: "System Clock", value: receipt.timestamp.split(' ')[1], icon: Activity },
-                ].map(({ label, value, icon: Icon }) => (
+                {(isLiveReceipt(receipt)
+                  ? [
+                      { label: "Subnet Provider", value: `${receipt.subnet} (SN${receipt.subnetId})`, icon: Activity },
+                      { label: "Intent", value: receipt.intent || "n/a", icon: ShieldCheck },
+                      { label: "Cost (USD)", value: `$${receipt.costUsd.toFixed(4)}`, icon: Zap },
+                      { label: "Duration", value: `${receipt.durationMs}ms`, icon: Activity },
+                    ]
+                  : [
+                      { label: "Subnet Provider", value: receipt.provider, icon: Activity },
+                      { label: "Confidence Score", value: receipt.confidence, icon: ShieldCheck },
+                      { label: "Network Fee", value: receipt.settlementCost, icon: Zap },
+                      { label: "System Clock", value: receipt.timestamp.split(" ")[1] || receipt.timestamp, icon: Activity },
+                    ]
+                ).map(({ label, value, icon: Icon }) => (
                   <div key={label} className="space-y-1">
                     <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground uppercase tracking-wide font-medium">
                       <Icon size={10} className="opacity-50" />
@@ -182,9 +185,13 @@ function TerminalFeed({
               </div>
             )}
             
-            <div className="mt-6 pt-4 border-t border-border/40 flex justify-between items-center">
-                <span className="text-[9px] font-mono text-muted-foreground/60 uppercase tracking-widest">Auth_ID: {Math.random().toString(36).substring(7).toUpperCase()}</span>
-                <span className="text-[9px] font-mono text-primary/60">TELEG_V1.0_PROD</span>
+            <div className="mt-6 pt-4 border-t border-border/40 flex justify-between items-center gap-2">
+                <span className="text-[9px] font-mono text-muted-foreground/60 uppercase tracking-widest truncate">
+                  {receipt.timestamp}
+                </span>
+                <span className="text-[9px] font-mono text-primary/60 truncate">
+                  {isLiveReceipt(receipt) ? (receipt.reasoning || "ROUTER_REASONING_UNAVAILABLE") : "TELEG_V1.0_PROD"}
+                </span>
             </div>
           </motion.div>
         )}
@@ -200,10 +207,6 @@ export function MobileTerminalCollapsible({
   isLoading,
 }: TerminalPanelProps & { isLoading: boolean }) {
   const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    if (!isLoading) setOpen(false);
-  }, [isLoading]);
 
   const expanded = isLoading || open;
 

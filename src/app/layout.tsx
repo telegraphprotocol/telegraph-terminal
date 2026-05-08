@@ -24,11 +24,11 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} h-dvh overflow-hidden antialiased`}
+      className={`dark ${inter.variable} h-dvh overflow-hidden antialiased`}
       suppressHydrationWarning
     >
       <body className="flex h-dvh min-h-0 flex-col overflow-hidden bg-background text-foreground">
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
+        <ThemeProvider>
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             {children}
           </div>

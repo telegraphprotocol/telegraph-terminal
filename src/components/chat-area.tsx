@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
-import { Loader2, Sparkles, Brain } from "lucide-react";
+import { Fragment, useEffect, useRef, type ReactNode } from "react";
+import { Loader2 } from "lucide-react";
 import { ChatMessage } from "@/lib/mock-data";
+import { AssistantMessage } from "@/components/assistant-message";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface ChatAreaProps {
@@ -39,11 +40,11 @@ export function ChatArea({
     >
       {message.role === "user" ? (
         <div className="flex justify-end">
-          <div className="max-w-[85%] rounded-3xl rounded-tr-sm bg-primary/10 border border-primary/20 px-5 py-3.5 sm:max-w-[70%] shadow-sm">
+          <div className="max-w-[440px] w-fit rounded-2xl bg-[#282636] px-4 py-[15px] sm:max-w-[min(440px,85%)]">
             {message.content.map((c, i) => (
               <p
                 key={i}
-                className="text-[14px] font-medium leading-relaxed text-foreground/90"
+                className="text-[14px] font-normal leading-[150%] text-white"
               >
                 {c.text}
               </p>
@@ -51,22 +52,7 @@ export function ChatArea({
           </div>
         </div>
       ) : (
-        <div className="flex items-start gap-4 max-w-2xl">
-          <div className="w-8 h-8 rounded-xl bg-gradient-premium flex items-center justify-center shrink-0 shadow-lg shadow-primary/20">
-            <Sparkles size={14} className="text-white" />
-          </div>
-          <div className="flex-1 space-y-2 pt-1">
-             {message.content.map((c, i) => (
-              <p
-                key={i}
-                className="text-[15px] leading-relaxed text-foreground/90"
-              >
-                {c.text}
-                {!c.text && <span className="inline-block w-1 h-4 bg-primary animate-pulse ml-0.5" />}
-              </p>
-            ))}
-          </div>
-        </div>
+        <AssistantMessage message={message} />
       )}
     </motion.div>
   );
@@ -76,9 +62,9 @@ export function ChatArea({
       <div className="mx-auto w-full max-w-[720px] space-y-8 px-6">
         <AnimatePresence mode="popLayout">
           {lastUserIdx >= 0 ? (
-            <>
+            <Fragment key="chat-split">
               {messages.slice(0, lastUserIdx + 1).map(renderMessage)}
-              <motion.div 
+              <motion.div
                 key="mobile-terminal"
                 layout
                 className="my-4"
@@ -86,33 +72,49 @@ export function ChatArea({
                 {mobileTerminal}
               </motion.div>
               {messages.slice(lastUserIdx + 1).map(renderMessage)}
-            </>
+            </Fragment>
           ) : (
-            <>
+            <Fragment key="chat-empty">
               {messages.map(renderMessage)}
-              <motion.div 
+              <motion.div
                 key="mobile-terminal-empty"
                 layout
                 className="my-4"
               >
                 {mobileTerminal}
               </motion.div>
-            </>
+            </Fragment>
           )}
 
           {/* Loading indicator */}
-          {isLoading && !messages.some(m => m.role === 'assistant' && m.id.includes('assistant')) && (
-            <motion.div 
+          {isLoading &&
+            !messages.some(
+              (m) =>
+                m.role === "assistant" &&
+                (m.id.includes("assistant") || m.id.includes("live-error")),
+            ) && (
+            <motion.div
+              key="subnet-loading"
+              role="status"
+              aria-live="polite"
+              aria-busy="true"
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0 }}
-              className="flex items-center gap-3 text-muted-foreground/80 max-w-2xl pl-12"
+              className="flex max-w-[640px] items-start gap-4"
             >
-              <div className="relative">
-                 <Brain size={18} className="text-primary/60 animate-pulse" />
-                 <div className="absolute -inset-1 bg-primary/20 blur-md rounded-full -z-10" />
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-2xl">
+                <Loader2
+                  className="size-4 text-primary animate-spin"
+                  strokeWidth={2}
+                  aria-hidden
+                />
               </div>
-              <span className="text-[13px] font-semibold tracking-tight uppercase tracking-widest opacity-60">Consulting neural subnets...</span>
+              <div className="min-w-0 flex-1 pt-2">
+                <p className="text-[14px] font-normal leading-[150%] text-[#9597AC]">
+                  Reasoning through the steps...
+                </p>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>

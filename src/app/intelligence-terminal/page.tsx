@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useLayoutEffect } from "react";
 import { Sidebar } from "@/components/sidebar";
 import { TopNav } from "@/components/top-nav";
 import { ChatArea } from "@/components/chat-area";
@@ -8,32 +8,76 @@ import { ChatInput } from "@/components/chat-input";
 import { EmptyState } from "@/components/empty-state";
 import { MobileTerminalCollapsible, TerminalPanel } from "@/components/terminal-panel";
 import { useLiveExecutor } from "@/lib/hooks/use-live-executor";
-import { ArrowLeft } from "lucide-react";
-import Link from "next/link";
+import { apiClient } from "@/lib/api-client";
+import { normalizeEngineSubnets, type SubnetPickItem } from "@/lib/subnet-catalog";
 
 export default function LiveChatPage() {
+  const [forcedSubnetId, setForcedSubnetId] = useState<string | null>(null);
+  const [engineSubnets, setEngineSubnets] = useState<SubnetPickItem[]>([]);
+  const [subnetsLoading, setSubnetsLoading] = useState(true);
+  const [subnetsError, setSubnetsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await apiClient.listSubnets();
+        if (!cancelled) {
+          setEngineSubnets(normalizeEngineSubnets(data));
+          setSubnetsError(null);
+        }
+      } catch {
+        if (!cancelled) {
+          setEngineSubnets([]);
+          setSubnetsError("Could not reach engine `/v1/subnets`. Is it running?");
+        }
+      } finally {
+        if (!cancelled) setSubnetsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const {
     messages,
     isLoading,
     terminalLogs,
     terminalReceipt,
+    engineError,
+    isConnected,
     handleSend,
     handleNewChat,
-  } = useLiveExecutor();
+    chatHistoryGroups,
+    activeSessionId,
+    handleSelectSession,
+    archiveSession,
+    restoreSession,
+    deleteSession,
+  } = useLiveExecutor({ forcedSubnetId });
 
+  /**
+   * Until layout runs on the client, keep sidebar visually "closed" so SSR HTML matches the first
+   * client render (avoids overlay `<div>` vs `<aside>` order mismatch during hydration).
+   */
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarLayoutReady, setSidebarLayoutReady] = useState(false);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    setSidebarLayoutReady(true);
     const mq = window.matchMedia("(min-width: 768px)");
     if (mq.matches) setSidebarOpen(true);
   }, []);
+
+  const effectiveSidebarOpen = sidebarLayoutReady ? sidebarOpen : false;
 
   const hasMessages = messages.length > 0;
   const showTerminal = hasMessages || isLoading;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background md:flex-row">
-      {sidebarOpen && (
+      {effectiveSidebarOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/60 md:hidden"
           onClick={() => setSidebarOpen(false)}
@@ -41,30 +85,42 @@ export default function LiveChatPage() {
       )}
 
       <Sidebar
-        isOpen={sidebarOpen}
+        isOpen={effectiveSidebarOpen}
         onClose={() => setSidebarOpen(false)}
         onToggle={() => setSidebarOpen((v) => !v)}
+        historyGroups={chatHistoryGroups}
+        activeId={activeSessionId ?? undefined}
+        onSelect={handleSelectSession}
         onNewChat={handleNewChat}
+        liveChatActions={{
+          onArchive: archiveSession,
+          onRestore: restoreSession,
+          onDelete: deleteSession,
+        }}
       />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <TopNav
-          sidebarOpen={sidebarOpen}
+          sidebarOpen={effectiveSidebarOpen}
           onToggleSidebar={() => setSidebarOpen((v) => !v)}
+          backToDashboardHref="/"
+          subnetPicker={{
+            subnets: engineSubnets,
+            selectedSubnetId: forcedSubnetId,
+            onSubnetChange: setForcedSubnetId,
+            loading: subnetsLoading,
+            error: subnetsError,
+          }}
         />
 
         <div className="flex flex-1 overflow-hidden">
           <div className="flex flex-col flex-1 overflow-hidden min-w-0">
-            <div className="px-6 pt-3">
-              <Link
-                href="/live"
-                className="inline-flex items-center gap-2 px-3 py-2 hover:bg-muted rounded-xl text-muted-foreground hover:text-foreground transition-colors text-sm"
-              >
-                <ArrowLeft size={16} />
-                <span>Back to Dashboard</span>
-              </Link>
-            </div>
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              {(!isConnected || engineError) && (
+                <div className="mx-6 mb-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+                  {engineError || "Engine connection unavailable. Retrying..."}
+                </div>
+              )}
               {hasMessages ? (
                 <ChatArea
                   messages={messages}
