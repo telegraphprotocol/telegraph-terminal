@@ -18,6 +18,9 @@ interface KrakenAnalyticsProps {
   loading?: boolean;
 }
 
+/** Fixed height avoids Recharts measuring `-1` when `%` height runs before flex layout settles. */
+const CHART_HEIGHT_PX = 180;
+
 export function KrakenAnalytics({ items, loading }: KrakenAnalyticsProps) {
   const totalDaemonCost = useMemo(
     () => items.reduce((sum, item) => sum + (item.execution.cost_usd || 0), 0),
@@ -63,13 +66,19 @@ export function KrakenAnalytics({ items, loading }: KrakenAnalyticsProps) {
         </div>
       </div>
 
-      <div className="h-[180px] w-full">
+      <div
+        className="w-full min-w-0 shrink-0"
+        style={{ height: CHART_HEIGHT_PX }}
+      >
         {loading && chartData.length === 0 ? (
-          <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+          <div
+            className="flex items-center justify-center text-sm text-muted-foreground"
+            style={{ height: CHART_HEIGHT_PX }}
+          >
             Loading analytics...
           </div>
         ) : (
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height={CHART_HEIGHT_PX} minWidth={0}>
           <BarChart data={chartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
             <XAxis 

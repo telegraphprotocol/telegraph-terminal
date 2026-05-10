@@ -1,62 +1,94 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { PlayCircle, CloudDrizzle, Link2 } from "lucide-react";
+import { Link2, ServerOff } from "lucide-react";
+import Link from "next/link";
+import type { SubnetPickItem } from "@/lib/subnet-catalog";
 
-const protocols = [
-  {
-    id: "media",
-    title: "Media Authenticity",
-    description: "Real-time verification of viral media using ensemble deepfake detection subnets.",
-    icon: PlayCircle,
-    price: "$0.01 per Signal",
-  },
-  {
-    id: "weather",
-    title: "Weather Risk",
-    description: "Low-latency macro forecasting for supply chain routing and energy grid bidding.",
-    icon: CloudDrizzle,
-    price: "$0.01 per Signal",
-  },
-  {
-    id: "supply",
-    title: "Supply Chain Vision",
-    description: "Computer vision anomaly detection for crop yields and port congestion.",
-    icon: Link2,
-    price: "$0.01 per Signal",
-  },
-];
+export type KrakenSkillCardsProps = {
+  engineSubnets: SubnetPickItem[];
+  subnetsLoading: boolean;
+  subnetsError: string | null;
+};
 
-export function KrakenSkillCards() {
+export function KrakenSkillCards({
+  engineSubnets,
+  subnetsLoading,
+  subnetsError,
+}: KrakenSkillCardsProps) {
+  if (subnetsLoading) {
+    return (
+      <div className="grid w-full grid-cols-1 gap-4 md:grid-cols-3">
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className="animate-pulse rounded-xl border border-border/50 bg-card p-6"
+          >
+            <div className="mb-6 h-14 w-14 rounded-xl bg-muted/40" />
+            <div className="mb-2 h-6 w-[80%] max-w-[240px] rounded bg-muted/40" />
+            <div className="mb-4 h-20 rounded bg-muted/30" />
+            <div className="h-10 rounded-xl bg-muted/40" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  const offline =
+    Boolean(subnetsError) || engineSubnets.length === 0;
+
+  if (offline) {
+    return (
+      <div className="w-full rounded-xl border border-border/50 bg-card p-8 text-center">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+          <ServerOff size={28} />
+        </div>
+        <h3 className="mb-2 text-lg font-bold text-white">No live engine subnets</h3>
+        <p className="mx-auto max-w-lg text-sm leading-relaxed text-muted-foreground">
+          {subnetsError ??
+            "The dashboard only lists subnets returned by the engine at `/v1/subnets`. Start the engine or fix your API URL — placeholder protocol cards are not shown when data is unavailable."}
+        </p>
+        <p className="mt-4 text-xs text-muted-foreground/80">
+          Use the subnet picker in the header once the engine is reachable, or open the{" "}
+          <Link href="/intelligence-terminal" className="font-semibold text-primary underline-offset-2 hover:underline">
+            Intelligence Terminal
+          </Link>{" "}
+          to route queries.
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
-      {protocols.map((protocol, i) => (
+    <div className="grid w-full grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {engineSubnets.slice(0, 9).map((subnet, i) => (
         <motion.div
-          key={protocol.id}
+          key={subnet.id}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: i * 0.1 }}
-          className="p-6 bg-card rounded-xl border border-border/50 hover:border-primary/40 transition-all group"
+          transition={{ delay: Math.min(i * 0.05, 0.4) }}
+          className="group rounded-xl border border-border/50 bg-card p-6 transition-all hover:border-primary/40"
         >
-          <div className="flex justify-between items-start mb-6">
-            <div className="p-3 rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-all">
-              <protocol.icon size={28} />
+          <div className="mb-6 flex items-start justify-between">
+            <div className="rounded-xl bg-primary/10 p-3 text-primary transition-colors group-hover:bg-primary group-hover:text-white">
+              <Link2 size={28} />
             </div>
-            <div className="px-3 py-1 rounded-lg bg-primary text-white text-[12px] font-bold shadow-lg shadow-primary/20">
-              {protocol.price}
-            </div>
+            <span className="rounded-lg bg-muted/60 px-2 py-1 font-mono text-[11px] text-muted-foreground">
+              SN{subnet.id}
+            </span>
           </div>
-          
-          <h3 className="text-xl font-bold text-white mb-2 tracking-tight">
-            {protocol.title}
-          </h3>
-          <p className="text-[13px] text-muted-foreground leading-relaxed mb-6">
-            {protocol.description}
+
+          <h3 className="mb-2 text-xl font-bold tracking-tight text-white">{subnet.label}</h3>
+          <p className="mb-6 text-[13px] leading-relaxed text-muted-foreground">
+            Engine-registered subnet. Queries can be routed here from the Intelligence Terminal.
           </p>
-          
-          <button className="w-full h-10 rounded-xl bg-muted/50 text-white text-sm font-medium hover:bg-muted transition-colors border border-border/50">
-            Plug-in to Kraken API
-          </button>
+
+          <Link
+            href="/intelligence-terminal"
+            className="flex h-10 w-full items-center justify-center rounded-xl border border-border/50 bg-muted/50 text-sm font-medium text-white transition-colors hover:bg-muted"
+          >
+            Open terminal
+          </Link>
         </motion.div>
       ))}
     </div>

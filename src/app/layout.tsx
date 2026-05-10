@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
-import { ThemeProvider } from "@/components/theme-provider";
+import { Providers } from "@/app/providers";
 import "./globals.css";
 
 const inter = Inter({
@@ -28,11 +28,11 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="flex h-dvh min-h-0 flex-col overflow-hidden bg-background text-foreground">
-        <ThemeProvider>
+        <Providers>
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             {children}
           </div>
-        </ThemeProvider>
+        </Providers>
       </body>
     </html>
   );

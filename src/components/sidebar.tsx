@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import {
   PenSquare,
@@ -16,6 +16,7 @@ import {
 import { conversationHistory, type ConversationGroup } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { useConnection } from "wagmi";
 
 export type LiveChatSidebarActions = {
   onArchive: (id: string) => void;
@@ -38,7 +39,6 @@ interface SidebarProps {
 
 export function Sidebar({
   isOpen,
-  onClose,
   onToggle,
   activeId,
   onSelect,
@@ -47,6 +47,17 @@ export function Sidebar({
   liveChatActions,
   showHistory = true,
 }: SidebarProps & { showHistory?: boolean }) {
+  const connection = useConnection();
+  const walletConnected =
+    connection.status === "connected" && Boolean(connection.address);
+  const walletAddress = walletConnected ? connection.address! : null;
+  const walletLabel = walletAddress
+    ? `${walletAddress.slice(0, 6)}…${walletAddress.slice(-4)}`
+    : null;
+  const walletInitials = walletAddress
+    ? walletAddress.slice(2, 4).toUpperCase()
+    : null;
+
   const groups = historyGroups ?? conversationHistory;
   /** Portal menu — avoids clipping from sidebar `overflow-hidden` / scroll containers. */
   const [openChatMenu, setOpenChatMenu] = useState<{
@@ -56,11 +67,11 @@ export function Sidebar({
   } | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const menuPortalRef = useRef<HTMLUListElement>(null);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
 
   useEffect(() => {
     if (!openChatMenu) return;
@@ -203,11 +214,17 @@ export function Sidebar({
         <div className="p-4 space-y-2 border-t border-border/40">
           <div className="flex items-center gap-2 p-2 rounded-xl hover:bg-accent/50 cursor-pointer transition-all group">
             <div className="w-8 h-8 rounded-full bg-gradient-premium flex items-center justify-center shrink-0 shadow-lg shadow-primary/20">
-              <span className="text-[11px] text-white font-black">TM</span>
+              <span className="text-[11px] text-white font-black">
+                {walletInitials ?? "TM"}
+              </span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-bold text-foreground/90 truncate group-hover:text-primary transition-colors">Test User</p>
-              <p className="text-[10px] text-muted-foreground/60 truncate uppercase tracking-widest font-medium">Pro Account</p>
+              <p className="text-[13px] font-bold text-foreground/90 truncate group-hover:text-primary transition-colors">
+                {walletLabel ?? "Test User"}
+              </p>
+              <p className="text-[10px] text-muted-foreground/60 truncate uppercase tracking-widest font-medium">
+                {walletConnected ? "Wallet" : "Pro Account"}
+              </p>
             </div>
             <Settings size={14} className="text-muted-foreground/40 group-hover:text-foreground transition-colors" />
           </div>

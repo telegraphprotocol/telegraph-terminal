@@ -5,6 +5,13 @@ export type SubnetPickItem = {
   label: string;
 };
 
+/** Strip ecosystem marketing from subnet titles shown in the UI (engine often embeds it in `name`). */
+export function scrubSubnetDisplayName(raw: string): string {
+  let s = raw.replace(/\bBittensor\b/gi, "").replace(/\s*\(\s*\)/g, "");
+  s = s.replace(/\s{2,}/g, " ").trim();
+  return s.length > 0 ? s : "Subnet";
+}
+
 export function normalizeEngineSubnets(data: unknown): SubnetPickItem[] {
   if (!data || typeof data !== "object") return [];
   const subnets = (data as Record<string, unknown>).subnets;
@@ -24,7 +31,9 @@ export function normalizeEngineSubnets(data: unknown): SubnetPickItem[] {
     ) {
       id = o.name.trim();
     }
-    const name = typeof nameRaw === "string" && nameRaw.trim() ? nameRaw.trim() : "subnet";
+    const rawName =
+      typeof nameRaw === "string" && nameRaw.trim() ? nameRaw.trim() : "subnet";
+    const name = scrubSubnetDisplayName(rawName);
     if (!id) continue;
     items.push({ id, label: `${name} (SN${id})` });
   }
