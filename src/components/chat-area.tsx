@@ -9,12 +9,15 @@ import { motion, AnimatePresence } from "framer-motion";
 interface ChatAreaProps {
   messages: ChatMessage[];
   isLoading?: boolean;
+  /** Shown under the spinner while waiting (e.g. x402 payment in progress). */
+  loadingHint?: string;
   mobileTerminal?: ReactNode;
 }
 
 export function ChatArea({
   messages,
   isLoading,
+  loadingHint,
   mobileTerminal,
 }: ChatAreaProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -112,7 +115,7 @@ export function ChatArea({
               </div>
               <div className="min-w-0 flex-1 pt-2">
                 <p className="text-[14px] font-normal leading-[150%] text-[#9597AC]">
-                  Reasoning through the steps...
+                  {loadingHint ?? "Reasoning through the steps..."}
                 </p>
               </div>
             </motion.div>
