@@ -121,6 +121,8 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
 
   const activeSessionIdRef = useRef<string | null>(null);
   const forcedSubnetIdRef = useRef<string | null>(forcedSubnetId);
+  /** Stable object so `.current` is never reassigned; satisfies react-hooks/immutability. */
+  const activeQueryCell = useRef<{ value: string | null }>({ value: null });
 
   useEffect(() => {
     forcedSubnetIdRef.current = forcedSubnetId;
@@ -148,11 +150,13 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
             ...s,
             archived: Boolean((s as ChatSession).archived),
           }));
-          setSessions(normalized);
-          const aid = parsed.activeSessionId ?? normalized[0].id;
-          setActiveSessionId(aid);
-          activeSessionIdRef.current = aid;
-          setHydrated(true);
+          queueMicrotask(() => {
+            setSessions(normalized);
+            const aid = parsed.activeSessionId ?? normalized[0].id;
+            setActiveSessionId(aid);
+            activeSessionIdRef.current = aid;
+            setHydrated(true);
+          });
           return;
         }
       }
@@ -163,10 +167,12 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
     const initial: ChatSession[] = [
       { id: nid, title: "New chat", updatedAt: Date.now(), messages: [] },
     ];
-    setSessions(initial);
-    setActiveSessionId(nid);
-    activeSessionIdRef.current = nid;
-    setHydrated(true);
+    queueMicrotask(() => {
+      setSessions(initial);
+      setActiveSessionId(nid);
+      activeSessionIdRef.current = nid;
+      setHydrated(true);
+    });
   }, []);
 
   useEffect(() => {
@@ -192,30 +198,32 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
     if (cur) return;
 
     const visible = sessions.filter((s) => !s.archived);
-    if (visible.length === 0) {
-      const nid = crypto.randomUUID();
-      const fresh: ChatSession = {
-        id: nid,
-        title: "New chat",
-        updatedAt: Date.now(),
-        messages: [],
-      };
-      setSessions((prev) => {
-        if (prev.some((s) => !s.archived)) return prev;
-        return [...prev, fresh];
-      });
-      activeSessionIdRef.current = nid;
-      setActiveSessionId(nid);
-    } else {
-      const pick = [...visible].sort((a, b) => b.updatedAt - a.updatedAt)[0];
-      activeSessionIdRef.current = pick.id;
-      setActiveSessionId(pick.id);
-    }
-    setTerminalLogs([]);
-    setTerminalReceipt(null);
-    setIsLoading(false);
-    setRuntimeError(null);
-    activeQueryRef.current = null;
+    queueMicrotask(() => {
+      if (visible.length === 0) {
+        const nid = crypto.randomUUID();
+        const fresh: ChatSession = {
+          id: nid,
+          title: "New chat",
+          updatedAt: Date.now(),
+          messages: [],
+        };
+        setSessions((prev) => {
+          if (prev.some((s) => !s.archived)) return prev;
+          return [...prev, fresh];
+        });
+        activeSessionIdRef.current = nid;
+        setActiveSessionId(nid);
+      } else {
+        const pick = [...visible].sort((a, b) => b.updatedAt - a.updatedAt)[0];
+        activeSessionIdRef.current = pick.id;
+        setActiveSessionId(pick.id);
+      }
+      setTerminalLogs([]);
+      setTerminalReceipt(null);
+      setIsLoading(false);
+      setRuntimeError(null);
+      activeQueryCell.current.value = null;
+    });
   }, [sessions, activeSessionId, hydrated]);
 
   const clearTerminalSession = useCallback(() => {
@@ -223,7 +231,7 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
     setTerminalReceipt(null);
     setIsLoading(false);
     setRuntimeError(null);
-    activeQueryRef.current = null;
+    activeQueryCell.current.value = null;
   }, []);
 
   const archiveSession = useCallback((id: string) => {
@@ -307,11 +315,9 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
     [],
   );
 
-  const activeQueryRef = useRef<string | null>(null);
-
   useEffect(() => {
     return subscribe((frame) => {
-      if (!activeQueryRef.current) return;
+      if (!activeQueryCell.current.value) return;
 
       if (frame.type === "pong") return;
 
@@ -345,7 +351,7 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
           },
         ]);
         setIsLoading(false);
-        activeQueryRef.current = null;
+        activeQueryCell.current.value = null;
       }
 
       if (frame.type === "result" && frame.data) {
@@ -369,7 +375,7 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
           reasoning: resultData.reasoning,
         });
         setIsLoading(false);
-        activeQueryRef.current = null;
+        activeQueryCell.current.value = null;
       }
     });
   }, [subscribe, appendToActiveMessages]);
@@ -409,7 +415,7 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
         return;
       }
 
-      activeQueryRef.current = text;
+      activeQueryCell.current.value = text;
       const sid = forcedSubnetIdRef.current;
       sendMessage({
         action: "ask",
@@ -432,7 +438,7 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
     setTerminalReceipt(null);
     setIsLoading(false);
     setRuntimeError(null);
-    activeQueryRef.current = null;
+    activeQueryCell.current.value = null;
   }, []);
 
   const handleSelectSession = useCallback(
@@ -444,7 +450,7 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
       setTerminalReceipt(null);
       setIsLoading(false);
       setRuntimeError(null);
-      activeQueryRef.current = null;
+      activeQueryCell.current.value = null;
     },
     [hydrated, activeSessionId],
   );

@@ -58,7 +58,8 @@ export function EngineSubnetPicker({
         type="button"
         onClick={() => setDropdownOpen((v) => !v)}
         className={cn(
-          "flex h-9 max-w-[min(260px,calc(100vw-14rem))] items-center gap-2 rounded-lg border px-3 text-left transition-colors",
+          "flex h-9 w-full max-w-full items-center gap-2 rounded-lg border px-3 text-left transition-colors",
+          "lg:w-auto lg:max-w-[min(260px,calc(100vw-14rem))]",
           "hover:bg-muted/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
           engineUnreachable ? "border-amber-500/40 bg-amber-500/5" : "border-border",
         )}

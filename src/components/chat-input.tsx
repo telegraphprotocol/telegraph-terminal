@@ -40,8 +40,8 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
   };
 
   return (
-    <div className="pb-8 pt-4 bg-background/80 backdrop-blur-md">
-      <div className="w-full max-w-[720px] mx-auto px-6">
+    <div className="bg-background/80 pb-[max(2rem,calc(2rem+env(safe-area-inset-bottom,0px)))] pt-4 backdrop-blur-md">
+      <div className="mx-auto w-full max-w-[720px] px-4 sm:px-6">
         <motion.div 
           animate={{ 
             scale: isFocused ? 1.01 : 1,
@@ -67,8 +67,8 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
             onInput={handleInput}
             placeholder="Query subnets or execute protocols..."
             disabled={disabled}
-            className="flex-1 resize-none bg-transparent text-[15px] font-medium text-foreground placeholder:text-muted-foreground/50 outline-none leading-relaxed max-h-40 overflow-y-auto py-3 px-1 custom-scrollbar"
-            style={{ height: "46px" }}
+            className="flex-1 max-h-40 min-h-[48px] resize-none overflow-y-auto bg-transparent px-1 py-2.5 text-[15px] font-medium leading-snug text-foreground outline-none placeholder:text-muted-foreground/50 custom-scrollbar sm:py-3"
+            style={{ height: "48px" }}
           />
 
           <AnimatePresence mode="wait">

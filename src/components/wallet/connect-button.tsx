@@ -21,6 +21,11 @@ function truncateAddress(address: string) {
   return `${address.slice(0, 6)}…${address.slice(-4)}`;
 }
 
+/** Shorter chip for tight headers (mobile). */
+function truncateAddressCompact(address: string) {
+  return `${address.slice(0, 4)}…${address.slice(-3)}`;
+}
+
 export function ConnectButton() {
   const [mounted, setMounted] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -170,7 +175,7 @@ export function ConnectButton() {
 
   if (!isConnected) {
     return (
-      <div className="flex flex-col items-end gap-1">
+      <div className="flex flex-col items-end gap-1 self-center">
         <button
           type="button"
           onClick={handleConnect}
@@ -209,7 +214,7 @@ export function ConnectButton() {
 
   if (!onCorrectChain) {
     return (
-      <div className="flex flex-col items-end gap-1">
+      <div className="flex flex-col items-end gap-1 self-center">
         <div className="flex flex-wrap items-center justify-end gap-2">
           <button
             type="button"
@@ -249,16 +254,22 @@ export function ConnectButton() {
   }
 
   return (
-    <div className="relative flex flex-col items-end gap-1" ref={menuRef}>
+    <div className="relative flex min-w-0 flex-col items-center gap-1 self-center" ref={menuRef}>
       <button
         type="button"
         onClick={() => setMenuOpen((v) => !v)}
         disabled={busy}
-        className="flex h-9 max-w-[min(200px,calc(100vw-8rem))] items-center gap-2 rounded-xl border border-border/50 bg-muted/20 px-3 text-left text-[13px] font-bold text-foreground transition-all duration-300 hover:bg-muted/40"
+        title={address ?? undefined}
+        aria-label={`Wallet menu for ${address}`}
+        className={cn(
+          "flex h-9 items-center gap-1.5 rounded-xl border border-border/50 bg-muted/20 text-left text-[13px] font-bold text-foreground transition-all duration-300 hover:bg-muted/40",
+          "max-w-[min(9.5rem,calc(100vw-7rem))] px-2 sm:max-w-[min(11.5rem,calc(100vw-8rem))] sm:gap-2 sm:px-3 lg:max-w-[min(200px,calc(100vw-8rem))]",
+        )}
       >
         <Wallet size={15} className="shrink-0" />
-        <span className="min-w-0 truncate">{truncateAddress(address!)}</span>
-        <ChevronDown size={14} className="shrink-0 text-muted-foreground" />
+        <span className="min-w-0 truncate lg:hidden">{truncateAddressCompact(address!)}</span>
+        <span className="hidden min-w-0 truncate lg:inline">{truncateAddress(address!)}</span>
+        <ChevronDown size={14} className="shrink-0 text-muted-foreground" aria-hidden />
       </button>
 
       {menuOpen ? (
