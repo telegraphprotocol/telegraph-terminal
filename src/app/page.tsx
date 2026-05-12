@@ -1,6 +1,7 @@
 "use client";
 
 import { KrakenFeed } from "@/components/kraken/kraken-feed";
+import { KrakenSignalDetailsDialog } from "@/components/kraken/kraken-signal-details-dialog";
 import { KrakenSkillCards } from "@/components/kraken/kraken-skill-cards";
 import { KrakenAnalytics } from "@/components/kraken/kraken-analytics";
 import { KrakenAlerts } from "@/components/kraken/kraken-alerts";
@@ -14,6 +15,7 @@ import { EngineSubnetPicker } from "@/components/engine-subnet-picker";
 import { apiClient } from "@/lib/api-client";
 import { DaemonCategory, DaemonResultItem } from "@/lib/engine-daemon-types";
 import { normalizeEngineSubnets, type SubnetPickItem } from "@/lib/subnet-catalog";
+import { downloadSignalsCsv } from "@/lib/export-signals-csv";
 
 export default function KrakenDashboard() {
   const { status: walletStatus, address: walletAddress } = useConnection();
@@ -36,6 +38,7 @@ export default function KrakenDashboard() {
   const [engineSubnetsLoading, setEngineSubnetsLoading] = useState(true);
   const [engineSubnetsError, setEngineSubnetsError] = useState<string | null>(null);
   const [dashboardSubnetId, setDashboardSubnetId] = useState<string | null>(null);
+  const [detailsItem, setDetailsItem] = useState<DaemonResultItem | null>(null);
 
   const categories: Array<DaemonCategory | ""> = useMemo(
     () => ["", "POLITICS", "ECONOMICS", "GEOPOLITICS", "TECHNOLOGY", "CLIMATE", "HEALTH", "FINANCE", "CRYPTO", "SPORTS", "SCIENCE", "SOCIAL", "OTHER"],
@@ -265,11 +268,20 @@ export default function KrakenDashboard() {
                       <option value={72}>LAST 72H</option>
                     </select>
                   </div>
-                  <button className="h-9 px-3 rounded-lg bg-muted/60 border border-border/50 text-xs text-muted-foreground hover:text-white transition-colors">
+                  <button
+                    type="button"
+                    disabled={signals.length === 0}
+                    onClick={() => downloadSignalsCsv(signals)}
+                    className="h-9 px-3 rounded-lg bg-muted/60 border border-border/50 text-xs text-muted-foreground hover:text-white transition-colors disabled:opacity-40 disabled:pointer-events-none"
+                  >
                     Export CSV
                   </button>
                 </div>
-                <KrakenFeed items={signals} loading={isLoading} />
+                <KrakenFeed
+                  items={signals}
+                  loading={isLoading}
+                  onRowSelect={(item) => setDetailsItem(item)}
+                />
                 <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
                   <span>
                     Showing {Math.min(signals.length, limit)} of {total} results
@@ -323,6 +335,14 @@ export default function KrakenDashboard() {
           </div>
         </main>
       </div>
+
+      <KrakenSignalDetailsDialog
+        item={detailsItem}
+        open={detailsItem !== null}
+        onOpenChange={(open) => {
+          if (!open) setDetailsItem(null);
+        }}
+      />
     </div>
   );
 }

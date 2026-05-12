@@ -268,15 +268,20 @@ Important:
 
 ### B) Dashboard Feed (`KrakenFeed`)
 
-| Feed field | Daemon field | Mapping |
+See **[kraken-dashboard-ui.md](kraken-dashboard-ui.md)** for the implemented column layout, CSV export, and signal details modal.
+
+| Feed field | Daemon / API field | Mapping (current UI) |
 |---|---|---|
 | Timestamp | `created_at` | local formatted time |
-| Skill used | `subnet_response.subnet_name` + `subnet_used` | `SN{id} - {name}` |
-| Input snippet | `question` | truncated text |
-| Status | `status` (+ optional `error_stage`) | success/error visual states |
-| Cost | `subnet_response.cost` | render as-is string |
-| Source badge | `source` | repurpose wallet column if keeping layout |
-| Details/proof | `id` + `subnet_response.result` | open details drawer/modal |
+| Intent | `routing.intent`, else `routing.subnet_name` + `routing.subnet_id` | `formatKrakenIntentCell` in app code |
+| Input snippet | `question.text` | truncated text |
+| Status | `status` (+ optional `routing.error_stage`) | success/error badges |
+| Cost | `execution.cost_usd` | formatted USD |
+| Source | `source` | collector name; copy button copies string only |
+| Proof | `execution.error` / `routing.reasoning` | tooltip on icon only |
+| Details | — | chevron column opens modal with full row + JSON result |
+
+Historical note: older docs referred to a flat `subnet_response` shape; live `/api/questions` items are nested (`question`, `routing`, `execution`) per `DaemonResultItem`.
 
 Recommended query:
 
