@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, type ReactNode } from "react";
 import { Loader2 } from "lucide-react";
 import { ChatMessage } from "@/lib/mock-data";
+import { AssistantMessage } from "@/components/assistant-message";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface ChatAreaProps {
   messages: ChatMessage[];
   isLoading?: boolean;
-  /** Shown on small screens between the latest user bubble and assistant content */
   mobileTerminal?: ReactNode;
 }
 
@@ -31,14 +32,19 @@ export function ChatArea({
   }
 
   const renderMessage = (message: ChatMessage) => (
-    <div key={message.id}>
+    <motion.div 
+      key={message.id}
+      initial={{ opacity: 0, y: 10, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+    >
       {message.role === "user" ? (
         <div className="flex justify-end">
-          <div className="max-w-[85%] rounded-2xl rounded-tr-sm bg-muted px-4 py-3 sm:max-w-[70%]">
+          <div className="max-w-[440px] w-fit rounded-2xl bg-[#282636] px-4 py-[15px] sm:max-w-[min(440px,85%)]">
             {message.content.map((c, i) => (
               <p
                 key={i}
-                className="text-sm leading-relaxed text-foreground"
+                className="text-[14px] font-normal leading-[150%] text-white"
               >
                 {c.text}
               </p>
@@ -46,43 +52,72 @@ export function ChatArea({
           </div>
         </div>
       ) : (
-        <div className="assistant-message-in max-w-2xl">
-          {message.content.map((c, i) => (
-            <p
-              key={i}
-              className="text-sm leading-relaxed text-foreground"
-            >
-              {c.text}
-            </p>
-          ))}
-        </div>
+        <AssistantMessage message={message} />
       )}
-    </div>
+    </motion.div>
   );
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain py-6 [-webkit-overflow-scrolling:touch]">
-      <div className="mx-auto w-full max-w-[640px] space-y-6 px-4">
-        {lastUserIdx >= 0 ? (
-          <>
-            {messages.slice(0, lastUserIdx + 1).map(renderMessage)}
-            {mobileTerminal}
-            {messages.slice(lastUserIdx + 1).map(renderMessage)}
-          </>
-        ) : (
-          <>
-            {messages.map(renderMessage)}
-            {mobileTerminal}
-          </>
-        )}
+    <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain py-8 custom-scrollbar">
+      <div className="mx-auto w-full max-w-[720px] space-y-8 px-6">
+        <AnimatePresence mode="popLayout">
+          {lastUserIdx >= 0 ? (
+            <Fragment key="chat-split">
+              {messages.slice(0, lastUserIdx + 1).map(renderMessage)}
+              <motion.div
+                key="mobile-terminal"
+                layout
+                className="my-4"
+              >
+                {mobileTerminal}
+              </motion.div>
+              {messages.slice(lastUserIdx + 1).map(renderMessage)}
+            </Fragment>
+          ) : (
+            <Fragment key="chat-empty">
+              {messages.map(renderMessage)}
+              <motion.div
+                key="mobile-terminal-empty"
+                layout
+                className="my-4"
+              >
+                {mobileTerminal}
+              </motion.div>
+            </Fragment>
+          )}
 
-        {/* Loading indicator */}
-        {isLoading && (
-          <div className="flex items-center gap-2 text-muted-foreground max-w-2xl">
-            <Loader2 size={18} className="animate-spin text-primary" />
-            <span className="text-sm">Reasoning through the steps…</span>
-          </div>
-        )}
+          {/* Loading indicator */}
+          {isLoading &&
+            !messages.some(
+              (m) =>
+                m.role === "assistant" &&
+                (m.id.includes("assistant") || m.id.includes("live-error")),
+            ) && (
+            <motion.div
+              key="subnet-loading"
+              role="status"
+              aria-live="polite"
+              aria-busy="true"
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0 }}
+              className="flex max-w-[640px] items-start gap-4"
+            >
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-2xl">
+                <Loader2
+                  className="size-4 text-primary animate-spin"
+                  strokeWidth={2}
+                  aria-hidden
+                />
+              </div>
+              <div className="min-w-0 flex-1 pt-2">
+                <p className="text-[14px] font-normal leading-[150%] text-[#9597AC]">
+                  Reasoning through the steps...
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <div ref={bottomRef} />
       </div>

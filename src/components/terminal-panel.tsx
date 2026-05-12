@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, HelpCircle } from "lucide-react";
-import { TerminalLogEntry, TerminalReceipt } from "@/lib/mock-data";
+import { ChevronDown, HelpCircle, Activity, ShieldCheck, Zap } from "lucide-react";
+import { TerminalLogEntry } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -10,21 +10,27 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { motion, AnimatePresence } from "framer-motion";
+import { LiveTerminalReceipt } from "@/lib/hooks/use-live-executor";
+import { TerminalReceipt } from "@/lib/mock-data";
+
+type TerminalReceiptLike = LiveTerminalReceipt | TerminalReceipt;
+
+function isLiveReceipt(receipt: TerminalReceiptLike): receipt is LiveTerminalReceipt {
+  return "subnet" in receipt;
+}
 
 interface TerminalPanelProps {
   logs: TerminalLogEntry[];
   showReceipt: boolean;
-  receipt: TerminalReceipt | null;
+  receipt: TerminalReceiptLike | null;
 }
 
-const RECEIPT_H = 156; // px — bottom padding so last log is never hidden behind receipt
+const RECEIPT_H = 180; // px — bottom padding so last log is never hidden behind receipt
 
 interface TerminalFeedProps extends TerminalPanelProps {
   className?: string;
 }
-
-/** Shared log list + receipt (used by desktop aside and mobile collapsible). */
-const WAITING_HINT_MS = 2000;
 
 function TerminalFeed({
   logs,
@@ -33,17 +39,6 @@ function TerminalFeed({
   className,
 }: TerminalFeedProps) {
   const logContainerRef = useRef<HTMLDivElement>(null);
-  const [showWaitingHint, setShowWaitingHint] = useState(false);
-
-  useEffect(() => {
-    if (logs.length > 0) {
-      setShowWaitingHint(false);
-      return;
-    }
-    setShowWaitingHint(false);
-    const t = setTimeout(() => setShowWaitingHint(true), WAITING_HINT_MS);
-    return () => clearTimeout(t);
-  }, [logs]);
 
   useEffect(() => {
     const container = logContainerRef.current;
@@ -71,98 +66,136 @@ function TerminalFeed({
     >
       <div
         ref={logContainerRef}
-        className="flex-1 overflow-y-auto lg:px-5 px-4 lg:pt-0 pt-2"
+        className="flex-1 overflow-y-auto lg:px-5 px-4 lg:pt-0 pt-2 custom-scrollbar"
         style={{ paddingBottom: receiptVisible ? RECEIPT_H + 20 : 16 }}
       >
         {logs.length === 0 ? (
-          showWaitingHint ? (
-            <p className="text-xs text-muted-foreground">
-              Waiting for request…
-            </p>
+          true ? (
+            <motion.p 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-xs text-muted-foreground/60 italic mt-4"
+            >
+              Waiting for network signal...
+            </motion.p>
           ) : null
         ) : (
-          <div>
-            {entriesWithHeader.map(({ log, showHeader }, i) => (
-              <div key={i} className="terminal-log-entry">
-                {showHeader && (
-                  <div className={i > 0 ? "lg:mt-6 mt-4" : ""}>
-                    <div className="flex items-center gap-3 py-2">
-                      <span className="min-w-20 text-xs font-medium text-foreground/70">
-                        Time
+          <div className="space-y-1 py-4">
+            <AnimatePresence mode="popLayout">
+              {entriesWithHeader.map(({ log, showHeader }, i) => (
+                <motion.div 
+                  key={`${log.time}-${i}`}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                  className="group"
+                >
+                  {showHeader && (
+                    <div className={i > 0 ? "lg:mt-8 mt-6" : ""}>
+                      <div className="flex items-center gap-3 py-2">
+                        <div className="h-px flex-1 bg-border/40" />
+                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/70">
+                          {log.section}
+                        </span>
+                        <div className="h-px flex-1 bg-border/40" />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-start gap-4 py-3 transition-colors hover:bg-primary/5 rounded-md px-2 -mx-2">
+                    <div className="flex flex-col items-center gap-1 min-w-16 pt-0.5">
+                      <span className="text-[9px] font-mono tabular-nums leading-none text-muted-foreground/70">
+                        {log.time.split('.')[0]}
                       </span>
-                      <span className="pl-1.5 text-xs font-medium text-foreground/70">
-                        {log.section}
+                      <span className="text-[8px] font-mono tabular-nums leading-none text-primary/40">
+                        .{log.time.split('.')[1]}
                       </span>
                     </div>
-                    <div className="h-px bg-border" />
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black uppercase leading-none tracking-wider text-foreground/90">
+                          {log.label}
+                        </span>
+                        <div className="h-1 w-1 rounded-full bg-primary/30" />
+                      </div>
+                      <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground group-hover:text-foreground/80 transition-colors">
+                        {log.detail}
+                      </p>
+                    </div>
                   </div>
-                )}
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        )}
+      </div>
 
-                <div className="flex items-center gap-3 border-b border-border/40 lg:py-3 py-2">
-                  <div className="flex min-w-20 shrink-0 items-center justify-center rounded-full bg-muted px-2.5 py-1.5">
-                    <span className="text-[10px] font-medium tabular-nums leading-none whitespace-nowrap text-foreground">
-                      {log.time}
-                    </span>
-                  </div>
-                  <div className="min-w-0 pt-0.5">
-                    <p className="text-[11px] font-semibold uppercase leading-none tracking-wide text-foreground">
-                      {log.label}
-                    </p>
-                    <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
-                      {log.detail}
-                    </p>
-                  </div>
+      {/* Glossy Receipt */}
+      <AnimatePresence>
+        {receiptVisible && (
+          <motion.div
+            initial={{ translateY: "100%", opacity: 0 }}
+            animate={{ translateY: 0, opacity: 1 }}
+            exit={{ translateY: "100%", opacity: 0 }}
+            transition={{ type: "spring", damping: 20, stiffness: 100 }}
+            className="absolute right-0 bottom-0 left-0 border-t border-border/50 bg-background/80 lg:px-6 px-4 py-6 backdrop-blur-xl rounded-t-2xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.3)] z-10"
+          >
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-md bg-primary/10">
+                  <ShieldCheck size={14} className="text-primary" />
                 </div>
+                <p className="text-[12px] font-bold tracking-tight text-foreground uppercase">
+                  Settlement Receipt
+                </p>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div
-        className="pointer-events-none absolute right-0 left-0 h-12 transition-opacity duration-500 lg:block hidden"
-        style={{
-          bottom: receiptVisible ? RECEIPT_H : 0,
-          opacity: receiptVisible ? 1 : 0,
-          background:
-            "linear-gradient(to bottom, transparent 0%, var(--background) 100%)",
-        }}
-      />
-
-      <div
-        className={cn(
-          "absolute right-0 bottom-0 left-0 border-t border-border bg-background/40 lg:px-5 px-4 py-5 backdrop-blur-lg transition-all duration-500 ease-out rounded-b-lg",
-          receiptVisible
-            ? "translate-y-0 opacity-100"
-            : "pointer-events-none translate-y-4 opacity-0",
-        )}
-      >
-        <p className="lg:mb-3 mb-2 text-[13px] font-medium tracking-wide text-foreground">
-          Receipt Generated
-        </p>
-        {receipt && (
-          <div className="space-y-2">
-            {[
-              { label: "Provider:", value: receipt.provider },
-              { label: "Timestamp:", value: receipt.timestamp },
-              { label: "Confidence:", value: receipt.confidence },
-              { label: "Settlement Cost:", value: receipt.settlementCost },
-            ].map(({ label, value }) => (
-              <div
-                key={label}
-                className="flex items-baseline justify-between gap-2"
-              >
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  {label}
-                </span>
-                <span className="text-right text-xs font-medium text-foreground">
-                  {value}
-                </span>
+              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-success/10 text-success border border-success/20">
+                <div className="w-1 h-1 rounded-full bg-success animate-pulse" />
+                <span className="text-[9px] font-bold uppercase tracking-wider">Verified</span>
               </div>
-            ))}
-          </div>
+            </div>
+
+            {receipt && (
+              <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                {(isLiveReceipt(receipt)
+                  ? [
+                      { label: "Subnet Provider", value: `${receipt.subnet} (SN${receipt.subnetId})`, icon: Activity },
+                      { label: "Intent", value: receipt.intent || "n/a", icon: ShieldCheck },
+                      { label: "Cost (USD)", value: `$${receipt.costUsd.toFixed(4)}`, icon: Zap },
+                      { label: "Duration", value: `${receipt.durationMs}ms`, icon: Activity },
+                    ]
+                  : [
+                      { label: "Subnet Provider", value: receipt.provider, icon: Activity },
+                      { label: "Confidence Score", value: receipt.confidence, icon: ShieldCheck },
+                      { label: "Network Fee", value: receipt.settlementCost, icon: Zap },
+                      { label: "System Clock", value: receipt.timestamp.split(" ")[1] || receipt.timestamp, icon: Activity },
+                    ]
+                ).map(({ label, value, icon: Icon }) => (
+                  <div key={label} className="space-y-1">
+                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground uppercase tracking-wide font-medium">
+                      <Icon size={10} className="opacity-50" />
+                      {label}
+                    </div>
+                    <div className="text-[13px] font-semibold text-foreground tabular-nums">
+                      {value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            <div className="mt-6 pt-4 border-t border-border/40 flex justify-between items-center gap-2">
+                <span className="text-[9px] font-mono text-muted-foreground/60 uppercase tracking-widest truncate">
+                  {receipt.timestamp}
+                </span>
+                <span className="text-[9px] font-mono text-primary/60 truncate">
+                  {isLiveReceipt(receipt) ? (receipt.reasoning || "ROUTER_REASONING_UNAVAILABLE") : "TELEG_V1.0_PROD"}
+                </span>
+            </div>
+          </motion.div>
         )}
-      </div>
+      </AnimatePresence>
     </div>
   );
 }
@@ -175,27 +208,29 @@ export function MobileTerminalCollapsible({
 }: TerminalPanelProps & { isLoading: boolean }) {
   const [open, setOpen] = useState(false);
 
-  useEffect(() => {
-    if (!isLoading) setOpen(false);
-  }, [isLoading]);
-
   const expanded = isLoading || open;
 
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-background">
+    <div className="overflow-hidden rounded-xl border border-border/50 bg-background/50 backdrop-blur-md">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={expanded}
-        className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left transition-colors duration-200 hover:bg-accent/50"
+        className="flex w-full items-center justify-between gap-2 px-4 py-4 text-left transition-colors duration-200 hover:bg-accent/30"
       >
-        <span className="text-sm font-medium text-foreground">
-          Live Settlement &amp; Logic Feed
-        </span>
+        <div className="flex items-center gap-2">
+            <div className="relative">
+                <Activity size={16} className="text-primary" />
+                <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-primary rounded-full animate-ping" />
+            </div>
+            <span className="text-sm font-semibold text-foreground tracking-tight">
+              Live Intelligence Feed
+            </span>
+        </div>
         <ChevronDown
           size={18}
           className={cn(
-            "shrink-0 text-muted-foreground transition-transform duration-300 ease-out motion-reduce:transition-none",
+            "shrink-0 text-muted-foreground transition-transform duration-500 ease-[0.16, 1, 0.3, 1]",
             expanded && "rotate-180",
           )}
           aria-hidden
@@ -203,12 +238,12 @@ export function MobileTerminalCollapsible({
       </button>
       <div
         className={cn(
-          "grid border-t border-border transition-[grid-template-rows] duration-300 ease-out motion-reduce:duration-0",
+          "grid border-t border-border/40 transition-[grid-template-rows] duration-500 ease-[0.16, 1, 0.3, 1]",
           expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
         )}
       >
         <div className="min-h-0 overflow-hidden">
-          <div className="flex max-h-[min(50vh,360px)] min-h-[200px] flex-col">
+          <div className="flex max-h-[min(60vh,420px)] min-h-[240px] flex-col">
             <TerminalFeed
               logs={logs}
               showReceipt={showReceipt}
@@ -228,31 +263,35 @@ export function TerminalPanel({
   receipt,
 }: TerminalPanelProps) {
   return (
-    <aside className="relative flex h-full w-[344px] shrink-0 flex-col overflow-hidden border-l border-border bg-background">
-      <div className="shrink-0 px-5 pt-5 pb-4">
-        <div className="flex items-center gap-1.5">
-          <h2 className="text-base font-medium text-foreground">Terminal</h2>
+    <aside className="relative flex h-full w-[360px] shrink-0 flex-col overflow-hidden border-l border-border/40 bg-background/30 backdrop-blur-sm">
+      <div className="shrink-0 px-6 pt-6 pb-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-bold uppercase tracking-[0.15em] text-foreground/80">Terminal</h2>
+            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-primary/10 text-primary border border-primary/20">
+                <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary"></span>
+                </span>
+                <span className="text-[8px] font-black uppercase">Live</span>
+            </div>
+          </div>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger>
-                <button
-                  type="button"
-                  aria-label="Terminal info"
-                  className="inline-flex items-center text-muted-foreground"
-                >
-                  <HelpCircle size={13} />
-                </button>
+                <div className="p-1 rounded-full hover:bg-muted transition-colors cursor-help">
+                  <HelpCircle size={14} className="text-muted-foreground" />
+                </div>
               </TooltipTrigger>
-              <TooltipContent>
-                Streams real-time execution logs for provider routing, model
-                inference, validation checks, and final onchain settlement
-                receipt generation.
+              <TooltipContent className="glass-card max-w-[240px] p-3 text-[11px] leading-relaxed">
+                Real-time execution logs for provider routing, model
+                inference, validation checks, and on-chain settlement.
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          Live Settlement &amp; Logic Feed
+        <p className="mt-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-widest opacity-60">
+          Settlement &amp; Logic Rail
         </p>
       </div>
 

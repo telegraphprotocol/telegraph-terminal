@@ -1,8 +1,14 @@
 // ─── Conversation history ────────────────────────────────────────────────────
 
+export type ConversationGroupItem = {
+  id: string;
+  title: string;
+  archived?: boolean;
+};
+
 export type ConversationGroup = {
   label: string;
-  items: { id: string; title: string }[];
+  items: ConversationGroupItem[];
 };
 
 export const conversationHistory: ConversationGroup[] = [
