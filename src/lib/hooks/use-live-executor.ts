@@ -133,8 +133,14 @@ function extractAssistantText(result: unknown): string {
   return "Unsupported result format.";
 }
 
-function sessionHasMessages(s: ChatSession): boolean {
-  return s.messages.length > 0;
+function emptySession(id?: string): ChatSession {
+  const sid = id ?? crypto.randomUUID();
+  return {
+    id: sid,
+    title: "New chat",
+    messages: [],
+    updatedAt: Date.now(),
+  };
 }
 
 function sleep(ms: number): Promise<void> {
@@ -211,8 +217,8 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
   const isConnected = USE_X402_CHAT ? evmWalletReady : engineSocketConnected;
 
   const activeSessionIdRef = useRef<string | null>(null);
-  /** When set, `activeSessionId` is a draft thread not yet in `sessions` (no sidebar row). */
-  const draftSessionIdRef = useRef<string | null>(null);
+  /** Latest `sessions` for async callbacks (e.g. queued microtasks) — avoids stale closures. */
+  const sessionsRef = useRef<ChatSession[]>([]);
   const forcedSubnetIdRef = useRef<string | null>(forcedSubnetId);
   /** Stable object so `.current` is never reassigned; satisfies react-hooks/immutability. */
   const activeQueryCell = useRef<{ value: string | null }>({ value: null });
@@ -224,6 +230,10 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
   useEffect(() => {
     activeSessionIdRef.current = activeSessionId;
   }, [activeSessionId]);
+
+  useEffect(() => {
+    sessionsRef.current = sessions;
+  }, [sessions]);
 
   useEffect(() => {
     try {
@@ -240,19 +250,20 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
         ) {
           const normalized: ChatSession[] = parsed.sessions.map((s) => ({
             ...s,
+            messages: Array.isArray(s.messages) ? s.messages : [],
             archived: Boolean((s as ChatSession).archived),
           }));
-          const withMsgs = normalized.filter(sessionHasMessages);
           queueMicrotask(() => {
-            setSessions(withMsgs);
+            let rows = normalized;
             let aid = parsed.activeSessionId;
-            if (!aid || !withMsgs.some((s) => s.id === aid)) {
-              aid = withMsgs[0]?.id ?? crypto.randomUUID();
+            if (!aid || !rows.some((s) => s.id === aid)) {
+              const row = emptySession();
+              aid = row.id;
+              rows = [row, ...rows];
             }
+            setSessions(rows);
             setActiveSessionId(aid);
             activeSessionIdRef.current = aid;
-            draftSessionIdRef.current =
-              withMsgs.length === 0 || !withMsgs.some((s) => s.id === aid) ? aid : null;
             setHydrated(true);
           });
           return;
@@ -261,12 +272,11 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
     } catch {
       /* fall through */
     }
-    const nid = crypto.randomUUID();
     queueMicrotask(() => {
-      setSessions([]);
-      setActiveSessionId(nid);
-      activeSessionIdRef.current = nid;
-      draftSessionIdRef.current = nid;
+      const row = emptySession();
+      setSessions([row]);
+      setActiveSessionId(row.id);
+      activeSessionIdRef.current = row.id;
       setHydrated(true);
     });
   }, []);
@@ -287,25 +297,28 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
     }
   }, [sessions, activeSessionId, hydrated]);
 
-  /** Active id missing from sessions: deleted session — pick another. Skip while on draft new chat. */
+  /** Active id missing from sessions (e.g. deleted): pick another or create an empty chat. */
   useEffect(() => {
     if (!hydrated || !activeSessionId) return;
     const cur = sessions.find((s) => s.id === activeSessionId);
     if (cur) return;
-    if (draftSessionIdRef.current === activeSessionId) return;
 
-    const visible = sessions.filter((s) => !s.archived && sessionHasMessages(s));
     queueMicrotask(() => {
-      if (visible.length === 0) {
-        const nid = crypto.randomUUID();
-        activeSessionIdRef.current = nid;
-        setActiveSessionId(nid);
-        draftSessionIdRef.current = nid;
+      const sid = activeSessionIdRef.current;
+      const latest = sessionsRef.current;
+      if (!sid) return;
+      if (latest.some((s) => s.id === sid)) return;
+
+      const visibleNow = latest.filter((s) => !s.archived);
+      if (visibleNow.length === 0) {
+        const row = emptySession();
+        activeSessionIdRef.current = row.id;
+        setSessions((prev) => [row, ...prev]);
+        setActiveSessionId(row.id);
       } else {
-        const pick = [...visible].sort((a, b) => b.updatedAt - a.updatedAt)[0];
+        const pick = [...visibleNow].sort((a, b) => b.updatedAt - a.updatedAt)[0];
         activeSessionIdRef.current = pick.id;
         setActiveSessionId(pick.id);
-        draftSessionIdRef.current = null;
       }
       setTerminalLogs([]);
       setTerminalReceipt(null);
@@ -327,25 +340,22 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
 
   const archiveSession = useCallback((id: string) => {
     let switchTo: string | null = null;
-    let switchedToDraft = false;
     setSessions((prev) => {
       const next = prev.map((s) =>
         s.id === id ? { ...s, archived: true } : s,
       );
       if (activeSessionIdRef.current !== id) return next;
-      const visible = next.filter((s) => !s.archived && sessionHasMessages(s));
+      const visible = next.filter((s) => !s.archived);
       if (visible.length === 0) {
-        switchTo = crypto.randomUUID();
-        switchedToDraft = true;
-        return next;
+        const row = emptySession();
+        switchTo = row.id;
+        return [row, ...next];
       }
       switchTo = [...visible].sort((a, b) => b.updatedAt - a.updatedAt)[0].id;
-      switchedToDraft = false;
       return next;
     });
     if (switchTo !== null) {
       activeSessionIdRef.current = switchTo;
-      draftSessionIdRef.current = switchedToDraft ? switchTo : null;
       setActiveSessionId(switchTo);
       clearTerminalSession();
     }
@@ -358,34 +368,43 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
   }, []);
 
   const deleteSession = useCallback((id: string) => {
+    let newActiveId: string | undefined;
     setSessions((prev) => {
       const next = prev.filter((s) => s.id !== id);
       if (next.length === 0) {
-        const nid = crypto.randomUUID();
-        activeSessionIdRef.current = nid;
-        draftSessionIdRef.current = nid;
-        setActiveSessionId(nid);
-        return [];
+        const row = emptySession();
+        newActiveId = row.id;
+        return [row];
+      }
+      if (activeSessionIdRef.current === id) {
+        const pool = next.some((s) => !s.archived)
+          ? next.filter((s) => !s.archived)
+          : next;
+        const pick = [...pool].sort((a, b) => b.updatedAt - a.updatedAt)[0];
+        newActiveId = pick.id;
       }
       return next;
     });
-  }, []);
+    if (newActiveId !== undefined) {
+      activeSessionIdRef.current = newActiveId;
+      setActiveSessionId(newActiveId);
+      clearTerminalSession();
+    }
+  }, [clearTerminalSession]);
 
   const messages = useMemo(() => {
     if (!activeSessionId) return [];
     return sessions.find((s) => s.id === activeSessionId)?.messages ?? [];
   }, [sessions, activeSessionId]);
 
-  const appendToActiveMessages = useCallback(
-    (updater: (prev: ChatMessage[]) => ChatMessage[]) => {
-      const sid = activeSessionIdRef.current;
+  const appendToSessionMessages = useCallback(
+    (sid: string, updater: (prev: ChatMessage[]) => ChatMessage[]) => {
       if (!sid) return;
       setSessions((prev) => {
         const idx = prev.findIndex((s) => s.id === sid);
         if (idx === -1) {
           const nextMsgs = updater([]);
           if (nextMsgs.length === 0) return prev;
-          draftSessionIdRef.current = null;
           const row: ChatSession = {
             id: sid,
             title: deriveTitle(nextMsgs),
@@ -409,25 +428,49 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
     [],
   );
 
-  const revertOptimisticUserMessage = useCallback((userMsgId: string) => {
-    const sid = activeSessionIdRef.current;
-    if (!sid) return;
-    setSessions((prev) =>
-      prev.flatMap((s) => {
-        if (s.id !== sid) return [s];
-        const nextMsgs = s.messages.filter((m) => m.id !== userMsgId);
-        if (nextMsgs.length === 0) return [];
-        return [
-          {
-            ...s,
-            messages: nextMsgs,
-            title: deriveTitle(nextMsgs),
-            updatedAt: Date.now(),
-          },
-        ];
-      }),
-    );
-  }, []);
+  const appendToActiveMessages = useCallback(
+    (updater: (prev: ChatMessage[]) => ChatMessage[]) => {
+      const sid = activeSessionIdRef.current;
+      if (!sid) return;
+      appendToSessionMessages(sid, updater);
+    },
+    [appendToSessionMessages],
+  );
+
+  const revertOptimisticUserMessage = useCallback(
+    (userMsgId: string, targetSessionId?: string | null) => {
+      const sid =
+        targetSessionId !== undefined && targetSessionId !== null
+          ? targetSessionId
+          : activeSessionIdRef.current;
+      if (!sid) return;
+      setSessions((prev) =>
+        prev.flatMap((s) => {
+          if (s.id !== sid) return [s];
+          const nextMsgs = s.messages.filter((m) => m.id !== userMsgId);
+          if (nextMsgs.length === 0) {
+            return [
+              {
+                ...s,
+                messages: [],
+                title: deriveTitle([]),
+                updatedAt: Date.now(),
+              },
+            ];
+          }
+          return [
+            {
+              ...s,
+              messages: nextMsgs,
+              title: deriveTitle(nextMsgs),
+              updatedAt: Date.now(),
+            },
+          ];
+        }),
+      );
+    },
+    [],
+  );
 
   useEffect(() => {
     return subscribe((frame) => {
@@ -460,7 +503,16 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
               const lastUser = [...s.messages].reverse().find((m) => m.role === "user");
               if (!lastUser) return [s];
               const nextMsgs = s.messages.filter((m) => m.id !== lastUser.id);
-              if (nextMsgs.length === 0) return [];
+              if (nextMsgs.length === 0) {
+                return [
+                  {
+                    ...s,
+                    messages: [],
+                    title: deriveTitle([]),
+                    updatedAt: Date.now(),
+                  },
+                ];
+              }
               return [
                 {
                   ...s,
@@ -513,6 +565,7 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
       };
 
       const sessionId = activeSessionIdRef.current;
+      if (!sessionId) return;
 
       if (!isConnected) {
         setRuntimeError(
@@ -531,7 +584,7 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
       const priorThread = sessions.find((s) => s.id === sessionId)?.messages ?? [];
       const threadForApi = [...priorThread, userMsg];
 
-      appendToActiveMessages((prev) => [...prev, userMsg]);
+      appendToSessionMessages(sessionId, (prev) => [...prev, userMsg]);
       setIsLoading(true);
       setTerminalLogs([]);
       setTerminalReceipt(null);
@@ -558,7 +611,7 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
             try {
               await ensureOnTargetChain(switchChainAsync, X402_PREFERRED_EVM_CHAIN_ID);
             } catch (switchErr) {
-              revertOptimisticUserMessage(userMsg.id);
+              revertOptimisticUserMessage(userMsg.id, sessionId);
               setRuntimeError(friendlyInfraError(switchErr));
               setIsLoading(false);
               return;
@@ -568,7 +621,7 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
           try {
             await waitForWalletChain(X402_PREFERRED_EVM_CHAIN_ID);
           } catch {
-            revertOptimisticUserMessage(userMsg.id);
+            revertOptimisticUserMessage(userMsg.id, sessionId);
             setRuntimeError(friendlyInfraError(new Error("CHAIN_SYNC_TIMEOUT")));
             setIsLoading(false);
             return;
@@ -581,14 +634,14 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
           try {
             wc = await getWalletClient(wagmiConfig);
           } catch (wErr) {
-            revertOptimisticUserMessage(userMsg.id);
+            revertOptimisticUserMessage(userMsg.id, sessionId);
             setRuntimeError(friendlyInfraError(wErr));
             setIsLoading(false);
             return;
           }
 
           if (!wc.account) {
-            revertOptimisticUserMessage(userMsg.id);
+            revertOptimisticUserMessage(userMsg.id, sessionId);
             setRuntimeError("Wallet has no active account. Unlock your wallet and retry.");
             setIsLoading(false);
             return;
@@ -622,7 +675,7 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
           const json = (await res.json()) as unknown;
           const assistantText = extractAssistantText(json);
 
-          appendToActiveMessages((prev) => [
+          appendToSessionMessages(sessionId, (prev) => [
             ...prev,
             {
               id: `live-assistant-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
@@ -653,7 +706,7 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
 
           setX402Phase("settled");
         } catch (err) {
-          revertOptimisticUserMessage(userMsg.id);
+          revertOptimisticUserMessage(userMsg.id, sessionId);
           setRuntimeError(friendlyInfraError(err));
           setX402Phase(null);
         } finally {
@@ -673,7 +726,7 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
     [
       isConnected,
       sendMessage,
-      appendToActiveMessages,
+      appendToSessionMessages,
       revertOptimisticUserMessage,
       sessions,
       connection.chainId,
@@ -682,10 +735,10 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
   );
 
   const handleNewChat = useCallback(() => {
-    const nid = crypto.randomUUID();
-    activeSessionIdRef.current = nid;
-    draftSessionIdRef.current = nid;
-    setActiveSessionId(nid);
+    const row = emptySession();
+    activeSessionIdRef.current = row.id;
+    setActiveSessionId(row.id);
+    setSessions((prev) => [row, ...prev]);
     setTerminalLogs([]);
     setTerminalReceipt(null);
     setIsLoading(false);
@@ -698,7 +751,6 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
     (id: string) => {
       if (!hydrated || id === activeSessionId) return;
       activeSessionIdRef.current = id;
-      draftSessionIdRef.current = null;
       setActiveSessionId(id);
       setTerminalLogs([]);
       setTerminalReceipt(null);
@@ -715,8 +767,8 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
       return [{ label: "Saved chats", items: [] }];
     }
     const sorted = [...sessions].sort((a, b) => b.updatedAt - a.updatedAt);
-    const activeItems = sorted.filter((s) => !s.archived && sessionHasMessages(s));
-    const archivedItems = sorted.filter((s) => s.archived && sessionHasMessages(s));
+    const activeItems = sorted.filter((s) => !s.archived);
+    const archivedItems = sorted.filter((s) => s.archived);
     const groups: ConversationGroup[] = [
       {
         label: "Saved chats",
