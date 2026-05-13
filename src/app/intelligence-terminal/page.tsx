@@ -51,6 +51,7 @@ export default function LiveChatPage() {
     x402Phase,
     useX402Chat,
     handleSend,
+    handleRetrySend,
     handleNewChat,
     chatHistoryGroups,
     activeSessionId,
@@ -136,6 +137,7 @@ export default function LiveChatPage() {
                       ? "Completing x402 payment (sign in wallet if prompted)…"
                       : undefined
                   }
+                  onRetrySend={handleRetrySend}
                   mobileTerminal={
                     showTerminal ? (
                       <div className="md:hidden">

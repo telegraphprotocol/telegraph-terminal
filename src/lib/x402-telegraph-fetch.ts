@@ -1,8 +1,8 @@
 /**
  * Browser x402 over HTTP against Telegraph subnet-dispatcher.
  *
- * Verified against operator: POST without payment returns 402 + `Payment-Required` header;
- * `Access-Control-Allow-Origin: *` on sample dispatcher (browser CORS OK for simple fetch).
+ * Cross-origin: the browser uses same-origin `/api/x402-chat` by default so
+ * `PAYMENT-REQUIRED` / `PAYMENT-RESPONSE` are readable (CORS often hides them).
  */
 import {
   wrapFetchWithPayment,
@@ -28,8 +28,32 @@ export function getSubnetChatPath(): string {
   return process.env.NEXT_PUBLIC_SUBNET_GROQ_CHAT_PATH || DEFAULT_CHAT_PATH;
 }
 
-export function getTelegraphChatUrl(): string {
+/** Direct dispatcher URL (used by the server proxy and SSR). */
+export function getTelegraphChatUpstreamUrl(): string {
   return `${getTelegraphBaseUrl()}${getSubnetChatPath()}`;
+}
+
+/**
+ * URL the browser `fetch` uses for paid chat. Uses `/api/x402-chat` when the
+ * dispatcher is on another origin so x402 headers are not stripped by CORS.
+ */
+export function getTelegraphChatUrl(): string {
+  const upstream = getTelegraphChatUpstreamUrl();
+  if (typeof globalThis.window === "undefined") return upstream;
+
+  const mode = process.env.NEXT_PUBLIC_X402_CHAT_USE_PROXY;
+  if (mode === "false") return upstream;
+  if (mode === "true") return `${globalThis.window.location.origin}/api/x402-chat`;
+
+  try {
+    const u = new URL(upstream);
+    if (u.origin !== globalThis.window.location.origin) {
+      return `${globalThis.window.location.origin}/api/x402-chat`;
+    }
+  } catch {
+    /* keep upstream */
+  }
+  return upstream;
 }
 
 function parseEip155ChainId(network: string): number | null {
