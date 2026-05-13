@@ -8,6 +8,7 @@ import {
   useDisconnect,
   useSwitchChain,
   useConnectors,
+  useWalletClient,
 } from "wagmi";
 import { cn } from "@/lib/utils";
 import { targetBaseChain } from "@/lib/wagmi-config";
@@ -42,6 +43,7 @@ export function ConnectButton() {
     useConnect();
   const { mutateAsync: switchChainAsync } = useSwitchChain();
   const { mutate: disconnect } = useDisconnect();
+  const { data: walletClient } = useWalletClient();
 
   const isConnected = connection.status === "connected";
   const address = isConnected ? connection.address : undefined;
@@ -76,7 +78,7 @@ export function ConnectButton() {
       setChainBusy(true);
       setChainUiError(null);
       try {
-        await ensureOnTargetChain(switchChainAsync, targetBaseChain.id);
+        await ensureOnTargetChain(switchChainAsync, targetBaseChain.id, walletClient);
       } catch (err) {
         if (cancelled) return;
         if (isUserRejectedChainError(err)) {
@@ -102,6 +104,7 @@ export function ConnectButton() {
     chainId,
     chainSwitchSuppressed,
     switchChainAsync,
+    walletClient,
   ]);
 
   const hasInjectedProvider =
@@ -135,7 +138,7 @@ export function ConnectButton() {
     setChainBusy(true);
     chainSwitchInFlight.current = true;
     try {
-      await ensureOnTargetChain(switchChainAsync, targetBaseChain.id);
+      await ensureOnTargetChain(switchChainAsync, targetBaseChain.id, walletClient);
     } catch (err) {
       if (isUserRejectedChainError(err)) {
         setChainSwitchSuppressed(true);
@@ -147,7 +150,7 @@ export function ConnectButton() {
       chainSwitchInFlight.current = false;
       setChainBusy(false);
     }
-  }, [switchChainAsync]);
+  }, [switchChainAsync, walletClient]);
 
   const handleDisconnect = useCallback(() => {
     setMenuOpen(false);

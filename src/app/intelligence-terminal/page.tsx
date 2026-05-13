@@ -47,7 +47,11 @@ export default function LiveChatPage() {
     terminalReceipt,
     engineError,
     isConnected,
+    engineSocketConnected,
+    x402Phase,
+    useX402Chat,
     handleSend,
+    handleRetrySend,
     handleNewChat,
     chatHistoryGroups,
     activeSessionId,
@@ -116,15 +120,24 @@ export default function LiveChatPage() {
         <div className="flex flex-1 overflow-hidden">
           <div className="flex flex-col flex-1 overflow-hidden min-w-0">
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              {(!isConnected || engineError) && (
+              {((useX402Chat ? !isConnected : !engineSocketConnected) || engineError) && (
                 <div className="mx-4 mb-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200 sm:mx-6">
-                  {engineError || "Engine connection unavailable. Retrying..."}
+                  {engineError ||
+                    (useX402Chat
+                      ? "Connect your wallet (Base Sepolia or Polygon) to send paid Telegraph chat."
+                      : "Engine connection unavailable. Retrying...")}
                 </div>
               )}
               {hasMessages ? (
                 <ChatArea
                   messages={messages}
                   isLoading={isLoading}
+                  loadingHint={
+                    useX402Chat && x402Phase === "paying"
+                      ? "Completing x402 payment (sign in wallet if prompted)…"
+                      : undefined
+                  }
+                  onRetrySend={handleRetrySend}
                   mobileTerminal={
                     showTerminal ? (
                       <div className="md:hidden">

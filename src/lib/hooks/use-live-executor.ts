@@ -5,12 +5,44 @@ import {
   ChatMessage,
   TerminalLogEntry,
   type ConversationGroup,
+  type MessageSendState,
 } from "@/lib/mock-data";
 import { useEngineWS } from "@/lib/hooks/use-engine-ws";
 import { EngineAskResult, EngineWsFrame } from "@/lib/engine-daemon-types";
+import { useConnection, useSwitchChain, useWalletClient } from "wagmi";
+import { ChainMismatchError } from "viem";
+import { getChainId, getPublicClient, getWalletClient } from "@wagmi/core";
+import { wagmiConfig } from "@/lib/wagmi-config";
+import {
+  ensureOnTargetChain,
+  isUserRejectedChainError,
+} from "@/components/wallet/ensure-base-chain";
+import {
+  buildEvmX402PaidFetch,
+  explorerUrlForSettlement,
+  getTelegraphChatUrl,
+  settlementFromResponse,
+} from "@/lib/x402-telegraph-fetch";
 
 const LS_KEY = "telegraph-live-chat-sessions-v1";
 const LS_VERSION = 2 as const;
+
+const USE_X402_CHAT =
+  typeof process !== "undefined" && process.env.NEXT_PUBLIC_USE_X402_CHAT === "true";
+
+const X402_PREFERRED_EVM_CHAIN_ID = Number(
+  process.env.NEXT_PUBLIC_X402_PREFERRED_EVM_CHAIN_ID || 84532,
+);
+
+const X402_CHAT_MODEL =
+  process.env.NEXT_PUBLIC_X402_CHAT_MODEL?.trim() || "gpt-4o-mini";
+
+function preferredChainLabel(chainId: number): string {
+  if (chainId === 84532) return "Base Sepolia (84532)";
+  if (chainId === 8453) return "Base (8453)";
+  if (chainId === 137) return "Polygon (137)";
+  return `chain ${chainId}`;
+}
 
 export type LiveTerminalReceipt = {
   subnet: string;
@@ -20,6 +52,10 @@ export type LiveTerminalReceipt = {
   timestamp: string;
   intent?: string;
   reasoning?: string;
+  /** Browser x402 settlement (EVM) */
+  x402TxHash?: string;
+  x402ExplorerUrl?: string;
+  x402Network?: string;
 };
 
 type ChatSession = {
@@ -85,6 +121,9 @@ function extractAssistantText(result: unknown): string {
   if (Array.isArray(result)) return JSON.stringify(result, null, 2);
   if (typeof result === "object") {
     const record = result as Record<string, unknown>;
+    if (Object.keys(record).length === 0) {
+      return "The chat API returned an empty `{}` object (no assistant text). The subnet may not return OpenAI-style `choices[0].message.content` for this route.";
+    }
     const choices = record.choices;
     if (Array.isArray(choices) && choices.length > 0) {
       const first = choices[0] as Record<string, unknown>;
@@ -106,6 +145,134 @@ function extractAssistantText(result: unknown): string {
   return "Unsupported result format.";
 }
 
+/** Technical line for TERMINAL logs (not necessarily user-facing). */
+function formatErrorForLog(err: unknown): string {
+  if (err instanceof Error) {
+    let cause = "";
+    if (err.cause instanceof Error) {
+      cause = ` | cause: ${err.cause.name}: ${err.cause.message}`;
+    } else if (err.cause != null) {
+      cause = ` | cause: ${String(err.cause)}`;
+    }
+    return `${err.name}: ${err.message}${cause}`;
+  }
+  if (typeof err === "string") return err;
+  try {
+    return JSON.stringify(err).slice(0, 800);
+  } catch {
+    return String(err);
+  }
+}
+
+function describeHttpError(status: number, statusText: string, bodyText: string): string {
+  const st = statusText?.trim() ? ` ${statusText.trim()}` : "";
+  const trimmed = bodyText.trim();
+  let bodyPart = "";
+  if (trimmed) {
+    const max = 800;
+    const slice = trimmed.length > max ? `${trimmed.slice(0, max)}…` : trimmed;
+    bodyPart = ` Body: ${slice}`;
+    try {
+      const j = JSON.parse(trimmed) as Record<string, unknown>;
+      for (const k of ["message", "error", "detail", "reason", "description"]) {
+        const v = j[k];
+        if (typeof v === "string" && v.trim()) {
+          bodyPart += ` | ${k}: ${v.trim().slice(0, 300)}`;
+          break;
+        }
+      }
+      if (Object.keys(j).length === 0) {
+        bodyPart += " (parsed as empty JSON object)";
+      }
+    } catch {
+      /* not JSON */
+    }
+  } else {
+    bodyPart = " (empty response body)";
+  }
+  if (status === 402) {
+    return `x402: still HTTP 402 after sign/retry${st}.${bodyPart} The resource or facilitator may have rejected the payment header, amount, or rail.`;
+  }
+  return `Telegraph chat failed: HTTP ${status}${st}.${bodyPart}`;
+}
+
+function emptySession(id?: string): ChatSession {
+  const sid = id ?? crypto.randomUUID();
+  return {
+    id: sid,
+    title: "New chat",
+    messages: [],
+    updatedAt: Date.now(),
+  };
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/**
+ * Wait until wagmi config chain id matches `chainId` (updates after switchChain).
+ * Same signal as `getWalletClient` / signing — not `connector.getChainId()`, which can lag the extension UI.
+ */
+async function waitForWalletChain(chainId: number, attempts = 25, delayMs = 100): Promise<void> {
+  for (let i = 0; i < attempts; i++) {
+    if (getChainId(wagmiConfig) === chainId) return;
+    await sleep(delayMs);
+  }
+  throw new Error("CHAIN_SYNC_TIMEOUT");
+}
+
+function friendlyInfraError(err: unknown, preferredChainId: number): string {
+  const hint = preferredChainLabel(preferredChainId);
+  const raw = err instanceof Error ? err.message : String(err);
+
+  if (err instanceof ChainMismatchError) {
+    return `Paid chat signs on ${hint}, but the wallet client reported another chain (often a stale dapp state). Refresh this page, or disconnect and reconnect the wallet with ${hint} selected, then retry.`;
+  }
+  if (
+    raw.includes("does not match the target chain") ||
+    raw.includes("does not match the connection") ||
+    raw.includes("does not match the connection's chain") ||
+    raw.includes("Current Chain ID") ||
+    raw.includes("Expected Chain ID")
+  ) {
+    return `Paid chat expects ${hint}, but the wallet and app disagree on the active chain. If your wallet already shows ${hint}, refresh the page or reconnect the wallet, then retry.`;
+  }
+  if (raw === "CHAIN_SYNC_TIMEOUT") {
+    return `Could not confirm the network switch. Open your wallet, switch to ${hint}, then retry.`;
+  }
+  if (raw.includes("CHAIN_STILL_WRONG:")) {
+    return `The app still sees a different chain than ${hint}. Unlock the wallet, select ${hint} for this site, refresh the page, then retry.`;
+  }
+  if (isUserRejectedChainError(err)) {
+    return `Network switch was cancelled. Switch to ${hint} to use paid chat, then retry.`;
+  }
+  if (raw === "{}" || raw.trim() === "{}" || raw === "[object Object]") {
+    return "Request failed with no clear message from the server. Open TERMINAL → Payment & Rail and look for the latest ERROR line.";
+  }
+  const maxLen =
+    raw.startsWith("x402:") || raw.startsWith("Telegraph chat failed") ? 2000 : 400;
+  return raw.length > maxLen ? `${raw.slice(0, maxLen - 1)}…` : raw;
+}
+
+function chatMessagesToOpenAi(
+  msgs: ChatMessage[],
+): { role: "user" | "assistant" | "system"; content: string }[] {
+  const out: { role: "user" | "assistant" | "system"; content: string }[] = [];
+  for (const m of msgs) {
+    if (m.role !== "user" && m.role !== "assistant") continue;
+    if (m.role === "user" && m.sendState === "failed") continue;
+    const text = m.content
+      .filter((c) => c.kind === "text")
+      .map((c) => c.text)
+      .join("\n")
+      .trim();
+    if (!text) continue;
+    out.push({ role: m.role, content: text });
+  }
+  return out;
+}
+
 export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
   const forcedSubnetId = opts?.forcedSubnetId ?? null;
 
@@ -117,9 +284,23 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
   const [terminalLogs, setTerminalLogs] = useState<TerminalLogEntry[]>([]);
   const [terminalReceipt, setTerminalReceipt] = useState<LiveTerminalReceipt | null>(null);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
-  const { isConnected, lastError, sendMessage, subscribe } = useEngineWS();
+  const [x402Phase, setX402Phase] = useState<null | "paying" | "settled">(null);
+  const { isConnected: engineSocketConnected, lastError, sendMessage, subscribe } = useEngineWS();
+
+  const connection = useConnection();
+  const { data: walletClient } = useWalletClient();
+  const { mutateAsync: switchChainAsync } = useSwitchChain();
+
+  const evmWalletReady =
+    connection.status === "connected" &&
+    connection.chainId != null &&
+    Boolean(walletClient?.account);
+
+  const isConnected = USE_X402_CHAT ? evmWalletReady : engineSocketConnected;
 
   const activeSessionIdRef = useRef<string | null>(null);
+  /** Latest `sessions` for async callbacks (e.g. queued microtasks) — avoids stale closures. */
+  const sessionsRef = useRef<ChatSession[]>([]);
   const forcedSubnetIdRef = useRef<string | null>(forcedSubnetId);
   /** Stable object so `.current` is never reassigned; satisfies react-hooks/immutability. */
   const activeQueryCell = useRef<{ value: string | null }>({ value: null });
@@ -133,6 +314,10 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
   }, [activeSessionId]);
 
   useEffect(() => {
+    sessionsRef.current = sessions;
+  }, [sessions]);
+
+  useEffect(() => {
     try {
       const raw = localStorage.getItem(LS_KEY);
       if (raw) {
@@ -143,16 +328,22 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
         };
         if (
           (parsed.version === 1 || parsed.version === LS_VERSION) &&
-          Array.isArray(parsed.sessions) &&
-          parsed.sessions.length > 0
+          Array.isArray(parsed.sessions)
         ) {
           const normalized: ChatSession[] = parsed.sessions.map((s) => ({
             ...s,
+            messages: Array.isArray(s.messages) ? s.messages : [],
             archived: Boolean((s as ChatSession).archived),
           }));
           queueMicrotask(() => {
-            setSessions(normalized);
-            const aid = parsed.activeSessionId ?? normalized[0].id;
+            let rows = normalized;
+            let aid = parsed.activeSessionId;
+            if (!aid || !rows.some((s) => s.id === aid)) {
+              const row = emptySession();
+              aid = row.id;
+              rows = [row, ...rows];
+            }
+            setSessions(rows);
             setActiveSessionId(aid);
             activeSessionIdRef.current = aid;
             setHydrated(true);
@@ -163,14 +354,11 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
     } catch {
       /* fall through */
     }
-    const nid = crypto.randomUUID();
-    const initial: ChatSession[] = [
-      { id: nid, title: "New chat", updatedAt: Date.now(), messages: [] },
-    ];
     queueMicrotask(() => {
-      setSessions(initial);
-      setActiveSessionId(nid);
-      activeSessionIdRef.current = nid;
+      const row = emptySession();
+      setSessions([row]);
+      setActiveSessionId(row.id);
+      activeSessionIdRef.current = row.id;
       setHydrated(true);
     });
   }, []);
@@ -191,36 +379,33 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
     }
   }, [sessions, activeSessionId, hydrated]);
 
-  /** Active id points at a deleted session — jump to another chat or create one. */
+  /** Active id missing from sessions (e.g. deleted): pick another or create an empty chat. */
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || !activeSessionId) return;
     const cur = sessions.find((s) => s.id === activeSessionId);
     if (cur) return;
 
-    const visible = sessions.filter((s) => !s.archived);
     queueMicrotask(() => {
-      if (visible.length === 0) {
-        const nid = crypto.randomUUID();
-        const fresh: ChatSession = {
-          id: nid,
-          title: "New chat",
-          updatedAt: Date.now(),
-          messages: [],
-        };
-        setSessions((prev) => {
-          if (prev.some((s) => !s.archived)) return prev;
-          return [...prev, fresh];
-        });
-        activeSessionIdRef.current = nid;
-        setActiveSessionId(nid);
+      const sid = activeSessionIdRef.current;
+      const latest = sessionsRef.current;
+      if (!sid) return;
+      if (latest.some((s) => s.id === sid)) return;
+
+      const visibleNow = latest.filter((s) => !s.archived);
+      if (visibleNow.length === 0) {
+        const row = emptySession();
+        activeSessionIdRef.current = row.id;
+        setSessions((prev) => [row, ...prev]);
+        setActiveSessionId(row.id);
       } else {
-        const pick = [...visible].sort((a, b) => b.updatedAt - a.updatedAt)[0];
+        const pick = [...visibleNow].sort((a, b) => b.updatedAt - a.updatedAt)[0];
         activeSessionIdRef.current = pick.id;
         setActiveSessionId(pick.id);
       }
       setTerminalLogs([]);
       setTerminalReceipt(null);
       setIsLoading(false);
+      setX402Phase(null);
       setRuntimeError(null);
       activeQueryCell.current.value = null;
     });
@@ -230,6 +415,7 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
     setTerminalLogs([]);
     setTerminalReceipt(null);
     setIsLoading(false);
+    setX402Phase(null);
     setRuntimeError(null);
     activeQueryCell.current.value = null;
   }, []);
@@ -243,17 +429,9 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
       if (activeSessionIdRef.current !== id) return next;
       const visible = next.filter((s) => !s.archived);
       if (visible.length === 0) {
-        const nid = crypto.randomUUID();
-        switchTo = nid;
-        return [
-          ...next,
-          {
-            id: nid,
-            title: "New chat",
-            updatedAt: Date.now(),
-            messages: [],
-          },
-        ];
+        const row = emptySession();
+        switchTo = row.id;
+        return [row, ...next];
       }
       switchTo = [...visible].sort((a, b) => b.updatedAt - a.updatedAt)[0].id;
       return next;
@@ -272,41 +450,91 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
   }, []);
 
   const deleteSession = useCallback((id: string) => {
+    let newActiveId: string | undefined;
     setSessions((prev) => {
       const next = prev.filter((s) => s.id !== id);
       if (next.length === 0) {
-        const nid = crypto.randomUUID();
-        const fresh: ChatSession = {
-          id: nid,
-          title: "New chat",
-          updatedAt: Date.now(),
-          messages: [],
-        };
-        activeSessionIdRef.current = nid;
-        setActiveSessionId(nid);
-        return [fresh];
+        const row = emptySession();
+        newActiveId = row.id;
+        return [row];
+      }
+      if (activeSessionIdRef.current === id) {
+        const pool = next.some((s) => !s.archived)
+          ? next.filter((s) => !s.archived)
+          : next;
+        const pick = [...pool].sort((a, b) => b.updatedAt - a.updatedAt)[0];
+        newActiveId = pick.id;
       }
       return next;
     });
-  }, []);
+    if (newActiveId !== undefined) {
+      activeSessionIdRef.current = newActiveId;
+      setActiveSessionId(newActiveId);
+      clearTerminalSession();
+    }
+  }, [clearTerminalSession]);
 
   const messages = useMemo(() => {
     if (!activeSessionId) return [];
     return sessions.find((s) => s.id === activeSessionId)?.messages ?? [];
   }, [sessions, activeSessionId]);
 
-  const appendToActiveMessages = useCallback(
-    (updater: (prev: ChatMessage[]) => ChatMessage[]) => {
-      const sid = activeSessionIdRef.current;
+  const appendToSessionMessages = useCallback(
+    (sid: string, updater: (prev: ChatMessage[]) => ChatMessage[]) => {
       if (!sid) return;
-      setSessions((prev) =>
-        prev.map((s) => {
-          if (s.id !== sid) return s;
+      setSessions((prev) => {
+        const idx = prev.findIndex((s) => s.id === sid);
+        if (idx === -1) {
+          const nextMsgs = updater([]);
+          if (nextMsgs.length === 0) return prev;
+          const row: ChatSession = {
+            id: sid,
+            title: deriveTitle(nextMsgs),
+            messages: nextMsgs,
+            updatedAt: Date.now(),
+          };
+          return [row, ...prev];
+        }
+        return prev.map((s, i) => {
+          if (i !== idx) return s;
           const nextMsgs = updater(s.messages);
           return {
             ...s,
             messages: nextMsgs,
             title: deriveTitle(nextMsgs),
+            updatedAt: Date.now(),
+          };
+        });
+      });
+    },
+    [],
+  );
+
+  const appendToActiveMessages = useCallback(
+    (updater: (prev: ChatMessage[]) => ChatMessage[]) => {
+      const sid = activeSessionIdRef.current;
+      if (!sid) return;
+      appendToSessionMessages(sid, updater);
+    },
+    [appendToSessionMessages],
+  );
+
+  const markUserMessageDelivery = useCallback(
+    (
+      sessionId: string,
+      messageId: string,
+      patch: { sendState: MessageSendState; sendError?: string | undefined },
+    ) => {
+      setSessions((prev) =>
+        prev.map((s) => {
+          if (s.id !== sessionId) return s;
+          const messages = s.messages.map((m) =>
+            m.id === messageId && m.role === "user" ? { ...m, ...patch } : m,
+          );
+          return {
+            ...s,
+            messages,
+            title: deriveTitle(messages),
             updatedAt: Date.now(),
           };
         }),
@@ -336,20 +564,19 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
       }
 
       if (frame.type === "error") {
-        setRuntimeError(String(frame.data?.message ?? "Engine execution failed"));
-        appendToActiveMessages((prev) => [
-          ...prev,
-          {
-            id: `live-error-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-            role: "assistant",
-            content: [
-              {
-                kind: "text",
-                text: `Error: ${String(frame.data?.message ?? "Unable to complete request.")}`,
-              },
-            ],
-          },
-        ]);
+        const errText = String(frame.data?.message ?? "Engine execution failed");
+        setRuntimeError(errText);
+        const sid = activeSessionIdRef.current;
+        if (sid) {
+          const msgs = sessionsRef.current.find((s) => s.id === sid)?.messages ?? [];
+          const lastUser = [...msgs].reverse().find((m) => m.role === "user");
+          if (lastUser) {
+            markUserMessageDelivery(sid, lastUser.id, {
+              sendState: "failed",
+              sendError: errText,
+            });
+          }
+        }
         setIsLoading(false);
         activeQueryCell.current.value = null;
       }
@@ -357,14 +584,31 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
       if (frame.type === "result" && frame.data) {
         const resultData = frame.data as unknown as EngineAskResult;
         const assistantText = extractAssistantText(resultData.result);
-        appendToActiveMessages((prev) => [
-          ...prev,
-          {
-            id: `live-assistant-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-            role: "assistant",
-            content: [{ kind: "text", text: assistantText }],
-          },
-        ]);
+        appendToActiveMessages((prev) => {
+          let lastUserIdx = -1;
+          for (let i = prev.length - 1; i >= 0; i--) {
+            if (prev[i].role === "user") {
+              lastUserIdx = i;
+              break;
+            }
+          }
+          const withOkUser =
+            lastUserIdx === -1
+              ? prev
+              : prev.map((m, i) =>
+                  i === lastUserIdx && m.role === "user"
+                    ? { ...m, sendState: "ok" as const, sendError: undefined }
+                    : m,
+                );
+          return [
+            ...withOkUser,
+            {
+              id: `live-assistant-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+              role: "assistant",
+              content: [{ kind: "text", text: assistantText }],
+            },
+          ];
+        });
         setTerminalReceipt({
           subnet: resultData.subnet_name,
           subnetId: String(resultData.subnet_used ?? resultData.subnet_id ?? "n/a"),
@@ -378,7 +622,196 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
         activeQueryCell.current.value = null;
       }
     });
-  }, [subscribe, appendToActiveMessages]);
+  }, [subscribe, appendToActiveMessages, markUserMessageDelivery]);
+
+  const executeX402Request = useCallback(
+    async (
+      sessionId: string,
+      userMessageId: string,
+      openAiMessages: { role: "user" | "assistant" | "system"; content: string }[],
+    ) => {
+      const pushLog = (label: string, detail: string) => {
+        const time = new Date().toLocaleTimeString();
+        setTerminalLogs((prev) => [
+          ...prev,
+          { time, label, detail, section: "Payment & Rail" },
+        ]);
+      };
+      const fail = (err: unknown) => {
+        pushLog("ERROR", formatErrorForLog(err));
+        const msg = friendlyInfraError(err, X402_PREFERRED_EVM_CHAIN_ID);
+        markUserMessageDelivery(sessionId, userMessageId, {
+          sendState: "failed",
+          sendError: msg,
+        });
+        setRuntimeError(msg);
+        setX402Phase(null);
+      };
+
+      const t0 = performance.now();
+      try {
+        const preferred = X402_PREFERRED_EVM_CHAIN_ID;
+
+        /** Optional connector read for logs only — can disagree with wagmi after switch. */
+        const readConnectorChainId = async (): Promise<number | null> => {
+          const connector = connection.connector;
+          if (connector?.getChainId) {
+            try {
+              return await connector.getChainId();
+            } catch {
+              return null;
+            }
+          }
+          if (connection.chainId != null) return connection.chainId;
+          return null;
+        };
+
+        const wagmiChainId = (): number => getChainId(wagmiConfig);
+
+        if (wagmiChainId() !== preferred) {
+          const connectorHint = (await readConnectorChainId()) ?? wagmiChainId();
+          pushLog(
+            "NETWORK",
+            `Switching wallet to chain ${preferred} for x402 (wagmi ${wagmiChainId()}; connector ${connectorHint})…`,
+          );
+          const maxSwitchAttempts = 3;
+          for (let attempt = 0; attempt < maxSwitchAttempts; attempt++) {
+            if (attempt > 0) {
+              pushLog(
+                "NETWORK",
+                `Retrying network switch (attempt ${attempt + 1}/${maxSwitchAttempts})…`,
+              );
+            }
+            try {
+              await ensureOnTargetChain(
+                switchChainAsync,
+                preferred,
+                walletClient ?? undefined,
+              );
+            } catch (switchErr) {
+              fail(switchErr);
+              return;
+            }
+            try {
+              await waitForWalletChain(preferred);
+              break;
+            } catch {
+              if (attempt === maxSwitchAttempts - 1) {
+                fail(new Error("CHAIN_SYNC_TIMEOUT"));
+                return;
+              }
+            }
+          }
+        }
+
+        if (wagmiChainId() !== preferred) {
+          fail(
+            new Error(
+              `CHAIN_STILL_WRONG: wagmi reports chain id ${wagmiChainId()} but paid chat requires ${preferred} (${preferredChainLabel(preferred)}).`,
+            ),
+          );
+          return;
+        }
+
+        pushLog("X402", "Completing x402 payment (402 → sign → retry)…");
+        setX402Phase("paying");
+
+        let wc;
+        try {
+          wc = await getWalletClient(wagmiConfig, {
+            chainId: X402_PREFERRED_EVM_CHAIN_ID,
+          });
+        } catch (wErr) {
+          fail(wErr);
+          return;
+        }
+
+        if (!wc.account) {
+          fail(new Error("Wallet has no active account. Unlock your wallet and retry."));
+          return;
+        }
+
+        const pc = getPublicClient(wagmiConfig, {
+          chainId: X402_PREFERRED_EVM_CHAIN_ID,
+        });
+        const paidFetch = buildEvmX402PaidFetch(wc, pc, X402_PREFERRED_EVM_CHAIN_ID);
+
+        const url = getTelegraphChatUrl();
+        pushLog("X402", `POST ${url} (paid fetch)…`);
+        const res = await paidFetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({
+            model: X402_CHAT_MODEL,
+            messages: openAiMessages,
+          }),
+        });
+
+        const durationMs = Math.round(performance.now() - t0);
+        pushLog("X402", `Response ${res.status} ${res.ok ? "OK" : "not OK"} (${Math.round(durationMs)} ms).`);
+        const settled = settlementFromResponse(res);
+        const explorerUrl = settled
+          ? explorerUrlForSettlement(settled, X402_PREFERRED_EVM_CHAIN_ID)
+          : null;
+
+        if (!res.ok) {
+          const errText = await res.text().catch(() => "");
+          throw new Error(describeHttpError(res.status, res.statusText, errText));
+        }
+
+        const json = (await res.json()) as unknown;
+        const assistantText = extractAssistantText(json);
+
+        appendToSessionMessages(sessionId, (prev) => {
+          const withOkUser = prev.map((m) =>
+            m.id === userMessageId && m.role === "user"
+              ? { ...m, sendState: "ok" as const, sendError: undefined }
+              : m,
+          );
+          return [
+            ...withOkUser,
+            {
+              id: `live-assistant-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+              role: "assistant" as const,
+              content: [{ kind: "text" as const, text: assistantText }],
+            },
+          ];
+        });
+
+        const minPrice = Number(process.env.NEXT_PUBLIC_MIN_PRICE_USDC ?? "0.05");
+        setTerminalReceipt({
+          subnet: "Telegraph subnet 102 (x402)",
+          subnetId: "102",
+          costUsd: Number.isFinite(minPrice) ? minPrice : 0.05,
+          durationMs,
+          timestamp: new Date().toISOString(),
+          intent: "direct_http_x402",
+          reasoning: `POST ${url}`,
+          x402TxHash: settled?.transaction,
+          x402ExplorerUrl: explorerUrl ?? undefined,
+          x402Network: settled?.network,
+        });
+
+        if (settled?.transaction && explorerUrl) {
+          pushLog("SETTLED", `tx ${settled.transaction.slice(0, 10)}… — ${explorerUrl}`);
+        } else {
+          pushLog("SETTLED", "Payment verified; no explorer metadata in response headers.");
+        }
+
+        setX402Phase("settled");
+        setRuntimeError(null);
+      } catch (err) {
+        fail(err);
+      }
+    },
+    [
+      appendToSessionMessages,
+      connection,
+      markUserMessageDelivery,
+      switchChainAsync,
+      walletClient,
+    ],
+  );
 
   const handleSend = useCallback(
     async (text: string) => {
@@ -388,30 +821,44 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
         id: `live-user-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
         role: "user",
         content: [{ kind: "text", text }],
+        sendState: "pending",
       };
 
-      appendToActiveMessages((prev) => [...prev, userMsg]);
+      const sessionId = activeSessionIdRef.current;
+      if (!sessionId) return;
+
+      if (!isConnected) {
+        setRuntimeError(
+          USE_X402_CHAT
+            ? "Connect your wallet on Base Sepolia or Polygon to send paid chat."
+            : "Engine WebSocket not connected",
+        );
+        return;
+      }
+
+      if (USE_X402_CHAT && process.env.NEXT_PUBLIC_DEFAULT_NETWORK === "solana") {
+        setRuntimeError("x402 chat via Solana is not wired in this build.");
+        return;
+      }
+
+      const priorThread = (sessions.find((s) => s.id === sessionId)?.messages ?? []).filter(
+        (m) => !(m.role === "user" && m.sendState === "failed"),
+      );
+      const openAiMessages = chatMessagesToOpenAi([...priorThread, userMsg]);
+
+      appendToSessionMessages(sessionId, (prev) => [...prev, userMsg]);
       setIsLoading(true);
       setTerminalLogs([]);
       setTerminalReceipt(null);
       setRuntimeError(null);
+      setX402Phase(null);
 
-      if (!isConnected) {
-        setRuntimeError("Engine WebSocket not connected");
-        appendToActiveMessages((prev) => [
-          ...prev,
-          {
-            id: `live-error-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-            role: "assistant",
-            content: [
-              {
-                kind: "text",
-                text: "Error: Engine connection is offline. Please retry shortly.",
-              },
-            ],
-          },
-        ]);
-        setIsLoading(false);
+      if (USE_X402_CHAT) {
+        try {
+          await executeX402Request(sessionId, userMsg.id, openAiMessages);
+        } finally {
+          setIsLoading(false);
+        }
         return;
       }
 
@@ -423,20 +870,96 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
         ...(sid ? { context: { subnet_id: sid } } : {}),
       });
     },
-    [isConnected, sendMessage, appendToActiveMessages],
+    [isConnected, sendMessage, appendToSessionMessages, sessions, executeX402Request],
+  );
+
+  const handleRetrySend = useCallback(
+    async (messageId: string) => {
+      if (isLoading) return;
+      const sessionId = activeSessionIdRef.current;
+      if (!sessionId) return;
+      const session = sessions.find((s) => s.id === sessionId);
+      if (!session) return;
+      const msg = session.messages.find((m) => m.id === messageId);
+      if (!msg || msg.role !== "user" || msg.sendState !== "failed") return;
+      const text = msg.content
+        .filter((c) => c.kind === "text")
+        .map((c) => c.text)
+        .join("\n")
+        .trim();
+      if (!text) return;
+
+      if (!isConnected) {
+        setRuntimeError(
+          USE_X402_CHAT
+            ? "Connect your wallet on Base Sepolia or Polygon to send paid chat."
+            : "Engine WebSocket not connected",
+        );
+        return;
+      }
+
+      if (USE_X402_CHAT && process.env.NEXT_PUBLIC_DEFAULT_NETWORK === "solana") {
+        setRuntimeError("x402 chat via Solana is not wired in this build.");
+        return;
+      }
+
+      const updatedMsgs = session.messages.map((m) =>
+        m.id === messageId && m.role === "user"
+          ? { ...m, sendState: "pending" as const, sendError: undefined }
+          : m,
+      );
+      setSessions((prev) =>
+        prev.map((s) => {
+          if (s.id !== sessionId) return s;
+          return {
+            ...s,
+            messages: updatedMsgs,
+            title: deriveTitle(updatedMsgs),
+            updatedAt: Date.now(),
+          };
+        }),
+      );
+
+      const forApi = updatedMsgs.filter(
+        (m) => !(m.role === "user" && m.sendState === "failed"),
+      );
+      const openAiMessages = chatMessagesToOpenAi(forApi);
+
+      setIsLoading(true);
+      setTerminalLogs([]);
+      setTerminalReceipt(null);
+      setRuntimeError(null);
+      setX402Phase(null);
+
+      if (USE_X402_CHAT) {
+        try {
+          await executeX402Request(sessionId, messageId, openAiMessages);
+        } finally {
+          setIsLoading(false);
+        }
+        return;
+      }
+
+      activeQueryCell.current.value = text;
+      const sid = forcedSubnetIdRef.current;
+      sendMessage({
+        action: "ask",
+        query: text,
+        ...(sid ? { context: { subnet_id: sid } } : {}),
+      });
+    },
+    [isConnected, isLoading, sendMessage, sessions, executeX402Request],
   );
 
   const handleNewChat = useCallback(() => {
-    const nid = crypto.randomUUID();
-    activeSessionIdRef.current = nid;
-    setSessions((prev) => [
-      { id: nid, title: "New chat", updatedAt: Date.now(), messages: [] },
-      ...prev,
-    ]);
-    setActiveSessionId(nid);
+    const row = emptySession();
+    activeSessionIdRef.current = row.id;
+    setActiveSessionId(row.id);
+    setSessions((prev) => [row, ...prev]);
     setTerminalLogs([]);
     setTerminalReceipt(null);
     setIsLoading(false);
+    setX402Phase(null);
     setRuntimeError(null);
     activeQueryCell.current.value = null;
   }, []);
@@ -449,6 +972,7 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
       setTerminalLogs([]);
       setTerminalReceipt(null);
       setIsLoading(false);
+      setX402Phase(null);
       setRuntimeError(null);
       activeQueryCell.current.value = null;
     },
@@ -490,9 +1014,13 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
     isLoading,
     terminalLogs,
     terminalReceipt,
-    engineError: runtimeError || lastError,
+    engineError: runtimeError || (USE_X402_CHAT ? null : lastError),
     isConnected,
+    engineSocketConnected,
+    x402Phase,
+    useX402Chat: USE_X402_CHAT,
     handleSend,
+    handleRetrySend,
     handleNewChat,
     chatHistoryGroups,
     activeSessionId,

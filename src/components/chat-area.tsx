@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useRef, type ReactNode } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, RefreshCw } from "lucide-react";
 import { ChatMessage } from "@/lib/mock-data";
 import { AssistantMessage } from "@/components/assistant-message";
 import { motion, AnimatePresence } from "framer-motion";
@@ -9,13 +9,19 @@ import { motion, AnimatePresence } from "framer-motion";
 interface ChatAreaProps {
   messages: ChatMessage[];
   isLoading?: boolean;
+  /** Shown under the spinner while waiting (e.g. x402 payment in progress). */
+  loadingHint?: string;
   mobileTerminal?: ReactNode;
+  /** Retry a user message that failed to send (x402 / engine). */
+  onRetrySend?: (messageId: string) => void;
 }
 
 export function ChatArea({
   messages,
   isLoading,
+  loadingHint,
   mobileTerminal,
+  onRetrySend,
 }: ChatAreaProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -31,7 +37,9 @@ export function ChatArea({
     }
   }
 
-  const renderMessage = (message: ChatMessage) => (
+  const renderMessage = (message: ChatMessage) => {
+    const failed = message.role === "user" && message.sendState === "failed";
+    return (
     <motion.div 
       key={message.id}
       initial={{ opacity: 0, y: 10, scale: 0.98 }}
@@ -39,23 +47,51 @@ export function ChatArea({
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
     >
       {message.role === "user" ? (
-        <div className="flex justify-end">
-          <div className="max-w-[440px] w-fit rounded-2xl bg-[#282636] px-4 py-[15px] sm:max-w-[min(440px,85%)]">
+        <div className="flex flex-col items-end gap-1.5">
+          <div
+            className={
+              failed
+                ? "max-w-[440px] w-fit rounded-2xl border border-red-500/45 bg-red-950/35 px-4 py-[15px] sm:max-w-[min(440px,85%)]"
+                : "max-w-[440px] w-fit rounded-2xl bg-[#282636] px-4 py-[15px] sm:max-w-[min(440px,85%)]"
+            }
+          >
             {message.content.map((c, i) => (
               <p
                 key={i}
-                className="text-[14px] font-normal leading-[150%] text-white"
+                className={
+                  failed
+                    ? "text-[14px] font-normal leading-[150%] text-red-100"
+                    : "text-[14px] font-normal leading-[150%] text-white"
+                }
               >
                 {c.text}
               </p>
             ))}
+            {failed && message.sendError ? (
+              <p className="mt-2 line-clamp-3 text-[12px] leading-snug text-red-300/90">
+                {message.sendError}
+              </p>
+            ) : null}
           </div>
+          {failed && onRetrySend ? (
+            <button
+              type="button"
+              onClick={() => onRetrySend(message.id)}
+              disabled={isLoading}
+              className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-red-300/90 transition-colors hover:bg-red-500/15 hover:text-red-200 disabled:pointer-events-none disabled:opacity-40"
+              aria-label="Retry send"
+            >
+              <RefreshCw size={14} strokeWidth={2.25} aria-hidden />
+              <span>Retry</span>
+            </button>
+          ) : null}
         </div>
       ) : (
         <AssistantMessage message={message} />
       )}
     </motion.div>
-  );
+    );
+  };
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain py-8 custom-scrollbar">
@@ -112,7 +148,7 @@ export function ChatArea({
               </div>
               <div className="min-w-0 flex-1 pt-2">
                 <p className="text-[14px] font-normal leading-[150%] text-[#9597AC]">
-                  Reasoning through the steps...
+                  {loadingHint ?? "Reasoning through the steps..."}
                 </p>
               </div>
             </motion.div>

@@ -182,6 +182,23 @@ function TerminalFeed({
                     </div>
                   </div>
                 ))}
+                {isLiveReceipt(receipt) && receipt.x402ExplorerUrl ? (
+                  <div className="col-span-2 space-y-1 border-t border-border/30 pt-3">
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium">
+                      Payment (x402)
+                    </div>
+                    <a
+                      href={receipt.x402ExplorerUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block max-w-full truncate text-[13px] font-semibold text-primary underline-offset-2 hover:underline"
+                    >
+                      {receipt.x402TxHash
+                        ? `${receipt.x402TxHash.slice(0, 10)}…${receipt.x402TxHash.slice(-6)}`
+                        : "View on explorer"}
+                    </a>
+                  </div>
+                ) : null}
               </div>
             )}
             
