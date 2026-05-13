@@ -54,7 +54,7 @@ Responsibilities:
    - Uses **`ExactEvmScheme`** with **`toClientEvmSigner`**, mapping `signTypedData` to the viem wallet client.
    - Uses **`createChainMatchingSelector(walletChainId)`** so the client picks a **`PaymentRequirements`** entry whose `network` matches **`eip155:<walletChainId>`** when possible, otherwise the first option.
 4. **`settlementFromResponse(response)`** — reads **`PAYMENT-RESPONSE`** / case variants and decodes via **`decodePaymentResponseHeader`** for receipt / logs.
-5. **`explorerUrlForSettlement(settle)`** — maps `settle.network` + `transaction` to Base Sepolia, Polygon, Base, or Solana explorer URLs using env overrides where present.
+5. **`explorerUrlForSettlement(settle, paymentChainId?)`** — maps `settle.network` + `transaction` to an explorer when the network is known (`eip155:*`, Solana). If `settle.network` is missing or not parseable, uses **`paymentChainId`** (the x402 signing chain from the live executor) so Base Sepolia and other rails are not mislabeled as Polygon. Unsupported EVM chain IDs return no URL instead of defaulting to PolygonScan.
 
 ### CORS and the `/api/x402-chat` proxy
 

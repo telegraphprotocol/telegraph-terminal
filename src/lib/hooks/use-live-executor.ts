@@ -750,7 +750,9 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
         const durationMs = Math.round(performance.now() - t0);
         pushLog("X402", `Response ${res.status} ${res.ok ? "OK" : "not OK"} (${Math.round(durationMs)} ms).`);
         const settled = settlementFromResponse(res);
-        const explorerUrl = settled ? explorerUrlForSettlement(settled) : null;
+        const explorerUrl = settled
+          ? explorerUrlForSettlement(settled, X402_PREFERRED_EVM_CHAIN_ID)
+          : null;
 
         if (!res.ok) {
           const errText = await res.text().catch(() => "");

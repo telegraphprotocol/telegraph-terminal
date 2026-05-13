@@ -114,18 +114,11 @@ export function settlementFromResponse(response: Response): SettleResponse | nul
   }
 }
 
-export function explorerUrlForSettlement(settle: SettleResponse): string | null {
-  const tx = settle.transaction;
-  if (!tx) return null;
-  const net = settle.network ?? "";
-
-  if (net.startsWith("solana:")) {
-    const base = process.env.NEXT_PUBLIC_SOLANA_EXPLORER_TX_URL || "https://explorer.solana.com/tx";
-    const q = process.env.NEXT_PUBLIC_SOLANA_EXPLORER_CLUSTER_QUERY ?? "";
-    return `${base.replace(/\/$/, "")}/${tx}${q}`;
-  }
-
-  const chainId = parseEip155ChainId(net);
+/**
+ * EVM transaction explorer URL for a known chain id.
+ * Unknown chains return null (avoid defaulting to Polygon for every 0x hash).
+ */
+function evmTxExplorerUrl(chainId: number, tx: string): string | null {
   if (chainId === 137) {
     const base =
       process.env.NEXT_PUBLIC_POLYGON_EXPLORER_TX_URL || "https://polygonscan.com/tx";
@@ -137,11 +130,35 @@ export function explorerUrlForSettlement(settle: SettleResponse): string | null 
   if (chainId === 8453) {
     return `https://basescan.org/tx/${tx}`;
   }
+  if (chainId === 1) {
+    return `https://etherscan.io/tx/${tx}`;
+  }
+  return null;
+}
 
-  if (tx.startsWith("0x")) {
-    const base =
-      process.env.NEXT_PUBLIC_POLYGON_EXPLORER_TX_URL || "https://polygonscan.com/tx";
-    return `${base.replace(/\/$/, "")}/${tx}`;
+/**
+ * Build explorer URL from settlement metadata.
+ * Uses `eip155:<id>` from `settle.network` when parseable; otherwise `paymentChainId`
+ * (the chain the app used for x402 signing) so missing headers still link correctly.
+ */
+export function explorerUrlForSettlement(
+  settle: SettleResponse,
+  paymentChainId?: number,
+): string | null {
+  const tx = settle.transaction;
+  if (!tx) return null;
+  const net = settle.network ?? "";
+
+  if (net.startsWith("solana:")) {
+    const base = process.env.NEXT_PUBLIC_SOLANA_EXPLORER_TX_URL || "https://explorer.solana.com/tx";
+    const q = process.env.NEXT_PUBLIC_SOLANA_EXPLORER_CLUSTER_QUERY ?? "";
+    return `${base.replace(/\/$/, "")}/${tx}${q}`;
+  }
+
+  const parsed = parseEip155ChainId(net);
+  const effectiveChainId = parsed ?? paymentChainId;
+  if (effectiveChainId != null && Number.isFinite(effectiveChainId)) {
+    return evmTxExplorerUrl(effectiveChainId, tx);
   }
 
   return null;
