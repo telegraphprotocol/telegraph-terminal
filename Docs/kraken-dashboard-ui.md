@@ -4,9 +4,9 @@ This document describes the Kraken intelligence dashboard UI in the Next.js app 
 
 ## Data flow
 
-1. **Daemon read API** — `NEXT_PUBLIC_DAEMON_API_URL` (default `http://localhost:8081`). The dashboard loads [`/api/questions`](../src/lib/api-client.ts) with filters (`since_hours`, `category`, `sort`, `order`, `limit`, `offset`, `min_interest`) and [`/api/questions/top`](../src/lib/api-client.ts) for the right-hand alerts column. Health is checked via [`/health`](../src/lib/api-client.ts).
+1. **Daemon read API** — The browser calls same-origin **`/api/daemon/*`** (see [`api-client.ts`](../src/lib/api-client.ts)); Next proxies to the daemon using **`DAEMON_INTERNAL_URL`** (default `http://127.0.0.1:8081`). The dashboard loads `/api/questions` (proxied as `/api/daemon/api/questions`) with filters (`since_hours`, `category`, `sort`, `order`, `limit`, `offset`, `min_interest`) and `/api/questions/top` for the right-hand alerts column. Health is checked via `/health` (proxied as `/api/daemon/health`).
 2. **Collector-only feed** — The main table applies a client-side filter: rows where `source` is one of `reddit`, `gdelt`, `polymarket`, `hackernews`, `openmeteo`, excluding `user`. Totals still reflect the daemon page `total`; the table may show fewer rows than `total` when non-collector rows exist on the same page.
-3. **Engine catalog** — [`GET /v1/subnets`](../src/lib/api-client.ts) on `NEXT_PUBLIC_ENGINE_API_URL` feeds the header subnet picker and [`KrakenSkillCards`](../src/components/kraken/kraken-skill-cards.tsx). This is independent of the daemon feed.
+3. **Engine catalog** — [`GET /v1/subnets`](../src/lib/api-client.ts) via **`/api/engine/v1/subnets`**; Next proxies to the engine using **`ENGINE_INTERNAL_URL`** (default `http://127.0.0.1:7044`). This feeds the header subnet picker and [`KrakenSkillCards`](../src/components/kraken/kraken-skill-cards.tsx). This is independent of the daemon feed.
 
 ## Feed table (`KrakenFeed`)
 
@@ -61,10 +61,11 @@ This document describes the Kraken intelligence dashboard UI in the Next.js app 
 
 ## Environment
 
-See [`.env`](../.env) (or `.env.example` if present) for:
+See [`.env`](../.env) (or [`.env.example`](../.env.example)) for:
 
-- `NEXT_PUBLIC_DAEMON_API_URL`
-- `NEXT_PUBLIC_ENGINE_API_URL`
+- **`DAEMON_INTERNAL_URL`** — Next server → daemon HTTP (browser uses `/api/daemon/*`).
+- **`ENGINE_INTERNAL_URL`** — Next server → engine HTTP (browser uses `/api/engine/*`).
+- **`NEXT_PUBLIC_ENGINE_WS_URL`** — Browser → engine WebSocket (still direct; not proxied by Next).
 
 ## Related documentation
 

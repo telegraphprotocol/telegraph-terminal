@@ -237,7 +237,7 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
       setCoreWalletError(null);
     } catch (e) {
       setCoreWallet(null);
-      setCoreWalletError(e instanceof Error ? e.message : "Core wallet unreachable");
+      setCoreWalletError(e instanceof Error ? e.message : "Could not reach Terminal Backend (wallet).");
     }
   }, []);
 
@@ -614,7 +614,7 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
         try {
           data = JSON.parse(rawText) as unknown;
         } catch {
-          fail(new Error(`Core returned non-JSON (HTTP ${res.status})`));
+          fail(new Error(`Terminal Backend returned non-JSON (HTTP ${res.status})`));
           return;
         }
 
@@ -700,14 +700,14 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
       if (!isConnected) {
         setRuntimeError(
           USE_CORE_PAID_CHAT
-            ? "Core wallet is not ready. Check Core + Next `CORE_API_KEY` / proxy configuration."
+            ? "Terminal Backend wallet is not ready. Check Terminal Backend and Next `CORE_API_KEY` / proxy configuration."
             : "Engine WebSocket not connected",
         );
         return;
       }
 
       if (USE_CORE_PAID_CHAT && process.env.NEXT_PUBLIC_DEFAULT_NETWORK === "solana") {
-        setRuntimeError("Core paid chat via Solana is not wired in this build.");
+        setRuntimeError("Terminal Backend paid chat via Solana is not wired in this build.");
         return;
       }
 
@@ -762,14 +762,14 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
       if (!isConnected) {
         setRuntimeError(
           USE_CORE_PAID_CHAT
-            ? "Core wallet is not ready. Check Core + Next `CORE_API_KEY` / proxy configuration."
+            ? "Terminal Backend wallet is not ready. Check Terminal Backend and Next `CORE_API_KEY` / proxy configuration."
             : "Engine WebSocket not connected",
         );
         return;
       }
 
       if (USE_CORE_PAID_CHAT && process.env.NEXT_PUBLIC_DEFAULT_NETWORK === "solana") {
-        setRuntimeError("Core paid chat via Solana is not wired in this build.");
+        setRuntimeError("Terminal Backend paid chat via Solana is not wired in this build.");
         return;
       }
 

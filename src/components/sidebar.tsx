@@ -40,7 +40,7 @@ interface SidebarProps {
   historyGroups?: ConversationGroup[];
   /** Live terminal: row menu + archive/delete with confirmation */
   liveChatActions?: LiveChatSidebarActions;
-  /** When set (e.g. Core custodial wallet), replaces default footer identity */
+  /** When set (e.g. Terminal Backend custodial wallet), replaces default footer identity */
   walletFooter?: SidebarWalletFooter | null;
 }
 

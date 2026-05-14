@@ -84,8 +84,8 @@ export default function LiveChatPage() {
   if (useX402Chat) {
     chatLoadingHint =
       x402Phase === "paying"
-        ? "Processing x402 payment and paid chat on Core…"
-        : "Waiting for Core and Telegraph…";
+        ? "Processing x402 payment and paid chat on Terminal Backend…"
+        : "Waiting for Terminal Backend and Telegraph…";
   }
 
   return (
@@ -134,7 +134,7 @@ export default function LiveChatPage() {
                 <div className="mx-4 mb-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200 sm:mx-6">
                   {engineError ||
                     (useX402Chat
-                      ? "Core wallet proxy is not ready. Ensure telegraph-core is running and Next has CORE_API_KEY / CORE_INTERNAL_URL set."
+                      ? "Terminal Backend wallet proxy is not ready. Ensure telegraph-core is running and Next has CORE_API_KEY / CORE_INTERNAL_URL set."
                       : "Engine connection unavailable. Retrying...")}
                 </div>
               )}

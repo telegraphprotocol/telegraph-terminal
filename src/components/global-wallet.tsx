@@ -36,6 +36,18 @@ function formatUsdcBalance(d: CoreWalletPayload): string {
   return Number(d.usdcBalance).toLocaleString(undefined, { maximumFractionDigits: 6 });
 }
 
+/** USDC amount as USD for compact trigger label (API returns decimal string). */
+function formatUsdcTriggerLabel(usdcBalance: string | undefined): string {
+  if (usdcBalance == null || usdcBalance === "") return "$—";
+  const n = Number(usdcBalance);
+  if (!Number.isFinite(n)) return "$—";
+  return n.toLocaleString(undefined, {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 6,
+  });
+}
+
 function GlobalWalletPanel({
   loading,
   data,
@@ -114,13 +126,21 @@ function GlobalWalletPanel({
         <p className="text-[11px] text-muted-foreground">Wallet unavailable</p>
       ) : null}
 
-      <button
-        type="button"
-        onClick={onRefresh}
-        className="mt-2 text-[11px] text-primary underline-offset-2 hover:underline"
-      >
-        Refresh
-      </button>
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <button
+          type="button"
+          onClick={onRefresh}
+          className="text-[11px] text-primary underline-offset-2 hover:underline"
+        >
+          Refresh
+        </button>
+        <button
+          type="button"
+          className="text-[11px] text-primary underline-offset-2 hover:underline"
+        >
+          Top up
+        </button>
+      </div>
     </motion.div>
   );
 }
@@ -156,6 +176,11 @@ export function GlobalWallet({ className }: Readonly<{ className?: string }>) {
     const ok = localStorage.getItem(STORAGE_KEY) === "1";
     setRevealed(ok);
   }, []);
+
+  useEffect(() => {
+    if (revealed !== true) return;
+    void load();
+  }, [revealed, load]);
 
   useEffect(() => {
     if (!open) return;
@@ -198,7 +223,7 @@ export function GlobalWallet({ className }: Readonly<{ className?: string }>) {
           onClick={onReveal}
           className="rounded-md border border-border/60 bg-muted/30 px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted/50"
         >
-          Top up wallet
+          Top up
         </button>
       </div>
     );
@@ -208,7 +233,16 @@ export function GlobalWallet({ className }: Readonly<{ className?: string }>) {
   if (error) {
     triggerTitle = error;
   } else if (data) {
-    triggerTitle = `${truncateAddress(data.address)} · ${chainLabel(data.chainId)}`;
+    triggerTitle = `${truncateAddress(data.address)} · ${chainLabel(data.chainId)} · USDC ${formatUsdcBalance(data)}`;
+  }
+
+  let triggerLabel: string;
+  if (error && !data) {
+    triggerLabel = "Wallet";
+  } else if (loading && !data) {
+    triggerLabel = "…";
+  } else {
+    triggerLabel = formatUsdcTriggerLabel(data?.usdcBalance);
   }
 
   return (
@@ -218,6 +252,7 @@ export function GlobalWallet({ className }: Readonly<{ className?: string }>) {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="dialog"
+        aria-label="Global wallet"
         aria-busy={loading}
         title={triggerTitle}
         className={cn(
@@ -226,8 +261,8 @@ export function GlobalWallet({ className }: Readonly<{ className?: string }>) {
           error && !data ? "border-amber-500/40 bg-amber-500/5" : null,
         )}
       >
-        <span className="text-foreground">Wallet</span>
-        {loading ? (
+        <span className="tabular-nums text-foreground">{triggerLabel}</span>
+        {loading && data ? (
           <span className="text-[10px] font-normal text-muted-foreground" aria-live="polite">
             …
           </span>

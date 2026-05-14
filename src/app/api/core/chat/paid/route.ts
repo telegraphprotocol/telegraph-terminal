@@ -6,7 +6,7 @@ function coreBase(): string {
 }
 
 /**
- * Server-side proxy to Core `POST /v1/chat/paid`.
+ * Server-side proxy to Terminal Backend `POST /v1/chat/paid`.
  */
 export async function POST(req: NextRequest) {
   const key = process.env.CORE_API_KEY;
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
       body: body || undefined,
     });
   } catch {
-    return NextResponse.json({ error: "Could not reach Core (paid chat)." }, { status: 502 });
+    return NextResponse.json({ error: "Could not reach Terminal Backend (paid chat)." }, { status: 502 });
   }
 
   const text = await upstream.text();

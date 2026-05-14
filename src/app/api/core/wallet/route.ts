@@ -6,7 +6,7 @@ function coreBase(): string {
 }
 
 /**
- * Server-side proxy to Core `GET /v1/wallet` so the browser never holds `CORE_API_KEY`.
+ * Server-side proxy to Terminal Backend `GET /v1/wallet` so the browser never holds `CORE_API_KEY`.
  */
 export async function GET() {
   const key = process.env.CORE_API_KEY;
@@ -25,7 +25,7 @@ export async function GET() {
       cache: "no-store",
     });
   } catch {
-    return NextResponse.json({ error: "Could not reach Core (wallet)." }, { status: 502 });
+    return NextResponse.json({ error: "Could not reach Terminal Backend (wallet)." }, { status: 502 });
   }
 
   const text = await upstream.text();
