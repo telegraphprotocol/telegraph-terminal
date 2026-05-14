@@ -31,17 +31,12 @@ function chainLabel(chainId: number): string {
   return CHAIN_NAMES[chainId] ?? `Chain ${chainId}`;
 }
 
-function formatUsdcBalance(d: CoreWalletPayload): string {
-  if (d.usdcBalance == null) return "—";
-  return Number(d.usdcBalance).toLocaleString(undefined, { maximumFractionDigits: 6 });
-}
-
-/** USDC amount as USD for compact trigger label (API returns decimal string). */
-function formatUsdcTriggerLabel(usdcBalance: string | undefined): string {
+/** Wallet stablecoin balance shown as USD; `en-US` avoids locale prefixes like US$ (e.g. en-CA). */
+function formatUsdBalanceLabel(usdcBalance: string | undefined): string {
   if (usdcBalance == null || usdcBalance === "") return "$—";
   const n = Number(usdcBalance);
   if (!Number.isFinite(n)) return "$—";
-  return n.toLocaleString(undefined, {
+  return n.toLocaleString("en-US", {
     style: "currency",
     currency: "USD",
     maximumFractionDigits: 6,
@@ -116,8 +111,8 @@ function GlobalWalletPanel({
             <span className="tabular-nums text-foreground">{ethDisplay}</span>
           </span>
           <span className="inline-flex items-baseline gap-1 whitespace-nowrap">
-            <span className="text-muted-foreground">USDC</span>
-            <span className="tabular-nums text-foreground">{formatUsdcBalance(data)}</span>
+            <span className="text-muted-foreground">Balance</span>
+            <span className="tabular-nums text-foreground">{formatUsdBalanceLabel(data.usdcBalance)}</span>
           </span>
         </div>
       ) : null}
@@ -233,7 +228,7 @@ export function GlobalWallet({ className }: Readonly<{ className?: string }>) {
   if (error) {
     triggerTitle = error;
   } else if (data) {
-    triggerTitle = `${truncateAddress(data.address)} · ${chainLabel(data.chainId)} · USDC ${formatUsdcBalance(data)}`;
+    triggerTitle = `${truncateAddress(data.address)} · ${chainLabel(data.chainId)} · ${formatUsdBalanceLabel(data.usdcBalance)}`;
   }
 
   let triggerLabel: string;
@@ -242,7 +237,7 @@ export function GlobalWallet({ className }: Readonly<{ className?: string }>) {
   } else if (loading && !data) {
     triggerLabel = "…";
   } else {
-    triggerLabel = formatUsdcTriggerLabel(data?.usdcBalance);
+    triggerLabel = formatUsdBalanceLabel(data?.usdcBalance);
   }
 
   return (

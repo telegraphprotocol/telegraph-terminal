@@ -894,7 +894,15 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
       USE_CORE_PAID_CHAT && coreWallet
         ? {
             label: `${coreWallet.address.slice(0, 6)}…${coreWallet.address.slice(-4)}`,
-            subtitle: `Chain ${coreWallet.chainId}${coreWallet.usdcBalance != null ? ` · ${coreWallet.usdcBalance} USDC` : ""}`,
+            subtitle: `Chain ${coreWallet.chainId}${
+              coreWallet.usdcBalance != null
+                ? ` · ${Number(coreWallet.usdcBalance).toLocaleString("en-US", {
+                    style: "currency",
+                    currency: "USD",
+                    maximumFractionDigits: 6,
+                  })}`
+                : ""
+            }`,
             initials: coreWallet.address.slice(2, 4).toUpperCase(),
           }
         : null,
