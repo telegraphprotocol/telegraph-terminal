@@ -2,7 +2,7 @@
 
 import { PanelLeft, Globe, ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { ConnectButton } from "@/components/wallet/connect-button";
+import { GlobalWallet } from "@/components/global-wallet";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
   EngineSubnetPicker,
@@ -55,6 +55,7 @@ export function TopNav({
   subnetPicker,
   backToDashboardHref,
 }: TopNavProps) {
+  const showGlobalWallet = process.env.NEXT_PUBLIC_USE_CORE_X402 === "true";
   const titleAndSubtitle = (
     <div className="flex min-w-0 flex-1 flex-col">
       <h1 className="min-w-0 truncate whitespace-nowrap text-[14px] font-bold tracking-tight text-foreground/90 md:text-[15px]">
@@ -77,7 +78,7 @@ export function TopNav({
     <>
       <ThemeToggle />
       <EngineSubnetPicker {...subnetPicker} menuAlign="end" />
-      <ConnectButton />
+      {showGlobalWallet ? <GlobalWallet className="max-w-[14rem]" /> : null}
     </>
   );
 
@@ -99,7 +100,7 @@ export function TopNav({
             <EngineSubnetPicker {...subnetPicker} menuAlign="end" />
           </div>
           <div className="shrink-0">
-            <ConnectButton />
+            {showGlobalWallet ? <GlobalWallet className="max-w-[11rem] text-right" /> : null}
           </div>
         </div>
       </div>

@@ -50,6 +50,7 @@ export default function LiveChatPage() {
     engineSocketConnected,
     x402Phase,
     useX402Chat,
+    coreWalletFooter,
     handleSend,
     handleRetrySend,
     handleNewChat,
@@ -96,6 +97,7 @@ export default function LiveChatPage() {
         activeId={activeSessionId ?? undefined}
         onSelect={handleSelectSession}
         onNewChat={handleNewChat}
+        walletFooter={coreWalletFooter}
         liveChatActions={{
           onArchive: archiveSession,
           onRestore: restoreSession,
@@ -124,7 +126,7 @@ export default function LiveChatPage() {
                 <div className="mx-4 mb-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200 sm:mx-6">
                   {engineError ||
                     (useX402Chat
-                      ? "Connect your wallet (Base Sepolia or Polygon) to send paid Telegraph chat."
+                      ? "Core wallet proxy is not ready. Ensure telegraph-core is running and Next has CORE_API_KEY / CORE_INTERNAL_URL set."
                       : "Engine connection unavailable. Retrying...")}
                 </div>
               )}
@@ -134,7 +136,7 @@ export default function LiveChatPage() {
                   isLoading={isLoading}
                   loadingHint={
                     useX402Chat && x402Phase === "paying"
-                      ? "Completing x402 payment (sign in wallet if prompted)…"
+                      ? "Processing payment and chat on Core…"
                       : undefined
                   }
                   onRetrySend={handleRetrySend}
