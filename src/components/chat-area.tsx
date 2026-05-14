@@ -16,6 +16,23 @@ interface ChatAreaProps {
   onRetrySend?: (messageId: string) => void;
 }
 
+/** True while waiting for an assistant message after the latest user turn. */
+function awaitingAssistantAfterLastUser(messages: ChatMessage[], isLoading: boolean): boolean {
+  if (!isLoading) return false;
+  let lastUserIdx = -1;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === "user") {
+      lastUserIdx = i;
+      break;
+    }
+  }
+  if (lastUserIdx < 0) return true;
+  for (let j = lastUserIdx + 1; j < messages.length; j++) {
+    if (messages[j].role === "assistant") return false;
+  }
+  return true;
+}
+
 export function ChatArea({
   messages,
   isLoading,
@@ -123,12 +140,7 @@ export function ChatArea({
           )}
 
           {/* Loading indicator */}
-          {isLoading &&
-            !messages.some(
-              (m) =>
-                m.role === "assistant" &&
-                (m.id.includes("assistant") || m.id.includes("live-error")),
-            ) && (
+          {awaitingAssistantAfterLastUser(messages, Boolean(isLoading)) && (
             <motion.div
               key="subnet-loading"
               role="status"

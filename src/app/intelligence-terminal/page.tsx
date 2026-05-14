@@ -80,6 +80,14 @@ export default function LiveChatPage() {
   const hasMessages = messages.length > 0;
   const showTerminal = hasMessages || isLoading;
 
+  let chatLoadingHint: string | undefined;
+  if (useX402Chat) {
+    chatLoadingHint =
+      x402Phase === "paying"
+        ? "Processing x402 payment and paid chat on Core…"
+        : "Waiting for Core and Telegraph…";
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background md:flex-row">
       {effectiveSidebarOpen && (
@@ -134,11 +142,7 @@ export default function LiveChatPage() {
                 <ChatArea
                   messages={messages}
                   isLoading={isLoading}
-                  loadingHint={
-                    useX402Chat && x402Phase === "paying"
-                      ? "Processing payment and chat on Core…"
-                      : undefined
-                  }
+                  loadingHint={chatLoadingHint}
                   onRetrySend={handleRetrySend}
                   mobileTerminal={
                     showTerminal ? (
