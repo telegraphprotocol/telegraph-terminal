@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { ChevronDown } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 const STORAGE_KEY = "telegraph_terminal_wallet_revealed";
@@ -29,11 +31,107 @@ function chainLabel(chainId: number): string {
   return CHAIN_NAMES[chainId] ?? `Chain ${chainId}`;
 }
 
+function formatUsdcBalance(d: CoreWalletPayload): string {
+  if (d.usdcBalance == null) return "—";
+  return Number(d.usdcBalance).toLocaleString(undefined, { maximumFractionDigits: 6 });
+}
+
+function GlobalWalletPanel({
+  loading,
+  data,
+  error,
+  onRefresh,
+}: Readonly<{
+  loading: boolean;
+  data: CoreWalletPayload | null;
+  error: string | null;
+  onRefresh: () => void;
+}>) {
+  let errorText: string | null = null;
+  if (error) {
+    errorText = data ? `Could not refresh: ${error}` : error;
+  }
+  const showUnavailable = !data && !loading && !error;
+  const ethDisplay = data
+    ? Number(data.nativeBalanceFormatted).toLocaleString(undefined, {
+        maximumFractionDigits: 6,
+      })
+    : null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95, y: 10 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.95, y: 10 }}
+      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+      role="dialog"
+      aria-label="Wallet details"
+      className={cn(
+        "absolute top-[calc(100%+8px)] right-0 z-50 min-w-[min(100vw-2rem,20rem)] max-w-[min(90vw,28rem)] rounded-2xl border border-border/50 bg-popover/95 p-3 text-xs shadow-2xl shadow-primary/10 backdrop-blur-xl",
+      )}
+    >
+      {loading && !data ? (
+        <p className="text-[11px] text-muted-foreground" aria-live="polite">
+          Loading…
+        </p>
+      ) : null}
+
+      {errorText ? (
+        <p className="mb-2 text-[11px] text-amber-600 dark:text-amber-400">{errorText}</p>
+      ) : null}
+
+      {data ? (
+        <div
+          className={cn(
+            "flex flex-wrap items-baseline gap-x-3 gap-y-1.5 text-[11px] leading-snug",
+            loading ? "opacity-70" : null,
+          )}
+        >
+          <span className="inline-flex items-baseline gap-1 whitespace-nowrap">
+            <span className="text-muted-foreground">Chain</span>
+            <span className="text-foreground" title={String(data.chainId)}>
+              {chainLabel(data.chainId)}
+            </span>
+          </span>
+          <span className="inline-flex items-baseline gap-1 whitespace-nowrap">
+            <span className="text-muted-foreground">Address</span>
+            <span className="font-mono text-foreground" title={data.address}>
+              {truncateAddress(data.address)}
+            </span>
+          </span>
+          <span className="inline-flex items-baseline gap-1 whitespace-nowrap">
+            <span className="text-muted-foreground">ETH</span>
+            <span className="tabular-nums text-foreground">{ethDisplay}</span>
+          </span>
+          <span className="inline-flex items-baseline gap-1 whitespace-nowrap">
+            <span className="text-muted-foreground">USDC</span>
+            <span className="tabular-nums text-foreground">{formatUsdcBalance(data)}</span>
+          </span>
+        </div>
+      ) : null}
+
+      {showUnavailable ? (
+        <p className="text-[11px] text-muted-foreground">Wallet unavailable</p>
+      ) : null}
+
+      <button
+        type="button"
+        onClick={onRefresh}
+        className="mt-2 text-[11px] text-primary underline-offset-2 hover:underline"
+      >
+        Refresh
+      </button>
+    </motion.div>
+  );
+}
+
 export function GlobalWallet({ className }: Readonly<{ className?: string }>) {
   const [revealed, setRevealed] = useState<boolean | null>(null);
+  const [open, setOpen] = useState(false);
   const [data, setData] = useState<CoreWalletPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -42,14 +140,12 @@ export function GlobalWallet({ className }: Readonly<{ className?: string }>) {
       const res = await fetch("/api/core/wallet", { cache: "no-store" });
       const text = await res.text();
       if (!res.ok) {
-        setData(null);
         setError(text.slice(0, 200) || `HTTP ${res.status}`);
         return;
       }
       const json = JSON.parse(text) as CoreWalletPayload;
       setData(json);
     } catch (e) {
-      setData(null);
       setError(e instanceof Error ? e.message : "Wallet load failed");
     } finally {
       setLoading(false);
@@ -59,18 +155,24 @@ export function GlobalWallet({ className }: Readonly<{ className?: string }>) {
   useLayoutEffect(() => {
     const ok = localStorage.getItem(STORAGE_KEY) === "1";
     setRevealed(ok);
-    if (ok) {
-      setLoading(true);
-    }
   }, []);
 
   useEffect(() => {
-    if (revealed !== true) return;
+    if (!open) return;
     void load();
-  }, [revealed, load]);
+  }, [open, load]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   const onReveal = () => {
-    setLoading(true);
     try {
       localStorage.setItem(STORAGE_KEY, "1");
     } catch {
@@ -102,67 +204,47 @@ export function GlobalWallet({ className }: Readonly<{ className?: string }>) {
     );
   }
 
-  if (loading) {
-    return (
-      <div className={cn("text-xs text-muted-foreground", className)} aria-live="polite">
-        Loading…
-      </div>
-    );
+  let triggerTitle: string | undefined;
+  if (error) {
+    triggerTitle = error;
+  } else if (data) {
+    triggerTitle = `${truncateAddress(data.address)} · ${chainLabel(data.chainId)}`;
   }
-
-  if (error || !data) {
-    return (
-      <div className={cn("text-xs text-amber-200/90", className)} title={error ?? undefined}>
-        Wallet unavailable
-      </div>
-    );
-  }
-
-  const ethDisplay = Number(data.nativeBalanceFormatted).toLocaleString(undefined, {
-    maximumFractionDigits: 6,
-  });
-  const usdcDisplay =
-    data.usdcBalance == null
-      ? "—"
-      : Number(data.usdcBalance).toLocaleString(undefined, { maximumFractionDigits: 6 });
 
   return (
-    <div
-      className={cn(
-        "flex max-w-[min(100%,18rem)] flex-col gap-1 rounded-md border border-border/60 bg-muted/30 px-2 py-1.5 text-xs",
-        className,
-      )}
-    >
-      <div className="flex justify-between gap-2 text-[11px] leading-tight">
-        <span className="shrink-0 text-muted-foreground">Chain</span>
-        <span className="min-w-0 truncate text-right text-foreground" title={String(data.chainId)}>
-          {chainLabel(data.chainId)}
-        </span>
-      </div>
-      <div className="flex justify-between gap-2 text-[11px] leading-tight">
-        <span className="shrink-0 text-muted-foreground">Address</span>
-        <span
-          className="min-w-0 truncate font-mono text-right text-foreground"
-          title={data.address}
-        >
-          {truncateAddress(data.address)}
-        </span>
-      </div>
-      <div className="flex justify-between gap-2 text-[11px] leading-tight">
-        <span className="shrink-0 text-muted-foreground">ETH</span>
-        <span className="min-w-0 truncate text-right tabular-nums text-foreground">{ethDisplay}</span>
-      </div>
-      <div className="flex justify-between gap-2 text-[11px] leading-tight">
-        <span className="shrink-0 text-muted-foreground">USDC</span>
-        <span className="min-w-0 truncate text-right tabular-nums text-foreground">{usdcDisplay}</span>
-      </div>
+    <div ref={rootRef} className={cn("relative shrink-0", className)}>
       <button
         type="button"
-        onClick={() => void load()}
-        className="self-start text-[11px] text-primary underline-offset-2 hover:underline"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        aria-busy={loading}
+        title={triggerTitle}
+        className={cn(
+          "flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-border px-2.5 text-left text-[13px] font-medium transition-colors",
+          "hover:bg-muted/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+          error && !data ? "border-amber-500/40 bg-amber-500/5" : null,
+        )}
       >
-        Refresh
+        <span className="text-foreground">Wallet</span>
+        {loading ? (
+          <span className="text-[10px] font-normal text-muted-foreground" aria-live="polite">
+            …
+          </span>
+        ) : null}
+        <ChevronDown size={14} className="shrink-0 text-muted-foreground" aria-hidden />
       </button>
+
+      <AnimatePresence>
+        {open ? (
+          <GlobalWalletPanel
+            loading={loading}
+            data={data}
+            error={error}
+            onRefresh={() => void load()}
+          />
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }

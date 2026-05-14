@@ -245,7 +245,7 @@ export default function KrakenDashboard() {
                 <span className="absolute right-2 top-2 h-2 w-2 rounded-full border-2 border-background bg-primary" />
               </button>
               <div className="flex min-h-[44px] min-w-0 flex-1 flex-wrap items-center gap-2">
-                {showGlobalWallet ? <GlobalWallet className="max-w-[min(100%,14rem)]" /> : null}
+                {showGlobalWallet ? <GlobalWallet className="shrink-0" /> : null}
               </div>
             </div>
             <KrakenHeaderNav className="-mx-4 min-h-[44px] border-t border-border px-4 py-2 sm:-mx-6 sm:px-6" />
@@ -294,7 +294,7 @@ export default function KrakenDashboard() {
                   <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full border-2 border-background bg-primary" />
                 </button>
                 <div className="flex shrink-0 items-center">
-                  {showGlobalWallet ? <GlobalWallet className="max-w-[14rem]" /> : null}
+                  {showGlobalWallet ? <GlobalWallet className="shrink-0" /> : null}
                 </div>
               </div>
             </div>

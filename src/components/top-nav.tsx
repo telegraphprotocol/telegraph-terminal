@@ -78,7 +78,7 @@ export function TopNav({
     <>
       <ThemeToggle />
       <EngineSubnetPicker {...subnetPicker} menuAlign="end" />
-      {showGlobalWallet ? <GlobalWallet className="max-w-[14rem]" /> : null}
+      {showGlobalWallet ? <GlobalWallet className="shrink-0" /> : null}
     </>
   );
 
@@ -100,7 +100,7 @@ export function TopNav({
             <EngineSubnetPicker {...subnetPicker} menuAlign="end" />
           </div>
           <div className="shrink-0">
-            {showGlobalWallet ? <GlobalWallet className="max-w-[11rem] text-right" /> : null}
+            {showGlobalWallet ? <GlobalWallet className="shrink-0" /> : null}
           </div>
         </div>
       </div>
