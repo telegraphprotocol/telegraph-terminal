@@ -1,0 +1,162 @@
+version: "1"
+kind: subnet
+id: 64
+slug: bittensor-sn64-chutes
+protocol: bittensor
+name: Chutes High-Performance LLM (Bittensor SN64)
+description: >
+  Bittensor Subnet 64 — Chutes provides serverless high-performance LLM
+  inference including models like DeepSeek. Suitable for computationally
+  intensive tasks where latency and throughput are priorities.
+  Images API endpoints (create, list, manage) use a separate base URL
+  (https://api.chutes.ai) configured per-endpoint.
+base_url: https://llm.chutes.ai/v1
+auth:
+  type: header
+  env_var: CHUTES_API_KEY
+  header_name: Authorization
+rate_limit_per_sec: 10
+cache_ttl_sec: 0
+circuit_threshold: 10
+circuit_cooldown_seconds: 30
+endpoints:
+  - path: /chat/completions
+    external_path: /chat/completions
+    method: POST
+    description: >
+      Chat completion using high-performance Chutes-hosted models (e.g. DeepSeek).
+      Supported models are: 
+      Id: deepseek-ai/DeepSeek-R1-0528-TEE (best for complex reasoning, math, and multi-step problem solving, TEE-isolated),
+      Id: deepseek-ai/DeepSeek-V3.2-TEE (best for general high-quality generation and instruction following, TEE-isolated),
+      Id: Qwen/Qwen3-235B-A22B-Instruct-2507-TEE (best for agentic loops and tool-calling workflows, 262K context, TEE-isolated).
+
+  - path: /completions
+    external_path: /completions
+    method: POST
+    description: >
+      Text completion (non-chat format).
+      Supported models: deepseek-ai/DeepSeek-V3.2-TEE (best general-purpose completion model, low output cost at $0.42/1M, TEE-isolated),
+      Qwen/Qwen3-30B-A3B (fast and capable non-TEE option, good for high-throughput completion tasks),
+      unsloth/Mistral-Nemo-Instruct-2407 (lightweight budget option for simple completions, $0.02/$0.04 per 1M tokens).
+
+  - path: /images
+    external_path: /images
+    method: GET
+    description: >
+      List images (Chutes Images API).
+      Supported models: moonshotai/Kimi-K2.5-TEE (supports text+image+video input modalities, use for image understanding tasks),
+      Qwen/Qwen3.5-397B-A17B-TEE (supports image input alongside text, large 262K context multimodal model),
+      unsloth/gemma-3-27b-it (lightweight multimodal option for image+text tasks, $0.027/$0.109 per 1M tokens).
+    endpoint_base_url: https://api.chutes.ai
+
+  - path: /images/create
+    external_path: /images
+    method: POST
+    description: >
+      Create/generate an image (Chutes Images API).
+      Supported models: moonshotai/Kimi-K2.5-TEE (multimodal model supporting image+video input, best for image-grounded generation),
+      moonshotai/Kimi-K2.6-TEE (latest Kimi multimodal, image+video input, 262K context, stronger reasoning),
+      zai-org/GLM-4.6V (vision-language model with image input support, $0.30/$0.90 per 1M tokens).
+    endpoint_base_url: https://api.chutes.ai
+
+input_schema:
+  type: object
+  required: [model]
+  properties:
+    model:
+      type: string
+      description: "Model identifier (e.g. 'deepseek-ai/DeepSeek-V3.2-TEE')."
+    messages:
+      type: array
+      description: Required for /chat/completions.
+      items:
+        type: object
+        properties:
+          role: { type: string, enum: [system, user, assistant] }
+          content: { type: string }
+    prompt:
+      type: string
+      description: Required for /completions.
+    temperature: { type: number, minimum: 0, maximum: 2 }
+    max_tokens: { type: integer, minimum: 1 }
+    stream: { type: boolean }
+output_schema:
+  type: object
+  properties:
+    id: { type: string }
+    model: { type: string }
+    choices:
+      type: array
+      items:
+        type: object
+        properties:
+          message:
+            type: object
+            properties:
+              role: { type: string }
+              content: { type: string }
+          finish_reason: { type: string }
+    usage:
+      type: object
+      properties:
+        prompt_tokens: { type: integer }
+        completion_tokens: { type: integer }
+        total_tokens: { type: integer }
+semantics:
+  signal_mapping:
+    type: language_response
+    label_field: choices
+  supported_intents:
+    - LANGUAGE_GENERATION
+    - CHAT_COMPLETION
+    - HIGH_PERFORMANCE_INFERENCE
+    - TEXT_GENERATION
+# on_chain: layout for chat/completions endpoint (OpenAI-compatible format).
+# Response: {choices:[{message:{content,role},finish_reason}], model, usage:{...}}
+# transform=direct: clean path extraction — no LLM needed.
+#
+# On-chain array layout (shared by all OpenAI-compatible LLM subnets):
+#   strings[0]  = response_text       (generated content)
+#   strings[1]  = model               (model name used)
+#   integers[0] = completion_tokens   (output token count)
+#   integers[1] = prompt_tokens       (input token count)
+on_chain:
+  description: >
+    LLM chat completion response. Shared layout for all OpenAI-compatible
+    inference subnets (Chutes, Groq, OpenAI, Apex, Nineteen, etc.).
+  transform: direct
+  min_price_usdc: 0.05
+  fields:
+    strings:
+      - index: 0
+        name: response_text
+        description: Generated text content from the model.
+        source_path: choices.0.message.content
+      - index: 1
+        name: model
+        description: Model name used for generation (e.g. "deepseek-ai/DeepSeek-V3-0324").
+        source_path: model
+    integers:
+      - index: 0
+        name: completion_tokens
+        description: Number of completion (output) tokens used.
+        source_path: usage.completion_tokens
+      - index: 1
+        name: prompt_tokens
+        description: Number of prompt (input) tokens used.
+        source_path: usage.prompt_tokens
+  request:
+    - endpoint: chat/completions
+      method: POST
+      body:
+        model: { source: strings.0 }
+        messages: { source: strings.1, format: chat_messages }
+    - endpoint: completions
+      method: POST
+      body:
+        model: { source: strings.0 }
+        prompt: { source: strings.1 }
+        temperature: { source: strings.2, optional: true, type: float }
+        max_tokens: { source: numbers.0, optional: true }
+        stream: { source: bools.0, optional: true }
+        logprobs: { source: bools.1, optional: true }

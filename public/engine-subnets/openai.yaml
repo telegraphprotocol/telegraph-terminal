@@ -1,0 +1,217 @@
+version: "1"
+kind: subnet
+id: 102
+slug: openai
+protocol: generic
+name: OpenAI
+description: >
+  OpenAI API providing chat completions, the new Responses API (with web search
+  and tool use), vector embeddings, DALL-E image generation, and content
+  moderation. Complements Nineteen AI (SN19) with direct OpenAI access.
+
+base_url: https://api.openai.com
+
+auth:
+  type: bearer
+  env_var: OPENAI_API_KEY
+
+rate_limit_per_sec: 10
+cache_ttl_sec: 0
+circuit_threshold: 5
+circuit_cooldown_seconds: 30
+
+# Intelligence Terminal: direct /v1/ask/:id UI hints (bundled in this app only).
+telegraph_direct:
+  ui_endpoint_paths:
+    - /chat
+
+endpoints:
+  - path: /chat
+    external_path: /v1/chat/completions
+    method: POST
+    telegraph_direct:
+      required_payload_keys: [model, messages]
+      default_model: "gpt-4o-mini"
+    description: >
+      OpenAI Chat Completions. Standard messages[]-based interface.
+      Supports gpt-4o, gpt-4o-mini, o4-mini. OpenAI-compatible with Nineteen AI (SN19).
+
+  - path: /responses
+    external_path: /v1/responses
+    method: POST
+    description: >
+      OpenAI Responses API (March 2025). Superset of Chat Completions with built-in
+      tool support. Add "tools":[{"type":"web_search_preview"}] for live web search.
+      Uses "input" (string or array) instead of "messages", "max_output_tokens" instead
+      of "max_tokens". Response has output_text and output[] fields.
+
+  - path: /embed
+    external_path: /v1/embeddings
+    method: POST
+    description: >
+      Text-to-vector embeddings for RAG and semantic search.
+      Use text-embedding-3-small (fast/cheap) or text-embedding-3-large (best quality).
+
+  - path: /images/generate
+    external_path: /v1/images/generations
+    method: POST
+    description: >
+      DALL-E image generation from text prompt.
+      Models: gpt-image-1 (latest), dall-e-3 (1024x1024), dall-e-2 (up to 1024x1024).
+
+  - path: /moderate
+    external_path: /v1/moderations
+    method: POST
+    description: >
+      Content moderation (free endpoint). Checks input text for policy violations.
+      Returns categories (hate, violence, sexual, self-harm, etc.) and category scores.
+
+input_schema:
+  type: object
+  required: [messages, model]
+  properties:
+    model:
+      type: string
+      description: >
+        Model ID. Chat/Responses: gpt-4o, gpt-4o-mini, o4-mini, o3.
+        Embeddings: text-embedding-3-small, text-embedding-3-large.
+        Images: gpt-image-1, dall-e-3, dall-e-2.
+        Moderation: omni-moderation-latest.
+    messages:
+      type: array
+      description: "For /chat: conversation messages array."
+      items:
+        type: object
+        required: [role, content]
+        properties:
+          role: { type: string, enum: [system, user, assistant] }
+          content: { type: string }
+    input:
+      description: "For /responses: string prompt or array of message objects [{role, content}]."
+    max_tokens:
+      type: integer
+      description: "For /chat: maximum completion tokens."
+    max_output_tokens:
+      type: integer
+      description: "For /responses: maximum output tokens."
+    temperature: { type: number, minimum: 0, maximum: 2 }
+    tools:
+      type: array
+      description: "For /responses: tool list. E.g. [{\"type\":\"web_search_preview\"}] for live web search."
+    prompt:
+      type: string
+      description: "For /images/generate: text description of the desired image."
+    n:
+      type: integer
+      description: "For /images/generate: number of images to generate (1–10)."
+    size:
+      type: string
+      description: "For /images/generate: image dimensions, e.g. 256x256, 512x512, 1024x1024."
+    response_format:
+      type: string
+      description: "For /images/generate: url (default) or b64_json."
+    encoding_format:
+      type: string
+      description: "For /embed: float (default) or base64."
+
+output_schema:
+  type: object
+  description: "Response shape varies by endpoint."
+  properties:
+    choices:
+      type: array
+      description: "/chat response: array of completion choices."
+      items:
+        type: object
+        properties:
+          message:
+            type: object
+            properties:
+              role: { type: string }
+              content: { type: string }
+          finish_reason: { type: string }
+    output_text:
+      type: string
+      description: "/responses convenience field — full synthesized text answer."
+    output:
+      type: array
+      description: "/responses structured output. output[0].content[0].text has the answer."
+    data:
+      type: array
+      description: "/embed: embedding vectors. /images/generate: image URLs or base64."
+      items:
+        type: object
+        properties:
+          embedding:
+            type: array
+            items: { type: number }
+          index: { type: integer }
+          url: { type: string }
+          b64_json: { type: string }
+    results:
+      type: array
+      description: "/moderate: moderation results per input."
+      items:
+        type: object
+        properties:
+          flagged: { type: boolean }
+          categories: { type: object }
+          category_scores: { type: object }
+    usage:
+      type: object
+      properties:
+        prompt_tokens: { type: integer }
+        completion_tokens: { type: integer }
+        total_tokens: { type: integer }
+
+semantics:
+  signal_mapping:
+    type: multimodal_response
+    label_field: choices
+  supported_intents:
+    - CHAT_COMPLETION
+    - WEB_SEARCH
+    - IMAGE_GENERATION
+    - CONTENT_MODERATION
+    - MULTIMODAL_INFERENCE
+# on_chain: layout for the /chat endpoint (OpenAI Chat Completions format).
+# Applies to /chat only. /embed, /images/generate, /moderate have different
+# response shapes and are not mapped to on-chain data at this time.
+# transform=direct: same layout as Chutes and Groq (OpenAI-compatible).
+#
+# On-chain array layout:
+#   strings[0]  = response_text     (generated content)
+#   strings[1]  = model             (model used, e.g. "gpt-4o-mini")
+#   integers[0] = completion_tokens
+#   integers[1] = prompt_tokens
+on_chain:
+  description: >
+    OpenAI Chat Completions response for the /chat endpoint.
+    Same on-chain layout as all other OpenAI-compatible LLM subnets.
+  transform: direct
+  min_price_usdc: 0.05
+  fields:
+    strings:
+      - index: 0
+        name: response_text
+        description: Generated text content from the model.
+        source_path: choices.0.message.content
+      - index: 1
+        name: model
+        description: Model name used (e.g. "gpt-4o-mini").
+        source_path: model
+    integers:
+      - index: 0
+        name: completion_tokens
+        description: Number of completion tokens used.
+        source_path: usage.completion_tokens
+      - index: 1
+        name: prompt_tokens
+        description: Number of prompt tokens used.
+        source_path: usage.prompt_tokens
+  request:
+    - endpoint: chat
+      method: POST
+      body:
+        model: { source: strings.0 }
+        messages: { source: strings.1, format: chat_messages }

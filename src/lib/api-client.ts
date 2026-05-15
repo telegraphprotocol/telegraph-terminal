@@ -36,11 +36,11 @@ export const apiClient = {
     return response.json();
   },
 
-  async directAsk(subnetId: string, endpoint: string, payload: unknown): Promise<EngineHttpDirectAskResponse> {
+  async directAsk(subnetId: string, endpoint: string, payload: unknown) {
     const response = await fetch(`${ENGINE_PROXY_PREFIX}/v1/ask/${subnetId}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ endpoint, payload }),
+      body: JSON.stringify({ method: "POST", endpoint, payload }),
     });
     if (!response.ok) throw new Error("Engine API error");
     return response.json();

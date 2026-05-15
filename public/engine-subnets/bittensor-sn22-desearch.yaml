@@ -1,0 +1,122 @@
+version: "1"
+kind: subnet
+id: 22
+slug: bittensor-sn22-desearch
+protocol: bittensor
+name: DeSearch (Bittensor SN22)
+description: >
+  Bittensor Subnet 22 — DeSearch provides AI-powered web search, Twitter/X
+  search, and deep research synthesis. The autonomous engine can use DeSearch
+  to retrieve real-time information before making decisions (news, market data,
+  social sentiment, fact-checking).
+
+base_url: https://api.desearch.ai
+
+auth:
+  type: header
+  env_var: DESEARCH_API_KEY
+  header_name: Authorization
+
+rate_limit_per_sec: 10
+cache_ttl_sec: 30
+circuit_threshold: 5
+circuit_cooldown_seconds: 30
+
+endpoints:
+  - path: /search
+    external_path: /desearch/ai/search
+    method: POST
+    description: AI-powered web and Twitter search with a natural language query.
+
+  - path: /search/links/web
+    external_path: /desearch/ai/search/links/web
+    method: POST
+    description: Returns raw web search result links for a query.
+
+  - path: /web
+    external_path: /web
+    method: GET
+    description: Direct web search query (GET-based).
+
+input_schema:
+  type: object
+  required: [query]
+  properties:
+    query:
+      type: string
+      description: Natural language search query.
+    tools:
+      type: array
+      items: { type: string }
+      description: "Optional list of tools to enable (e.g. ['web', 'twitter'])."
+    model: { type: string }
+
+output_schema:
+  type: object
+  properties:
+    results:
+      type: array
+      items:
+        type: object
+        properties:
+          title: { type: string }
+          url: { type: string }
+          snippet: { type: string }
+    synthesis: { type: string }
+
+semantics:
+  signal_mapping:
+    type: search_relevance
+    label_field: results
+    reason_field: synthesis
+  supported_intents:
+    - WEB_SEARCH
+    - TWITTER_SEARCH
+    - NEWS_SEARCH
+    - RESEARCH_SYNTHESIS
+    - FACT_CHECK
+# on_chain: layout for /search endpoint (DeSearch AI-powered web/Twitter search).
+# Response: {results:[{title,url,snippet,...}], synthesis: "..."}
+# transform=llm because the results array varies in size and structure, and the
+# synthesis is free-form text. The LLM extracts key metadata.
+#
+# On-chain array layout:
+#   strings[0]  = synthesis          (AI-synthesized summary of search results)
+#   strings[1]  = top_title          (title of the most relevant result)
+#   strings[2]  = top_url            (URL of the most relevant result)
+#   integers[0] = result_count       (number of results returned)
+on_chain:
+  description: >
+    Search results from DeSearch AI (web and Twitter). Extracts the synthesis
+    summary, top result title/URL, and result count for on-chain storage.
+  transform: llm
+  min_price_usdc: 0.03
+  fields:
+    strings:
+      - index: 0
+        name: synthesis
+        description: AI-synthesized summary of search results.
+      - index: 1
+        name: top_title
+        description: Title of the most relevant search result (first item).
+      - index: 2
+        name: top_url
+        description: URL of the most relevant search result (first item).
+    integers:
+      - index: 0
+        name: result_count
+        description: Number of search results returned.
+  request:
+    - endpoint: search/links/web
+      method: POST
+      body:
+        query: { source: strings.0 }
+    - endpoint: search
+      method: POST
+      body:
+        query: { source: strings.0 }
+    - endpoint: web
+      method: GET
+      query_params:
+        query: { source: strings.0 }
+

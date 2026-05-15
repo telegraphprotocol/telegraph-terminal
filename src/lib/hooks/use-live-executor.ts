@@ -9,6 +9,15 @@ import {
 } from "@/lib/mock-data";
 import { useEngineWS } from "@/lib/hooks/use-engine-ws";
 import { EngineAskResult, EngineWsFrame } from "@/lib/engine-daemon-types";
+import type { SubnetPickItem } from "@/lib/subnet-catalog";
+import {
+  computePaidDirectBody,
+  fetchSubnetYamlBySlug,
+  getDefaultDirectModelForSpec,
+  pickDefaultEndpoint,
+  type ParsedSubnetYaml,
+  type PaidDirectCallBody,
+} from "@/lib/subnet-direct-spec";
 
 const LS_KEY = "telegraph-live-chat-sessions-v1";
 const LS_VERSION = 2 as const;
@@ -30,9 +39,6 @@ function sleep(ms: number): Promise<void> {
 
 const X402_CHAT_MODEL =
   process.env.NEXT_PUBLIC_X402_CHAT_MODEL?.trim() || "gpt-4o-mini";
-
-const PAID_CHAT_FORCED_SUBNET_MSG =
-  'Paid chat supports auto-routing only. Choose "Auto routing" in the subnet picker.';
 
 export type LiveTerminalReceipt = {
   subnet: string;
@@ -216,7 +222,10 @@ function chatMessagesToOpenAi(
   return out;
 }
 
-export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
+export function useLiveExecutor(opts?: {
+  forcedSubnetId?: string | null;
+  engineSubnets?: SubnetPickItem[];
+}) {
   const forcedSubnetId = opts?.forcedSubnetId ?? null;
 
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -225,9 +234,20 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
 
   const [isLoading, setIsLoading] = useState(false);
   const [terminalLogs, setTerminalLogs] = useState<TerminalLogEntry[]>([]);
+  const [subnetYamlSpec, setSubnetYamlSpec] = useState<ParsedSubnetYaml | null>(null);
+  const [subnetSpecLoading, setSubnetSpecLoading] = useState(false);
+  const [subnetSpecError, setSubnetSpecError] = useState<string | null>(null);
+  const [directEndpointPath, setDirectEndpointPath] = useState<string | null>(null);
+  const [directModel, setDirectModel] = useState(X402_CHAT_MODEL);
+  const [directImageUrl, setDirectImageUrl] = useState("");
+  const [directLat, setDirectLat] = useState("");
+  const [directLon, setDirectLon] = useState("");
+  const [directGateError, setDirectGateError] = useState<string | null>(null);
   const [terminalReceipt, setTerminalReceipt] = useState<LiveTerminalReceipt | null>(null);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
   const [x402Phase, setX402Phase] = useState<null | "paying" | "settled">(null);
+  /** Bump whenever paid subnet / endpoint changes so we re-apply YAML default_model. */
+  const directModelContextKeyRef = useRef<string | null>(null);
   const { isConnected: engineSocketConnected, lastError, sendMessage, subscribe } = useEngineWS();
 
   type CoreWalletPayload = {
@@ -300,6 +320,71 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
   useEffect(() => {
     sessionsRef.current = sessions;
   }, [sessions]);
+
+  useEffect(() => {
+    setDirectImageUrl("");
+    setDirectLat("");
+    setDirectLon("");
+    setDirectGateError(null);
+    directModelContextKeyRef.current = null;
+  }, [forcedSubnetId]);
+
+  useEffect(() => {
+    if (!USE_TERMINAL_BACKEND_PAID_CHAT || !forcedSubnetId || !subnetYamlSpec || !directEndpointPath) {
+      return;
+    }
+    if (subnetYamlSpec.id !== forcedSubnetId) {
+      return;
+    }
+    const key = `${subnetYamlSpec.id}:${directEndpointPath}`;
+    if (directModelContextKeyRef.current === key) return;
+    const def = getDefaultDirectModelForSpec(subnetYamlSpec, directEndpointPath);
+    setDirectModel(def ?? X402_CHAT_MODEL);
+    directModelContextKeyRef.current = key;
+  }, [forcedSubnetId, subnetYamlSpec, directEndpointPath]);
+
+  useEffect(() => {
+    if (!USE_TERMINAL_BACKEND_PAID_CHAT || !forcedSubnetId) {
+      setSubnetYamlSpec(null);
+      setSubnetSpecLoading(false);
+      setSubnetSpecError(null);
+      setDirectEndpointPath(null);
+      return;
+    }
+
+    const slug = opts?.engineSubnets?.find((s) => s.id === forcedSubnetId)?.slug;
+    if (!slug) {
+      setSubnetYamlSpec(null);
+      setSubnetSpecLoading(false);
+      setSubnetSpecError(
+        "Subnet slug missing from engine /v1/subnets — cannot load YAML spec.",
+      );
+      return;
+    }
+
+    let cancelled = false;
+    setSubnetSpecLoading(true);
+    setSubnetSpecError(null);
+
+    void fetchSubnetYamlBySlug(slug).then((spec) => {
+      if (cancelled) return;
+      setSubnetSpecLoading(false);
+      if (!spec) {
+        setSubnetYamlSpec(null);
+        setSubnetSpecError(
+          `Missing /engine-subnets/${slug}.yaml. Add it under public/engine-subnets/ in this repo.`,
+        );
+        return;
+      }
+      setSubnetYamlSpec(spec);
+      const d = pickDefaultEndpoint(spec);
+      setDirectEndpointPath(d?.path ?? null);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [forcedSubnetId, opts?.engineSubnets]);
 
   useEffect(() => {
     try {
@@ -614,6 +699,7 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
       sessionId: string,
       userMessageId: string,
       openAiMessages: { role: "user" | "assistant" | "system"; content: string }[],
+      paidDirect?: PaidDirectCallBody | null,
     ) => {
       const pushLog = (label: string, detail: string) => {
         const time = new Date().toLocaleTimeString();
@@ -641,6 +727,12 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
           body: JSON.stringify({
             model: X402_CHAT_MODEL,
             messages: openAiMessages,
+            ...(paidDirect
+              ? {
+                  subnetId: paidDirect.subnetId,
+                  direct: paidDirect.direct,
+                }
+              : {}),
           }),
         });
         const rawText = await res.text();
@@ -719,12 +811,29 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
 
   const handleSend = useCallback(
     async (text: string) => {
-      if (!text.trim()) return;
+      const trimmed = text.trim();
+      const paidForced = USE_TERMINAL_BACKEND_PAID_CHAT && Boolean(forcedSubnetId);
+      const hasDirectGeo =
+        Boolean(directLat.trim()) && Boolean(directLon.trim());
+
+      if (!trimmed && !paidForced) return;
+      if (!trimmed && paidForced && !directImageUrl.trim() && !hasDirectGeo) {
+        setDirectGateError(
+          "Add a chat message, an image URL, or latitude + longitude before sending.",
+        );
+        return;
+      }
+
+      const userLine =
+        trimmed ||
+        (directImageUrl.trim() ? "Image verification" : "") ||
+        (hasDirectGeo ? "Direct subnet request" : "") ||
+        "Direct subnet request";
 
       const userMsg: ChatMessage = {
         id: `live-user-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
         role: "user",
-        content: [{ kind: "text", text }],
+        content: [{ kind: "text", text: userLine }],
         sendState: "pending",
       };
 
@@ -745,9 +854,28 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
         return;
       }
 
-      if (USE_TERMINAL_BACKEND_PAID_CHAT && forcedSubnetIdRef.current) {
-        setRuntimeError(PAID_CHAT_FORCED_SUBNET_MSG);
-        return;
+      let paidDirectBody: PaidDirectCallBody | null = null;
+      if (paidForced && forcedSubnetId) {
+        if (subnetSpecLoading || !subnetYamlSpec || !directEndpointPath) {
+          setDirectGateError(
+            subnetSpecLoading
+              ? "Subnet spec is still loading."
+              : "Subnet spec or endpoint is not ready.",
+          );
+          return;
+        }
+        const built = computePaidDirectBody(forcedSubnetId, subnetYamlSpec, directEndpointPath, userLine, {
+          model: directModel || X402_CHAT_MODEL,
+          imageUrl: directImageUrl,
+          lat: directLat,
+          lon: directLon,
+        });
+        if (!built.ok) {
+          setDirectGateError(built.error);
+          return;
+        }
+        paidDirectBody = built.body;
+        setDirectGateError(null);
       }
 
       const priorThread = (sessions.find((s) => s.id === sessionId)?.messages ?? []).filter(
@@ -764,22 +892,36 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
 
       if (USE_TERMINAL_BACKEND_PAID_CHAT) {
         try {
-          await executeCorePaidChat(sessionId, userMsg.id, openAiMessages);
+          await executeCorePaidChat(sessionId, userMsg.id, openAiMessages, paidDirectBody);
         } finally {
           setIsLoading(false);
         }
         return;
       }
 
-      activeQueryCell.current.value = text;
+      activeQueryCell.current.value = trimmed || userLine;
       const sid = forcedSubnetIdRef.current;
       sendMessage({
         action: "ask",
-        query: text,
+        query: trimmed || userLine,
         ...(sid ? { context: { subnet_id: sid } } : {}),
       });
     },
-    [isConnected, sendMessage, appendToSessionMessages, sessions, executeCorePaidChat],
+    [
+      isConnected,
+      sendMessage,
+      appendToSessionMessages,
+      sessions,
+      executeCorePaidChat,
+      forcedSubnetId,
+      subnetSpecLoading,
+      subnetYamlSpec,
+      directEndpointPath,
+      directModel,
+      directImageUrl,
+      directLat,
+      directLon,
+    ],
   );
 
   const handleRetrySend = useCallback(
@@ -812,9 +954,30 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
         return;
       }
 
+      let paidDirectBody: PaidDirectCallBody | null = null;
       if (USE_TERMINAL_BACKEND_PAID_CHAT && forcedSubnetIdRef.current) {
-        setRuntimeError(PAID_CHAT_FORCED_SUBNET_MSG);
-        return;
+        const sid = forcedSubnetIdRef.current;
+        if (!sid || !subnetYamlSpec || !directEndpointPath) {
+          setRuntimeError("Subnet spec not ready; wait for YAML to load before retrying.");
+          return;
+        }
+        const line =
+          text.trim() ||
+          (directImageUrl.trim() ? "Image verification" : "") ||
+          (directLat.trim() && directLon.trim() ? "Direct subnet request" : "") ||
+          "Direct subnet request";
+        const built = computePaidDirectBody(sid, subnetYamlSpec, directEndpointPath, line, {
+          model: directModel || X402_CHAT_MODEL,
+          imageUrl: directImageUrl,
+          lat: directLat,
+          lon: directLon,
+        });
+        if (!built.ok) {
+          setDirectGateError(built.error);
+          return;
+        }
+        paidDirectBody = built.body;
+        setDirectGateError(null);
       }
 
       const updatedMsgs = session.messages.map((m) =>
@@ -847,7 +1010,7 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
 
       if (USE_TERMINAL_BACKEND_PAID_CHAT) {
         try {
-          await executeCorePaidChat(sessionId, messageId, openAiMessages);
+          await executeCorePaidChat(sessionId, messageId, openAiMessages, paidDirectBody);
         } finally {
           setIsLoading(false);
         }
@@ -862,7 +1025,19 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
         ...(sid ? { context: { subnet_id: sid } } : {}),
       });
     },
-    [isConnected, isLoading, sendMessage, sessions, executeCorePaidChat],
+    [
+      isConnected,
+      isLoading,
+      sendMessage,
+      sessions,
+      executeCorePaidChat,
+      subnetYamlSpec,
+      directEndpointPath,
+      directModel,
+      directImageUrl,
+      directLat,
+      directLon,
+    ],
   );
 
   const handleNewChat = useCallback(() => {
@@ -961,5 +1136,31 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
     archiveSession,
     restoreSession,
     deleteSession,
+    directSubnetPanel:
+      USE_TERMINAL_BACKEND_PAID_CHAT && forcedSubnetId
+        ? {
+            spec: subnetYamlSpec,
+            loading: subnetSpecLoading,
+            error: subnetSpecError,
+            endpointPath: directEndpointPath,
+            setEndpointPath: setDirectEndpointPath,
+            model: directModel,
+            setModel: setDirectModel,
+            modelPlaceholder:
+              subnetYamlSpec &&
+              forcedSubnetId &&
+              subnetYamlSpec.id === forcedSubnetId &&
+              directEndpointPath
+                ? getDefaultDirectModelForSpec(subnetYamlSpec, directEndpointPath) ?? X402_CHAT_MODEL
+                : X402_CHAT_MODEL,
+            imageUrl: directImageUrl,
+            setImageUrl: setDirectImageUrl,
+            lat: directLat,
+            setLat: setDirectLat,
+            lon: directLon,
+            setLon: setDirectLon,
+            gateError: directGateError,
+          }
+        : null,
   };
 }

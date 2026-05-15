@@ -5,11 +5,18 @@ import { Sidebar } from "@/components/sidebar";
 import { TopNav } from "@/components/top-nav";
 import { ChatArea } from "@/components/chat-area";
 import { ChatInput } from "@/components/chat-input";
+import { DirectSubnetFields } from "@/components/direct-subnet-fields";
 import { EmptyState } from "@/components/empty-state";
 import { MobileTerminalCollapsible, TerminalPanel } from "@/components/terminal-panel";
 import { useLiveExecutor } from "@/lib/hooks/use-live-executor";
 import { apiClient } from "@/lib/api-client";
-import { normalizeEngineSubnets, type SubnetPickItem } from "@/lib/subnet-catalog";
+import {
+  normalizeEngineSubnets,
+  fetchSyncedSubnetSlugSet,
+  discoverSyncedSlugsByHead,
+  intersectSubnetsWithSyncedYaml,
+  type SubnetPickItem,
+} from "@/lib/subnet-catalog";
 
 export default function LiveChatPage() {
   const [forcedSubnetId, setForcedSubnetId] = useState<string | null>(null);
@@ -22,8 +29,19 @@ export default function LiveChatPage() {
     (async () => {
       try {
         const data = await apiClient.listSubnets();
-        if (!cancelled) {
-          setEngineSubnets(normalizeEngineSubnets(data));
+        if (cancelled) return;
+        const normalized = normalizeEngineSubnets(data);
+        let synced = await fetchSyncedSubnetSlugSet();
+        if (synced.size === 0) {
+          synced = await discoverSyncedSlugsByHead(normalized);
+        }
+        const filtered = intersectSubnetsWithSyncedYaml(normalized, synced);
+        setEngineSubnets(filtered);
+        if (filtered.length === 0 && normalized.length > 0) {
+          setSubnetsError(
+            "No engine subnets match bundled YAML — engine `slug` must match `public/engine-subnets/{slug}.yaml` in this app.",
+          );
+        } else {
           setSubnetsError(null);
         }
       } catch {
@@ -40,6 +58,13 @@ export default function LiveChatPage() {
     };
   }, []);
 
+  useEffect(() => {
+    setForcedSubnetId((prev) => {
+      if (prev == null) return prev;
+      return engineSubnets.some((s) => s.id === prev) ? prev : null;
+    });
+  }, [engineSubnets]);
+
   const {
     messages,
     isLoading,
@@ -50,7 +75,6 @@ export default function LiveChatPage() {
     x402Phase,
     backendWalletStatus,
     useX402Chat,
-    useCorePaidChat,
     coreWalletFooter,
     handleSend,
     handleRetrySend,
@@ -61,7 +85,8 @@ export default function LiveChatPage() {
     archiveSession,
     restoreSession,
     deleteSession,
-  } = useLiveExecutor({ forcedSubnetId });
+    directSubnetPanel,
+  } = useLiveExecutor({ forcedSubnetId, engineSubnets });
 
   /**
    * Until layout runs on the client, keep sidebar visually "closed" so SSR HTML matches the first
@@ -136,7 +161,6 @@ export default function LiveChatPage() {
             onSubnetChange: setForcedSubnetId,
             loading: subnetsLoading,
             error: subnetsError,
-            paidChatAutoOnly: useCorePaidChat,
           }}
         />
 
@@ -171,7 +195,33 @@ export default function LiveChatPage() {
                 <EmptyState onQuestionClick={handleSend} />
               )}
             </div>
-            <ChatInput onSend={handleSend} disabled={isLoading} />
+            {directSubnetPanel ? (
+              <DirectSubnetFields
+                spec={directSubnetPanel.spec}
+                loading={directSubnetPanel.loading}
+                error={directSubnetPanel.error}
+                endpointPath={directSubnetPanel.endpointPath}
+                onEndpointPath={(p) => directSubnetPanel.setEndpointPath(p)}
+                model={directSubnetPanel.model}
+                onModel={(v) => directSubnetPanel.setModel(v)}
+                modelPlaceholder={directSubnetPanel.modelPlaceholder}
+                imageUrl={directSubnetPanel.imageUrl}
+                onImageUrl={(v) => directSubnetPanel.setImageUrl(v)}
+                lat={directSubnetPanel.lat}
+                onLat={(v) => directSubnetPanel.setLat(v)}
+                lon={directSubnetPanel.lon}
+                onLon={(v) => directSubnetPanel.setLon(v)}
+                gateError={directSubnetPanel.gateError}
+              />
+            ) : null}
+            <ChatInput
+              onSend={handleSend}
+              disabled={isLoading}
+              allowEmptySend={Boolean(
+                directSubnetPanel?.imageUrl.trim() ||
+                  (directSubnetPanel?.lat.trim() && directSubnetPanel?.lon.trim()),
+              )}
+            />
           </div>
 
           {showTerminal && (

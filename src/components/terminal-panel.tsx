@@ -25,10 +25,9 @@ interface TerminalPanelProps {
   receipt: TerminalReceiptLike | null;
 }
 
-/** Bottom padding for log scroller so entries stay above the floating receipt. */
-const RECEIPT_H = 300;
-
 const MAX_TECH_JSON_CHARS = 120_000;
+
+type TerminalAccordionId = "payment-rail" | "settlement-receipt";
 
 function formatTechnicalDetailsJson(payload: unknown): string {
   try {
@@ -126,8 +125,18 @@ function TerminalFeed({
   className,
 }: TerminalFeedProps) {
   const logContainerRef = useRef<HTMLDivElement>(null);
+  const receiptAvailable = showReceipt && !!receipt;
+  const [activeAccordion, setActiveAccordion] =
+    useState<TerminalAccordionId>("payment-rail");
 
   useEffect(() => {
+    if (!receiptAvailable && activeAccordion === "settlement-receipt") {
+      setActiveAccordion("payment-rail");
+    }
+  }, [receiptAvailable, activeAccordion]);
+
+  useEffect(() => {
+    if (activeAccordion !== "payment-rail") return;
     const container = logContainerRef.current;
     if (!container) return;
 
@@ -135,14 +144,205 @@ function TerminalFeed({
       top: container.scrollHeight,
       behavior: "smooth",
     });
-  }, [logs, showReceipt]);
+  }, [logs, activeAccordion]);
 
   const entriesWithHeader = logs.map((log, i) => ({
     log,
-    showHeader: i === 0 || log.section !== logs[i - 1].section,
+    showHeader: receiptAvailable
+      ? i === 0
+        ? log.section !== "Payment & Rail"
+        : log.section !== logs[i - 1]!.section
+      : i === 0 || log.section !== logs[i - 1]!.section,
   }));
 
-  const receiptVisible = showReceipt && !!receipt;
+  const logsOpen = !receiptAvailable || activeAccordion === "payment-rail";
+  const receiptOpen = receiptAvailable && activeAccordion === "settlement-receipt";
+
+  const paymentRailHeader = receiptAvailable ? (
+    <button
+      type="button"
+      onClick={() => setActiveAccordion("payment-rail")}
+      aria-expanded={logsOpen}
+      className={cn(
+        "flex w-full shrink-0 items-center gap-3 py-2 text-left transition-colors lg:px-5 px-4",
+        "cursor-pointer hover:bg-primary/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
+        logsOpen && "bg-primary/[0.03]",
+      )}
+    >
+      <div className="h-px flex-1 bg-border/40" />
+      <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-primary/70">
+        Payment &amp; Rail
+        <ChevronDown
+          size={14}
+          className={cn(
+            "shrink-0 text-primary/50 transition-transform duration-200",
+            logsOpen && "rotate-180",
+          )}
+          aria-hidden
+        />
+      </span>
+      <div className="h-px flex-1 bg-border/40" />
+    </button>
+  ) : (
+    <div className="flex w-full shrink-0 items-center gap-3 py-2 lg:px-5 px-4">
+      <div className="h-px flex-1 bg-border/40" />
+      <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/70">
+        Payment &amp; Rail
+      </span>
+      <div className="h-px flex-1 bg-border/40" />
+    </div>
+  );
+
+  const logScroller = (
+    <div
+      ref={logContainerRef}
+      className="min-h-0 flex-1 overflow-y-auto lg:px-5 px-4 pb-4 pt-1 custom-scrollbar"
+    >
+      {logs.length === 0 ? (
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="mt-4 text-xs text-muted-foreground/60 italic"
+        >
+          Waiting for network signal...
+        </motion.p>
+      ) : (
+        <div className="space-y-1 py-2">
+          <AnimatePresence mode="popLayout">
+            {entriesWithHeader.map(({ log, showHeader }, i) => (
+              <motion.div
+                key={`${log.time}-${i}`}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                className="group"
+              >
+                {showHeader && (
+                  <div className={i > 0 ? "lg:mt-8 mt-6" : ""}>
+                    <div className="flex items-center gap-3 py-2">
+                      <div className="h-px flex-1 bg-border/40" />
+                      <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/70">
+                        {log.section}
+                      </span>
+                      <div className="h-px flex-1 bg-border/40" />
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-start gap-4 rounded-md px-2 py-3 -mx-2 transition-colors hover:bg-primary/5">
+                  <div className="flex min-w-16 flex-col items-center gap-1 pt-0.5">
+                    <span className="text-[9px] font-mono tabular-nums leading-none text-muted-foreground/70">
+                      {log.time.split(".")[0]}
+                    </span>
+                    <span className="text-[8px] font-mono tabular-nums leading-none text-primary/40">
+                      .{log.time.split(".")[1]}
+                    </span>
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black uppercase leading-none tracking-wider text-foreground/90">
+                        {log.label}
+                      </span>
+                      <div className="h-1 w-1 rounded-full bg-primary/30" />
+                    </div>
+                    <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground transition-colors group-hover:text-foreground/80">
+                      {log.detail}
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+      )}
+    </div>
+  );
+
+  const receiptBody =
+    receipt && receiptOpen ? (
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border/40 bg-background/80 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.25)] backdrop-blur-xl">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 custom-scrollbar lg:px-5">
+          <div className="grid min-h-0 w-full grid-cols-2 gap-x-6 gap-y-4">
+            {(isLiveReceipt(receipt)
+              ? [
+                  {
+                    label: "Subnet Provider",
+                    value: `${receipt.subnet} (SN${receipt.subnetId})`,
+                    icon: Activity,
+                  },
+                  { label: "Intent", value: receipt.intent || "n/a", icon: ShieldCheck },
+                  { label: "Cost (USD)", value: `$${receipt.costUsd.toFixed(4)}`, icon: Zap },
+                  { label: "Duration", value: `${receipt.durationMs}ms`, icon: Activity },
+                ]
+              : [
+                  { label: "Subnet Provider", value: receipt.provider, icon: Activity },
+                  { label: "Confidence Score", value: receipt.confidence, icon: ShieldCheck },
+                  { label: "Network Fee", value: receipt.settlementCost, icon: Zap },
+                  {
+                    label: "System Clock",
+                    value: receipt.timestamp.split(" ")[1] || receipt.timestamp,
+                    icon: Activity,
+                  },
+                ]
+            ).map(({ label, value, icon: Icon }) => (
+              <div key={label} className="min-w-0 space-y-1">
+                <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                  <Icon size={10} className="shrink-0 opacity-50" />
+                  {label}
+                </div>
+                <div className="min-w-0 text-[13px] font-semibold leading-snug text-foreground [overflow-wrap:anywhere] break-words tabular-nums">
+                  {value}
+                </div>
+              </div>
+            ))}
+            {isLiveReceipt(receipt) && receipt.x402ExplorerUrl ? (
+              <div className="col-span-2 min-w-0 space-y-1 border-t border-border/30 pt-3">
+                <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Payment (x402)
+                </div>
+                <a
+                  href={receipt.x402ExplorerUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block max-w-full min-w-0 break-all text-[13px] font-semibold text-primary underline-offset-2 hover:underline"
+                >
+                  {receipt.x402TxHash
+                    ? `${receipt.x402TxHash.slice(0, 10)}…${receipt.x402TxHash.slice(-6)}`
+                    : "View on explorer"}
+                </a>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="mt-5 shrink-0 space-y-3 border-t border-border/40 pt-4">
+            <div className="min-w-0 space-y-1">
+              <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                Execution time
+              </div>
+              <p className="text-[11px] font-mono leading-relaxed text-muted-foreground [overflow-wrap:anywhere] break-words">
+                {receipt.timestamp}
+              </p>
+            </div>
+            {isLiveReceipt(receipt) ? (
+              <div className="min-w-0 space-y-1">
+                <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Router reasoning
+                </div>
+                <p className="text-[12px] leading-relaxed text-foreground/90 [overflow-wrap:anywhere] break-words">
+                  {receipt.reasoning?.trim() || "—"}
+                </p>
+              </div>
+            ) : (
+              <p className="font-mono text-[10px] text-muted-foreground/70">TELEG_V1.0_PROD</p>
+            )}
+            {isLiveReceipt(receipt) ? (
+              <TechnicalDetailsCopyRow payload={receipt.technicalDetails ?? null} />
+            ) : null}
+          </div>
+        </div>
+      </div>
+    ) : null;
 
   return (
     <div
@@ -151,176 +351,54 @@ function TerminalFeed({
         className,
       )}
     >
-      <div
-        ref={logContainerRef}
-        className="flex-1 overflow-y-auto lg:px-5 px-4 lg:pt-0 pt-2 custom-scrollbar"
-        style={{ paddingBottom: receiptVisible ? RECEIPT_H + 20 : 16 }}
-      >
-        {logs.length === 0 ? (
-          true ? (
-            <motion.p 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-xs text-muted-foreground/60 italic mt-4"
-            >
-              Waiting for network signal...
-            </motion.p>
-          ) : null
-        ) : (
-          <div className="space-y-1 py-4">
-            <AnimatePresence mode="popLayout">
-              {entriesWithHeader.map(({ log, showHeader }, i) => (
-                <motion.div 
-                  key={`${log.time}-${i}`}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                  className="group"
-                >
-                  {showHeader && (
-                    <div className={i > 0 ? "lg:mt-8 mt-6" : ""}>
-                      <div className="flex items-center gap-3 py-2">
-                        <div className="h-px flex-1 bg-border/40" />
-                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/70">
-                          {log.section}
-                        </span>
-                        <div className="h-px flex-1 bg-border/40" />
-                      </div>
-                    </div>
-                  )}
+      {receiptAvailable ? (
+        <>
+          {paymentRailHeader}
+          {logsOpen ? (
+            <div className="flex min-h-0 flex-1 flex-col">{logScroller}</div>
+          ) : null}
 
-                  <div className="flex items-start gap-4 py-3 transition-colors hover:bg-primary/5 rounded-md px-2 -mx-2">
-                    <div className="flex flex-col items-center gap-1 min-w-16 pt-0.5">
-                      <span className="text-[9px] font-mono tabular-nums leading-none text-muted-foreground/70">
-                        {log.time.split('.')[0]}
-                      </span>
-                      <span className="text-[8px] font-mono tabular-nums leading-none text-primary/40">
-                        .{log.time.split('.')[1]}
-                      </span>
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-black uppercase leading-none tracking-wider text-foreground/90">
-                          {log.label}
-                        </span>
-                        <div className="h-1 w-1 rounded-full bg-primary/30" />
-                      </div>
-                      <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground group-hover:text-foreground/80 transition-colors">
-                        {log.detail}
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </div>
-        )}
-      </div>
-
-      {/* Glossy Receipt */}
-      <AnimatePresence>
-        {receiptVisible && (
-          <motion.div
-            initial={{ translateY: "100%", opacity: 0 }}
-            animate={{ translateY: 0, opacity: 1 }}
-            exit={{ translateY: "100%", opacity: 0 }}
-            transition={{ type: "spring", damping: 20, stiffness: 100 }}
-            className="absolute right-0 bottom-0 left-0 z-10 flex max-h-[min(78vh,420px)] min-w-0 max-w-full flex-col rounded-t-2xl border-t border-border/50 bg-background/80 px-4 py-6 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.3)] backdrop-blur-xl lg:px-6"
+          <button
+            type="button"
+            onClick={() => setActiveAccordion("settlement-receipt")}
+            aria-expanded={receiptOpen}
+            className={cn(
+              "flex w-full shrink-0 items-center justify-between gap-3 border-t border-border/35 py-3 text-left transition-colors lg:px-5 px-4",
+              "cursor-pointer hover:bg-primary/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
+              receiptOpen && "bg-primary/[0.03]",
+            )}
           >
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-md bg-primary/10">
-                  <ShieldCheck size={14} className="text-primary" />
-                </div>
-                <p className="text-[12px] font-bold tracking-tight text-foreground uppercase">
-                  Settlement Receipt
-                </p>
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="rounded-md bg-primary/10 p-1.5">
+                <ShieldCheck size={14} className="text-primary" />
               </div>
-              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-success/10 text-success border border-success/20">
-                <div className="w-1 h-1 rounded-full bg-success animate-pulse" />
+              <p className="text-[12px] font-bold uppercase tracking-tight text-foreground">
+                Settlement Receipt
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <div className="flex items-center gap-1.5 rounded-full border border-success/20 bg-success/10 px-2 py-0.5 text-success">
+                <div className="h-1 w-1 animate-pulse rounded-full bg-success" />
                 <span className="text-[9px] font-bold uppercase tracking-wider">Verified</span>
               </div>
-            </div>
-
-            {receipt && (
-              <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar pr-1">
-                <div className="grid min-w-0 w-full grid-cols-2 gap-x-6 gap-y-4">
-                {(isLiveReceipt(receipt)
-                  ? [
-                      { label: "Subnet Provider", value: `${receipt.subnet} (SN${receipt.subnetId})`, icon: Activity },
-                      { label: "Intent", value: receipt.intent || "n/a", icon: ShieldCheck },
-                      { label: "Cost (USD)", value: `$${receipt.costUsd.toFixed(4)}`, icon: Zap },
-                      { label: "Duration", value: `${receipt.durationMs}ms`, icon: Activity },
-                    ]
-                  : [
-                      { label: "Subnet Provider", value: receipt.provider, icon: Activity },
-                      { label: "Confidence Score", value: receipt.confidence, icon: ShieldCheck },
-                      { label: "Network Fee", value: receipt.settlementCost, icon: Zap },
-                      { label: "System Clock", value: receipt.timestamp.split(" ")[1] || receipt.timestamp, icon: Activity },
-                    ]
-                ).map(({ label, value, icon: Icon }) => (
-                  <div key={label} className="min-w-0 space-y-1">
-                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground uppercase tracking-wide font-medium">
-                      <Icon size={10} className="shrink-0 opacity-50" />
-                      {label}
-                    </div>
-                    <div className="min-w-0 text-[13px] font-semibold leading-snug text-foreground [overflow-wrap:anywhere] break-words tabular-nums">
-                      {value}
-                    </div>
-                  </div>
-                ))}
-                {isLiveReceipt(receipt) && receipt.x402ExplorerUrl ? (
-                  <div className="col-span-2 min-w-0 space-y-1 border-t border-border/30 pt-3">
-                    <div className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium">
-                      Payment (x402)
-                    </div>
-                    <a
-                      href={receipt.x402ExplorerUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-block max-w-full min-w-0 break-all text-[13px] font-semibold text-primary underline-offset-2 hover:underline"
-                    >
-                      {receipt.x402TxHash
-                        ? `${receipt.x402TxHash.slice(0, 10)}…${receipt.x402TxHash.slice(-6)}`
-                        : "View on explorer"}
-                    </a>
-                  </div>
-                ) : null}
-                </div>
-              </div>
-            )}
-
-            {receipt ? (
-              <div className="mt-5 shrink-0 space-y-3 border-t border-border/40 pt-4">
-                <div className="min-w-0 space-y-1">
-                  <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                    Execution time
-                  </div>
-                  <p className="text-[11px] font-mono leading-relaxed text-muted-foreground [overflow-wrap:anywhere] break-words">
-                    {receipt.timestamp}
-                  </p>
-                </div>
-                {isLiveReceipt(receipt) ? (
-                  <div className="min-w-0 space-y-1">
-                    <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                      Router reasoning
-                    </div>
-                    <p className="text-[12px] leading-relaxed text-foreground/90 [overflow-wrap:anywhere] break-words">
-                      {receipt.reasoning?.trim() || "—"}
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-[10px] font-mono text-muted-foreground/70">TELEG_V1.0_PROD</p>
+              <ChevronDown
+                size={16}
+                className={cn(
+                  "text-muted-foreground transition-transform duration-200",
+                  receiptOpen && "rotate-180",
                 )}
-                {isLiveReceipt(receipt) ? (
-                  <TechnicalDetailsCopyRow payload={receipt.technicalDetails ?? null} />
-                ) : null}
-              </div>
-            ) : null}
-          </motion.div>
-        )}
-      </AnimatePresence>
+                aria-hidden
+              />
+            </div>
+          </button>
+          {receiptBody ? <div className="min-h-0 flex-1 px-3 pb-3 pt-0 lg:px-4">{receiptBody}</div> : null}
+        </>
+      ) : (
+        <>
+          {paymentRailHeader}
+          {logScroller}
+        </>
+      )}
     </div>
   );
 }

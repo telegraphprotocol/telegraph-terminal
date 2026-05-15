@@ -1,0 +1,144 @@
+version: "1"
+kind: subnet
+id: 19
+slug: bittensor-sn19-nineteen
+protocol: bittensor
+name: Nineteen AI (Bittensor SN19)
+description: >
+  Bittensor Subnet 19 — Nineteen AI provides multimodal inference including
+  chat completions, text completions, text-to-image generation, and
+  image-to-image transformation. All endpoints are OpenAI-compatible.
+
+base_url: https://api.nineteen.ai/v1
+
+auth:
+  type: header
+  env_var: NINETEEN_API_KEY
+  header_name: Authorization
+
+rate_limit_per_sec: 10
+cache_ttl_sec: 0
+circuit_threshold: 5
+circuit_cooldown_seconds: 30
+
+endpoints:
+  - path: /chat/completions
+    external_path: /chat/completions
+    method: POST
+    description: OpenAI-compatible chat completion endpoint.
+
+  - path: /completions
+    external_path: /completions
+    method: POST
+    description: OpenAI-compatible text completion endpoint.
+
+  - path: /text-to-image
+    external_path: /text-to-image
+    method: POST
+    description: Generate an image from a text prompt.
+
+  - path: /image-to-image
+    external_path: /image-to-image
+    method: POST
+    description: Transform an existing image using a text prompt.
+
+  - path: /avatar
+    external_path: /avatar
+    method: POST
+    description: Generate an avatar image.
+
+input_schema:
+  type: object
+  required: [model]
+  properties:
+    model:
+      type: string
+      description: "Model identifier (e.g. 'unsloth/Llama-3.2-3B-Instruct' for chat)."
+    messages:
+      type: array
+      description: Required for /chat/completions.
+      items:
+        type: object
+        properties:
+          role: { type: string, enum: [system, user, assistant] }
+          content: { type: string }
+    prompt:
+      type: string
+      description: Required for /completions and image generation endpoints.
+    temperature: { type: number, minimum: 0, maximum: 2 }
+    max_tokens: { type: integer, minimum: 1 }
+    stream: { type: boolean }
+
+output_schema:
+  type: object
+  properties:
+    id: { type: string }
+    model: { type: string }
+    choices:
+      type: array
+      items:
+        type: object
+        properties:
+          message:
+            type: object
+            properties:
+              role: { type: string }
+              content: { type: string }
+          finish_reason: { type: string }
+
+semantics:
+  signal_mapping:
+    type: multimodal_response
+    label_field: choices
+  supported_intents:
+    - MULTIMODAL_INFERENCE
+    - IMAGE_GENERATION
+    - CHAT_COMPLETION
+    - TEXT_TO_IMAGE
+# on_chain: layout for /chat/completions endpoint (OpenAI-compatible format).
+# Response: {choices:[{message:{content,role},finish_reason}], model, usage:{...}}
+# transform=direct: clean path extraction — no LLM needed.
+#
+# On-chain array layout (shared by all OpenAI-compatible LLM subnets):
+#   strings[0]  = response_text       (generated content)
+#   strings[1]  = model               (model name used)
+#   integers[0] = completion_tokens   (output token count)
+#   integers[1] = prompt_tokens       (input token count)
+on_chain:
+  description: >
+    LLM chat completion response. Shared layout for all OpenAI-compatible
+    inference subnets (Nineteen, Apex, Chutes, Groq, OpenAI, etc.).
+  transform: direct
+  min_price_usdc: 0.04
+  fields:
+    strings:
+      - index: 0
+        name: response_text
+        description: Generated text content from the model.
+        source_path: choices.0.message.content
+      - index: 1
+        name: model
+        description: Model name used for generation (e.g. "unsloth/Llama-3.2-3B-Instruct").
+        source_path: model
+    integers:
+      - index: 0
+        name: completion_tokens
+        description: Number of completion (output) tokens used.
+        source_path: usage.completion_tokens
+      - index: 1
+        name: prompt_tokens
+        description: Number of prompt (input) tokens used.
+        source_path: usage.prompt_tokens
+  request:
+    - endpoint: chat/completions
+      method: POST
+      body:
+        model: { source: strings.0 }
+        messages: { source: strings.1, format: chat_messages }
+    - endpoint: completions
+      method: POST
+      body:
+        model: { source: strings.0 }
+        prompt: { source: strings.1 }
+        temperature: { source: strings.2, optional: true, type: float }
+        max_tokens: { source: numbers.0, optional: true }
