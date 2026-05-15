@@ -5,6 +5,7 @@ import { CheckCircle2, AlertCircle, Copy, ReceiptText, ChevronRight } from "luci
 import { cn } from "@/lib/utils";
 import { DaemonResultItem } from "@/lib/engine-daemon-types";
 import { formatKrakenIntentCell } from "@/lib/kraken-signal-format";
+import { summarizeExecutionResult } from "@/lib/kraken-signal-result";
 
 interface KrakenFeedProps {
   items: DaemonResultItem[];
@@ -22,7 +23,12 @@ const FEED_HEADERS = ["TIMESTAMP", "INTENT", "INPUT SNIPPET", "STATUS", "COST", 
 const GRID_COLS = "grid-cols-[110px_1fr_150px_130px_90px_130px_60px_40px]";
 
 function proofTitle(log: DaemonResultItem) {
-  return log.execution.error || log.routing.reasoning || "No routing details stored for this row.";
+  if (log.execution.error) return log.execution.error;
+  const summary = summarizeExecutionResult(log.execution.result);
+  if (summary && !summary.startsWith("No subnet result") && !summary.startsWith("Structured subnet")) {
+    return summary;
+  }
+  return log.routing.reasoning || "No routing details stored for this row.";
 }
 
 function StatusBadge({ status }: { status: DaemonResultItem["status"] }) {

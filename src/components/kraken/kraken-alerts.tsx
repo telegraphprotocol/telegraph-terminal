@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { ShieldCheck, ChevronDown, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DaemonResultItem } from "@/lib/engine-daemon-types";
+import { summarizeExecutionResult } from "@/lib/kraken-signal-result";
 
 interface KrakenAlertsProps {
   alerts: DaemonResultItem[];
@@ -21,12 +22,8 @@ function buildSubtitle(alert: DaemonResultItem) {
 
 function buildDescription(alert: DaemonResultItem) {
   if (alert.execution.error) return alert.execution.error;
-  if (typeof alert.execution.result === "string") return alert.execution.result;
-  if (alert.execution.result && typeof alert.execution.result === "object") {
-    const record = alert.execution.result as Record<string, unknown>;
-    if (typeof record.answer === "string") return record.answer;
-    if (Array.isArray(record.citations)) return `Includes ${record.citations.length} supporting citations.`;
-  }
+  const summary = summarizeExecutionResult(alert.execution.result);
+  if (summary && !summary.startsWith("Structured subnet response")) return summary;
   return alert.routing.reasoning || "Signal enriched by engine routing.";
 }
 

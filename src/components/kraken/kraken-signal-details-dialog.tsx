@@ -5,6 +5,8 @@ import { X, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DaemonResultItem } from "@/lib/engine-daemon-types";
 import { formatKrakenIntentCell } from "@/lib/kraken-signal-format";
+import { parseExecutionResult, summarizeExecutionResult } from "@/lib/kraken-signal-result";
+import { KrakenStructuredResult } from "@/components/kraken/kraken-structured-result";
 
 function formatJsonPreview(value: unknown): string {
   if (value === undefined) return "";
@@ -24,7 +26,15 @@ function DetailRow({ label, children, className }: { label: string; children: Re
   );
 }
 
-function CopyJsonButton({ text, className }: { text: string; className?: string }) {
+function CopyJsonButton({
+  text,
+  className,
+  copyLabel = "Copy full signal JSON",
+}: {
+  text: string;
+  className?: string;
+  copyLabel?: string;
+}) {
   const [copied, setCopied] = useState(false);
   const canCopy = typeof navigator !== "undefined" && Boolean(navigator.clipboard?.writeText);
 
@@ -32,8 +42,8 @@ function CopyJsonButton({ text, className }: { text: string; className?: string 
     <button
       type="button"
       disabled={!canCopy}
-      title={copied ? "Copied to clipboard" : "Copy result JSON"}
-      aria-label={copied ? "Copied to clipboard" : "Copy result JSON to clipboard"}
+      title={copied ? "Copied to clipboard" : copyLabel}
+      aria-label={copied ? "Copied to clipboard" : `${copyLabel} to clipboard`}
       className={cn(
         "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-border/50 bg-muted/30 px-3 text-xs font-semibold text-white/90 transition-colors hover:bg-muted/50 disabled:pointer-events-none disabled:opacity-40",
         className,
@@ -70,8 +80,9 @@ export function KrakenSignalDetailsDialog({ item, open, onOpenChange }: KrakenSi
 
   if (!open || !item) return null;
 
-  const resultJson = formatJsonPreview(item.execution.result);
-  const resultJsonClipboard = item.execution.result == null ? "null" : resultJson;
+  const fullSignalJson = formatJsonPreview(item);
+  const parsedResult = parseExecutionResult(item.execution.result);
+  const { rawJson: resultRawJson, hasAnswer: hasStructuredAnswer } = parsedResult;
 
   return (
     <div
@@ -114,6 +125,11 @@ export function KrakenSignalDetailsDialog({ item, open, onOpenChange }: KrakenSi
             <DetailRow label="Source">{item.source}</DetailRow>
             <DetailRow label="Status">{item.status}</DetailRow>
             <DetailRow label="Intent">{formatKrakenIntentCell(item)}</DetailRow>
+            <DetailRow label="Result">
+              <span className="whitespace-pre-wrap text-sm leading-relaxed">
+                {item.execution.error || summarizeExecutionResult(item.execution.result)}
+              </span>
+            </DetailRow>
 
             <div className="border-t border-border/40 pt-3 mt-1">
               <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">Question</p>
@@ -145,15 +161,39 @@ export function KrakenSignalDetailsDialog({ item, open, onOpenChange }: KrakenSi
               <DetailRow label="Error">
                 <span className={item.execution.error ? "text-red-400" : ""}>{item.execution.error ?? "—"}</span>
               </DetailRow>
+
+              <div className="mt-4 border-t border-border/30 pt-4">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Result</p>
+                  <CopyJsonButton text={resultRawJson} copyLabel="Copy result JSON" />
+                </div>
+                <KrakenStructuredResult result={item.execution.result} className={hasStructuredAnswer ? undefined : "mb-0"} />
+                {!hasStructuredAnswer ? (
+                  <pre className="mt-3 max-h-[min(40vh,360px)] overflow-auto rounded-lg border border-border/40 bg-muted/20 p-3 font-mono text-[11px] leading-relaxed text-white/80">
+                    {resultRawJson}
+                  </pre>
+                ) : (
+                  <details className="mt-4 group">
+                    <summary className="cursor-pointer text-[11px] font-semibold text-muted-foreground hover:text-white/90">
+                      Raw result (JSON)
+                    </summary>
+                    <pre className="mt-2 max-h-[min(32vh,280px)] overflow-auto rounded-lg border border-border/40 bg-muted/20 p-3 font-mono text-[11px] leading-relaxed text-white/80">
+                      {resultRawJson}
+                    </pre>
+                  </details>
+                )}
+              </div>
             </div>
 
             <div className="border-t border-border/40 pt-3 pb-1">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Result (JSON)</p>
-                <CopyJsonButton text={resultJsonClipboard} />
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Full signal (JSON)
+                </p>
+                <CopyJsonButton text={fullSignalJson} />
               </div>
-              <pre className="max-h-[min(40vh,320px)] overflow-auto rounded-lg border border-border/40 bg-muted/20 p-3 font-mono text-[11px] leading-relaxed text-white/80">
-                {item.execution.result == null ? "null" : resultJson}
+              <pre className="max-h-[min(50vh,480px)] overflow-auto rounded-lg border border-border/40 bg-muted/20 p-3 font-mono text-[11px] leading-relaxed text-white/80">
+                {fullSignalJson}
               </pre>
             </div>
           </div>
