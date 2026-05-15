@@ -139,7 +139,7 @@ function TerminalFeed({
             animate={{ translateY: 0, opacity: 1 }}
             exit={{ translateY: "100%", opacity: 0 }}
             transition={{ type: "spring", damping: 20, stiffness: 100 }}
-            className="absolute right-0 bottom-0 left-0 border-t border-border/50 bg-background/80 lg:px-6 px-4 py-6 backdrop-blur-xl rounded-t-2xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.3)] z-10"
+            className="absolute right-0 bottom-0 left-0 z-10 min-w-0 max-w-full rounded-t-2xl border-t border-border/50 bg-background/80 px-4 py-6 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.3)] backdrop-blur-xl lg:px-6"
           >
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2">
@@ -157,7 +157,7 @@ function TerminalFeed({
             </div>
 
             {receipt && (
-              <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+              <div className="grid min-w-0 w-full grid-cols-2 gap-x-6 gap-y-4">
                 {(isLiveReceipt(receipt)
                   ? [
                       { label: "Subnet Provider", value: `${receipt.subnet} (SN${receipt.subnetId})`, icon: Activity },
@@ -172,18 +172,18 @@ function TerminalFeed({
                       { label: "System Clock", value: receipt.timestamp.split(" ")[1] || receipt.timestamp, icon: Activity },
                     ]
                 ).map(({ label, value, icon: Icon }) => (
-                  <div key={label} className="space-y-1">
+                  <div key={label} className="min-w-0 space-y-1">
                     <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground uppercase tracking-wide font-medium">
-                      <Icon size={10} className="opacity-50" />
+                      <Icon size={10} className="shrink-0 opacity-50" />
                       {label}
                     </div>
-                    <div className="text-[13px] font-semibold text-foreground tabular-nums">
+                    <div className="min-w-0 text-[13px] font-semibold leading-snug text-foreground [overflow-wrap:anywhere] break-words tabular-nums">
                       {value}
                     </div>
                   </div>
                 ))}
                 {isLiveReceipt(receipt) && receipt.x402ExplorerUrl ? (
-                  <div className="col-span-2 space-y-1 border-t border-border/30 pt-3">
+                  <div className="col-span-2 min-w-0 space-y-1 border-t border-border/30 pt-3">
                     <div className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium">
                       Payment (x402)
                     </div>
@@ -191,7 +191,7 @@ function TerminalFeed({
                       href={receipt.x402ExplorerUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-block max-w-full truncate text-[13px] font-semibold text-primary underline-offset-2 hover:underline"
+                      className="inline-block max-w-full min-w-0 break-all text-[13px] font-semibold text-primary underline-offset-2 hover:underline"
                     >
                       {receipt.x402TxHash
                         ? `${receipt.x402TxHash.slice(0, 10)}…${receipt.x402TxHash.slice(-6)}`
@@ -202,11 +202,11 @@ function TerminalFeed({
               </div>
             )}
             
-            <div className="mt-6 pt-4 border-t border-border/40 flex justify-between items-center gap-2">
-                <span className="text-[9px] font-mono text-muted-foreground/60 uppercase tracking-widest truncate">
+            <div className="mt-6 flex min-w-0 items-start justify-between gap-3 border-t border-border/40 pt-4">
+                <span className="min-w-0 max-w-[48%] shrink text-[9px] font-mono leading-snug text-muted-foreground/60 [overflow-wrap:anywhere] break-words uppercase tracking-widest">
                   {receipt.timestamp}
                 </span>
-                <span className="text-[9px] font-mono text-primary/60 truncate">
+                <span className="min-w-0 max-w-[48%] shrink text-right text-[9px] font-mono leading-snug text-primary/60 [overflow-wrap:anywhere] break-words">
                   {isLiveReceipt(receipt) ? (receipt.reasoning || "ROUTER_REASONING_UNAVAILABLE") : "TELEG_V1.0_PROD"}
                 </span>
             </div>

@@ -9,40 +9,15 @@ import {
 } from "@/lib/mock-data";
 import { useEngineWS } from "@/lib/hooks/use-engine-ws";
 import { EngineAskResult, EngineWsFrame } from "@/lib/engine-daemon-types";
-import { useConnection, useSwitchChain, useWalletClient } from "wagmi";
-import { ChainMismatchError } from "viem";
-import { getChainId, getPublicClient, getWalletClient } from "@wagmi/core";
-import { wagmiConfig } from "@/lib/wagmi-config";
-import {
-  ensureOnTargetChain,
-  isUserRejectedChainError,
-} from "@/components/wallet/ensure-base-chain";
-import {
-  buildEvmX402PaidFetch,
-  explorerUrlForSettlement,
-  getTelegraphChatUrl,
-  settlementFromResponse,
-} from "@/lib/x402-telegraph-fetch";
 
 const LS_KEY = "telegraph-live-chat-sessions-v1";
 const LS_VERSION = 2 as const;
 
-const USE_X402_CHAT =
-  typeof process !== "undefined" && process.env.NEXT_PUBLIC_USE_X402_CHAT === "true";
-
-const X402_PREFERRED_EVM_CHAIN_ID = Number(
-  process.env.NEXT_PUBLIC_X402_PREFERRED_EVM_CHAIN_ID || 84532,
-);
+const USE_CORE_PAID_CHAT =
+  typeof process !== "undefined" && process.env.NEXT_PUBLIC_USE_CORE_X402 === "true";
 
 const X402_CHAT_MODEL =
   process.env.NEXT_PUBLIC_X402_CHAT_MODEL?.trim() || "gpt-4o-mini";
-
-function preferredChainLabel(chainId: number): string {
-  if (chainId === 84532) return "Base Sepolia (84532)";
-  if (chainId === 8453) return "Base (8453)";
-  if (chainId === 137) return "Polygon (137)";
-  return `chain ${chainId}`;
-}
 
 export type LiveTerminalReceipt = {
   subnet: string;
@@ -206,55 +181,6 @@ function emptySession(id?: string): ChatSession {
   };
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
-/**
- * Wait until wagmi config chain id matches `chainId` (updates after switchChain).
- * Same signal as `getWalletClient` / signing — not `connector.getChainId()`, which can lag the extension UI.
- */
-async function waitForWalletChain(chainId: number, attempts = 25, delayMs = 100): Promise<void> {
-  for (let i = 0; i < attempts; i++) {
-    if (getChainId(wagmiConfig) === chainId) return;
-    await sleep(delayMs);
-  }
-  throw new Error("CHAIN_SYNC_TIMEOUT");
-}
-
-function friendlyInfraError(err: unknown, preferredChainId: number): string {
-  const hint = preferredChainLabel(preferredChainId);
-  const raw = err instanceof Error ? err.message : String(err);
-
-  if (err instanceof ChainMismatchError) {
-    return `Paid chat signs on ${hint}, but the wallet client reported another chain (often a stale dapp state). Refresh this page, or disconnect and reconnect the wallet with ${hint} selected, then retry.`;
-  }
-  if (
-    raw.includes("does not match the target chain") ||
-    raw.includes("does not match the connection") ||
-    raw.includes("does not match the connection's chain") ||
-    raw.includes("Current Chain ID") ||
-    raw.includes("Expected Chain ID")
-  ) {
-    return `Paid chat expects ${hint}, but the wallet and app disagree on the active chain. If your wallet already shows ${hint}, refresh the page or reconnect the wallet, then retry.`;
-  }
-  if (raw === "CHAIN_SYNC_TIMEOUT") {
-    return `Could not confirm the network switch. Open your wallet, switch to ${hint}, then retry.`;
-  }
-  if (raw.includes("CHAIN_STILL_WRONG:")) {
-    return `The app still sees a different chain than ${hint}. Unlock the wallet, select ${hint} for this site, refresh the page, then retry.`;
-  }
-  if (isUserRejectedChainError(err)) {
-    return `Network switch was cancelled. Switch to ${hint} to use paid chat, then retry.`;
-  }
-  if (raw === "{}" || raw.trim() === "{}" || raw === "[object Object]") {
-    return "Request failed with no clear message from the server. Open TERMINAL → Payment & Rail and look for the latest ERROR line.";
-  }
-  const maxLen =
-    raw.startsWith("x402:") || raw.startsWith("Telegraph chat failed") ? 2000 : 400;
-  return raw.length > maxLen ? `${raw.slice(0, maxLen - 1)}…` : raw;
-}
-
 function chatMessagesToOpenAi(
   msgs: ChatMessage[],
 ): { role: "user" | "assistant" | "system"; content: string }[] {
@@ -287,16 +213,41 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
   const [x402Phase, setX402Phase] = useState<null | "paying" | "settled">(null);
   const { isConnected: engineSocketConnected, lastError, sendMessage, subscribe } = useEngineWS();
 
-  const connection = useConnection();
-  const { data: walletClient } = useWalletClient();
-  const { mutateAsync: switchChainAsync } = useSwitchChain();
+  type CoreWalletPayload = {
+    address: string;
+    chainId: number;
+    nativeBalanceFormatted: string;
+    usdcBalance?: string;
+  };
 
-  const evmWalletReady =
-    connection.status === "connected" &&
-    connection.chainId != null &&
-    Boolean(walletClient?.account);
+  const [coreWallet, setCoreWallet] = useState<CoreWalletPayload | null>(null);
+  const [coreWalletError, setCoreWalletError] = useState<string | null>(null);
 
-  const isConnected = USE_X402_CHAT ? evmWalletReady : engineSocketConnected;
+  const fetchCoreWallet = useCallback(async () => {
+    if (!USE_CORE_PAID_CHAT) return;
+    try {
+      const res = await fetch("/api/core/wallet", { cache: "no-store" });
+      const text = await res.text();
+      if (!res.ok) {
+        setCoreWallet(null);
+        setCoreWalletError(text.slice(0, 400) || `HTTP ${res.status}`);
+        return;
+      }
+      setCoreWallet(JSON.parse(text) as CoreWalletPayload);
+      setCoreWalletError(null);
+    } catch (e) {
+      setCoreWallet(null);
+      setCoreWalletError(e instanceof Error ? e.message : "Could not reach Terminal Backend (wallet).");
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchCoreWallet();
+  }, [fetchCoreWallet]);
+
+  const coreReady = USE_CORE_PAID_CHAT && coreWallet != null && coreWalletError == null;
+
+  const isConnected = USE_CORE_PAID_CHAT ? coreReady : engineSocketConnected;
 
   const activeSessionIdRef = useRef<string | null>(null);
   /** Latest `sessions` for async callbacks (e.g. queued microtasks) — avoids stale closures. */
@@ -624,7 +575,7 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
     });
   }, [subscribe, appendToActiveMessages, markUserMessageDelivery]);
 
-  const executeX402Request = useCallback(
+  const executeCorePaidChat = useCallback(
     async (
       sessionId: string,
       userMessageId: string,
@@ -639,7 +590,7 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
       };
       const fail = (err: unknown) => {
         pushLog("ERROR", formatErrorForLog(err));
-        const msg = friendlyInfraError(err, X402_PREFERRED_EVM_CHAIN_ID);
+        const msg = err instanceof Error ? err.message : String(err);
         markUserMessageDelivery(sessionId, userMessageId, {
           sendState: "failed",
           sendError: msg,
@@ -648,97 +599,9 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
         setX402Phase(null);
       };
 
-      const t0 = performance.now();
+      setX402Phase("paying");
       try {
-        const preferred = X402_PREFERRED_EVM_CHAIN_ID;
-
-        /** Optional connector read for logs only — can disagree with wagmi after switch. */
-        const readConnectorChainId = async (): Promise<number | null> => {
-          const connector = connection.connector;
-          if (connector?.getChainId) {
-            try {
-              return await connector.getChainId();
-            } catch {
-              return null;
-            }
-          }
-          if (connection.chainId != null) return connection.chainId;
-          return null;
-        };
-
-        const wagmiChainId = (): number => getChainId(wagmiConfig);
-
-        if (wagmiChainId() !== preferred) {
-          const connectorHint = (await readConnectorChainId()) ?? wagmiChainId();
-          pushLog(
-            "NETWORK",
-            `Switching wallet to chain ${preferred} for x402 (wagmi ${wagmiChainId()}; connector ${connectorHint})…`,
-          );
-          const maxSwitchAttempts = 3;
-          for (let attempt = 0; attempt < maxSwitchAttempts; attempt++) {
-            if (attempt > 0) {
-              pushLog(
-                "NETWORK",
-                `Retrying network switch (attempt ${attempt + 1}/${maxSwitchAttempts})…`,
-              );
-            }
-            try {
-              await ensureOnTargetChain(
-                switchChainAsync,
-                preferred,
-                walletClient ?? undefined,
-              );
-            } catch (switchErr) {
-              fail(switchErr);
-              return;
-            }
-            try {
-              await waitForWalletChain(preferred);
-              break;
-            } catch {
-              if (attempt === maxSwitchAttempts - 1) {
-                fail(new Error("CHAIN_SYNC_TIMEOUT"));
-                return;
-              }
-            }
-          }
-        }
-
-        if (wagmiChainId() !== preferred) {
-          fail(
-            new Error(
-              `CHAIN_STILL_WRONG: wagmi reports chain id ${wagmiChainId()} but paid chat requires ${preferred} (${preferredChainLabel(preferred)}).`,
-            ),
-          );
-          return;
-        }
-
-        pushLog("X402", "Completing x402 payment (402 → sign → retry)…");
-        setX402Phase("paying");
-
-        let wc;
-        try {
-          wc = await getWalletClient(wagmiConfig, {
-            chainId: X402_PREFERRED_EVM_CHAIN_ID,
-          });
-        } catch (wErr) {
-          fail(wErr);
-          return;
-        }
-
-        if (!wc.account) {
-          fail(new Error("Wallet has no active account. Unlock your wallet and retry."));
-          return;
-        }
-
-        const pc = getPublicClient(wagmiConfig, {
-          chainId: X402_PREFERRED_EVM_CHAIN_ID,
-        });
-        const paidFetch = buildEvmX402PaidFetch(wc, pc, X402_PREFERRED_EVM_CHAIN_ID);
-
-        const url = getTelegraphChatUrl();
-        pushLog("X402", `POST ${url} (paid fetch)…`);
-        const res = await paidFetch(url, {
+        const res = await fetch("/api/core/chat/paid", {
           method: "POST",
           headers: { "Content-Type": "application/json", Accept: "application/json" },
           body: JSON.stringify({
@@ -746,21 +609,49 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
             messages: openAiMessages,
           }),
         });
-
-        const durationMs = Math.round(performance.now() - t0);
-        pushLog("X402", `Response ${res.status} ${res.ok ? "OK" : "not OK"} (${Math.round(durationMs)} ms).`);
-        const settled = settlementFromResponse(res);
-        const explorerUrl = settled
-          ? explorerUrlForSettlement(settled, X402_PREFERRED_EVM_CHAIN_ID)
-          : null;
-
-        if (!res.ok) {
-          const errText = await res.text().catch(() => "");
-          throw new Error(describeHttpError(res.status, res.statusText, errText));
+        const rawText = await res.text();
+        let data: unknown;
+        try {
+          data = JSON.parse(rawText) as unknown;
+        } catch {
+          fail(new Error(`Terminal Backend returned non-JSON (HTTP ${res.status})`));
+          return;
         }
 
-        const json = (await res.json()) as unknown;
-        const assistantText = extractAssistantText(json);
+        const rec = data as Record<string, unknown>;
+        const serverLogs = Array.isArray(rec.terminalLogs)
+          ? (rec.terminalLogs as { label: string; detail: string; section: string }[])
+          : undefined;
+
+        if (serverLogs?.length) {
+          setTerminalLogs(() =>
+            serverLogs.map((l) => ({
+              time: new Date().toLocaleTimeString(),
+              label: l.label,
+              detail: l.detail,
+              section: l.section,
+            })),
+          );
+        }
+
+        if (!res.ok) {
+          const errMsg =
+            typeof rec.error === "string"
+              ? rec.error
+              : describeHttpError(res.status, res.statusText, rawText);
+          fail(new Error(errMsg));
+          return;
+        }
+
+        if (rec.ok !== true) {
+          const errMsg = typeof rec.error === "string" ? rec.error : "Paid chat failed";
+          fail(new Error(errMsg));
+          return;
+        }
+
+        const assistantText =
+          typeof rec.assistantText === "string" ? rec.assistantText : extractAssistantText(data);
+        const tr = rec.terminalReceipt as LiveTerminalReceipt | undefined;
 
         appendToSessionMessages(sessionId, (prev) => {
           const withOkUser = prev.map((m) =>
@@ -778,39 +669,18 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
           ];
         });
 
-        const minPrice = Number(process.env.NEXT_PUBLIC_MIN_PRICE_USDC ?? "0.05");
-        setTerminalReceipt({
-          subnet: "Telegraph subnet 102 (x402)",
-          subnetId: "102",
-          costUsd: Number.isFinite(minPrice) ? minPrice : 0.05,
-          durationMs,
-          timestamp: new Date().toISOString(),
-          intent: "direct_http_x402",
-          reasoning: `POST ${url}`,
-          x402TxHash: settled?.transaction,
-          x402ExplorerUrl: explorerUrl ?? undefined,
-          x402Network: settled?.network,
-        });
-
-        if (settled?.transaction && explorerUrl) {
-          pushLog("SETTLED", `tx ${settled.transaction.slice(0, 10)}… — ${explorerUrl}`);
-        } else {
-          pushLog("SETTLED", "Payment verified; no explorer metadata in response headers.");
+        if (tr && typeof tr === "object") {
+          setTerminalReceipt(tr);
         }
 
         setX402Phase("settled");
         setRuntimeError(null);
+        void fetchCoreWallet();
       } catch (err) {
         fail(err);
       }
     },
-    [
-      appendToSessionMessages,
-      connection,
-      markUserMessageDelivery,
-      switchChainAsync,
-      walletClient,
-    ],
+    [appendToSessionMessages, markUserMessageDelivery, fetchCoreWallet],
   );
 
   const handleSend = useCallback(
@@ -829,15 +699,15 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
 
       if (!isConnected) {
         setRuntimeError(
-          USE_X402_CHAT
-            ? "Connect your wallet on Base Sepolia or Polygon to send paid chat."
+          USE_CORE_PAID_CHAT
+            ? "Terminal Backend wallet is not ready. Check Terminal Backend and Next `CORE_API_KEY` / proxy configuration."
             : "Engine WebSocket not connected",
         );
         return;
       }
 
-      if (USE_X402_CHAT && process.env.NEXT_PUBLIC_DEFAULT_NETWORK === "solana") {
-        setRuntimeError("x402 chat via Solana is not wired in this build.");
+      if (USE_CORE_PAID_CHAT && process.env.NEXT_PUBLIC_DEFAULT_NETWORK === "solana") {
+        setRuntimeError("Terminal Backend paid chat via Solana is not wired in this build.");
         return;
       }
 
@@ -853,9 +723,9 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
       setRuntimeError(null);
       setX402Phase(null);
 
-      if (USE_X402_CHAT) {
+      if (USE_CORE_PAID_CHAT) {
         try {
-          await executeX402Request(sessionId, userMsg.id, openAiMessages);
+          await executeCorePaidChat(sessionId, userMsg.id, openAiMessages);
         } finally {
           setIsLoading(false);
         }
@@ -870,7 +740,7 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
         ...(sid ? { context: { subnet_id: sid } } : {}),
       });
     },
-    [isConnected, sendMessage, appendToSessionMessages, sessions, executeX402Request],
+    [isConnected, sendMessage, appendToSessionMessages, sessions, executeCorePaidChat],
   );
 
   const handleRetrySend = useCallback(
@@ -891,15 +761,15 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
 
       if (!isConnected) {
         setRuntimeError(
-          USE_X402_CHAT
-            ? "Connect your wallet on Base Sepolia or Polygon to send paid chat."
+          USE_CORE_PAID_CHAT
+            ? "Terminal Backend wallet is not ready. Check Terminal Backend and Next `CORE_API_KEY` / proxy configuration."
             : "Engine WebSocket not connected",
         );
         return;
       }
 
-      if (USE_X402_CHAT && process.env.NEXT_PUBLIC_DEFAULT_NETWORK === "solana") {
-        setRuntimeError("x402 chat via Solana is not wired in this build.");
+      if (USE_CORE_PAID_CHAT && process.env.NEXT_PUBLIC_DEFAULT_NETWORK === "solana") {
+        setRuntimeError("Terminal Backend paid chat via Solana is not wired in this build.");
         return;
       }
 
@@ -931,9 +801,9 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
       setRuntimeError(null);
       setX402Phase(null);
 
-      if (USE_X402_CHAT) {
+      if (USE_CORE_PAID_CHAT) {
         try {
-          await executeX402Request(sessionId, messageId, openAiMessages);
+          await executeCorePaidChat(sessionId, messageId, openAiMessages);
         } finally {
           setIsLoading(false);
         }
@@ -948,7 +818,7 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
         ...(sid ? { context: { subnet_id: sid } } : {}),
       });
     },
-    [isConnected, isLoading, sendMessage, sessions, executeX402Request],
+    [isConnected, isLoading, sendMessage, sessions, executeCorePaidChat],
   );
 
   const handleNewChat = useCallback(() => {
@@ -1014,11 +884,28 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
     isLoading,
     terminalLogs,
     terminalReceipt,
-    engineError: runtimeError || (USE_X402_CHAT ? null : lastError),
+    engineError: runtimeError || (USE_CORE_PAID_CHAT ? null : lastError),
     isConnected,
     engineSocketConnected,
     x402Phase,
-    useX402Chat: USE_X402_CHAT,
+    useCorePaidChat: USE_CORE_PAID_CHAT,
+    useX402Chat: USE_CORE_PAID_CHAT,
+    coreWalletFooter:
+      USE_CORE_PAID_CHAT && coreWallet
+        ? {
+            label: `${coreWallet.address.slice(0, 6)}…${coreWallet.address.slice(-4)}`,
+            subtitle: `Chain ${coreWallet.chainId}${
+              coreWallet.usdcBalance != null
+                ? ` · ${Number(coreWallet.usdcBalance).toLocaleString("en-US", {
+                    style: "currency",
+                    currency: "USD",
+                    maximumFractionDigits: 6,
+                  })}`
+                : ""
+            }`,
+            initials: coreWallet.address.slice(2, 4).toUpperCase(),
+          }
+        : null,
     handleSend,
     handleRetrySend,
     handleNewChat,

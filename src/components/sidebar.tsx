@@ -16,12 +16,17 @@ import {
 import { conversationHistory, type ConversationGroup } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
-import { useConnection } from "wagmi";
 
 export type LiveChatSidebarActions = {
   onArchive: (id: string) => void;
   onRestore: (id: string) => void;
   onDelete: (id: string) => void;
+};
+
+export type SidebarWalletFooter = {
+  label: string;
+  subtitle?: string;
+  initials?: string | null;
 };
 
 interface SidebarProps {
@@ -35,6 +40,8 @@ interface SidebarProps {
   historyGroups?: ConversationGroup[];
   /** Live terminal: row menu + archive/delete with confirmation */
   liveChatActions?: LiveChatSidebarActions;
+  /** When set (e.g. Terminal Backend custodial wallet), replaces default footer identity */
+  walletFooter?: SidebarWalletFooter | null;
 }
 
 export function Sidebar({
@@ -45,18 +52,14 @@ export function Sidebar({
   onNewChat,
   historyGroups,
   liveChatActions,
+  walletFooter,
   showHistory = true,
 }: SidebarProps & { showHistory?: boolean }) {
-  const connection = useConnection();
-  const walletConnected =
-    connection.status === "connected" && Boolean(connection.address);
-  const walletAddress = walletConnected ? connection.address! : null;
-  const walletLabel = walletAddress
-    ? `${walletAddress.slice(0, 6)}…${walletAddress.slice(-4)}`
-    : null;
-  const walletInitials = walletAddress
-    ? walletAddress.slice(2, 4).toUpperCase()
-    : null;
+  const walletLabel = walletFooter?.label ?? "Test User";
+  const walletInitials = walletFooter?.initials ?? null;
+  const footerLine2 = walletFooter
+    ? walletFooter.subtitle?.trim() || "Global wallet"
+    : "Pro Account";
 
   const groups = historyGroups ?? conversationHistory;
   /** Portal menu — avoids clipping from sidebar `overflow-hidden` / scroll containers. */
@@ -223,7 +226,7 @@ export function Sidebar({
                 {walletLabel ?? "Test User"}
               </p>
               <p className="text-[10px] text-muted-foreground/60 truncate uppercase tracking-widest font-medium">
-                {walletConnected ? "Wallet" : "Pro Account"}
+                {footerLine2}
               </p>
             </div>
             <Settings size={14} className="text-muted-foreground/40 group-hover:text-foreground transition-colors" />

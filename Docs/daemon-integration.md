@@ -43,11 +43,10 @@ curl -X POST http://localhost:7044/v1/ask \
 
 ## Base URLs
 
-Current frontend defaults (already present in `.env.example`):
+Current frontend setup (see `.env.example`):
 
-- `NEXT_PUBLIC_ENGINE_API_URL=http://localhost:7044`
-- `NEXT_PUBLIC_DAEMON_API_URL=http://localhost:8081`
-- `NEXT_PUBLIC_ENGINE_WS_URL=ws://localhost:7044/ws`
+- **Engine/daemon HTTP** — The browser uses same-origin **`/api/engine/*`** and **`/api/daemon/*`**. Next proxies to upstream using **`ENGINE_INTERNAL_URL`** (default `http://127.0.0.1:7044`) and **`DAEMON_INTERNAL_URL`** (default `http://127.0.0.1:8081`). This matches the pattern used for Core (`CORE_INTERNAL_URL` + `/api/core/*`).
+- **Engine WebSocket** — Still direct from the browser: **`NEXT_PUBLIC_ENGINE_WS_URL`** (e.g. `ws://localhost:7044/ws`). For remote-only UIs, tunnel engine WS or put a reverse proxy in front; Next does not proxy WebSocket in this repo.
 
 ## Architecture Summary
 

@@ -5,12 +5,11 @@ import { KrakenSignalDetailsDialog } from "@/components/kraken/kraken-signal-det
 import { KrakenSkillCards } from "@/components/kraken/kraken-skill-cards";
 import { KrakenAnalytics } from "@/components/kraken/kraken-analytics";
 import { KrakenAlerts } from "@/components/kraken/kraken-alerts";
-import { Search, Bell, Menu, LayoutDashboard, Database, Shield, Zap, MessageSquare } from "lucide-react";
+import { Search, Bell, LayoutDashboard, Database, Shield, Zap, MessageSquare } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { useConnection } from "wagmi";
-import { ConnectButton } from "@/components/wallet/connect-button";
+import { GlobalWallet } from "@/components/global-wallet";
 import { EngineSubnetPicker } from "@/components/engine-subnet-picker";
 import { apiClient } from "@/lib/api-client";
 import { DaemonCategory, DaemonResultItem } from "@/lib/engine-daemon-types";
@@ -98,11 +97,7 @@ function KrakenHeaderNav({ className }: { className?: string }) {
 }
 
 export default function KrakenDashboard() {
-  const { status: walletStatus, address: walletAddress } = useConnection();
-  const walletConnected = walletStatus === "connected" && Boolean(walletAddress);
-  /** Avoid SSR vs client skew from wagmi persistence (ConnectButton already gates its subtree). */
-  const [walletHeaderReady, setWalletHeaderReady] = useState(false);
-
+  const showGlobalWallet = process.env.NEXT_PUBLIC_USE_CORE_X402 === "true";
   const [signals, setSignals] = useState<DaemonResultItem[]>([]);
   const [topSignals, setTopSignals] = useState<DaemonResultItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -127,7 +122,6 @@ export default function KrakenDashboard() {
 
   useEffect(() => {
     document.title = "Kraken Intelligence Dashboard";
-    setWalletHeaderReady(true);
   }, []);
 
   useEffect(() => {
@@ -251,16 +245,8 @@ export default function KrakenDashboard() {
                 <span className="absolute right-2 top-2 h-2 w-2 rounded-full border-2 border-background bg-primary" />
               </button>
               <div className="flex min-h-[44px] min-w-0 flex-1 flex-wrap items-center gap-2">
-                <ConnectButton />
+                {showGlobalWallet ? <GlobalWallet className="shrink-0" /> : null}
               </div>
-              {walletHeaderReady && !walletConnected ? (
-                <div className="flex h-11 min-h-[44px] shrink-0 items-center gap-2 rounded-lg border border-border bg-muted/10 px-2 py-1 pr-3">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-white">
-                    ME
-                  </div>
-                  <Menu size={16} className="shrink-0 text-muted-foreground" />
-                </div>
-              ) : null}
             </div>
             <KrakenHeaderNav className="-mx-4 min-h-[44px] border-t border-border px-4 py-2 sm:-mx-6 sm:px-6" />
           </div>
@@ -307,20 +293,9 @@ export default function KrakenDashboard() {
                   <Bell size={18} />
                   <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full border-2 border-background bg-primary" />
                 </button>
-                <div className="flex shrink-0 items-center [&_button]:min-h-9 [&_button]:py-0">
-                  <ConnectButton />
+                <div className="flex shrink-0 items-center">
+                  {showGlobalWallet ? <GlobalWallet className="shrink-0" /> : null}
                 </div>
-                {walletHeaderReady && !walletConnected ? (
-                  <div
-                    className="flex h-9 shrink-0 items-center gap-1 rounded-lg border border-border bg-background pl-1 pr-2"
-                    style={{ minWidth: "60px" }}
-                  >
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-white">
-                      ME
-                    </div>
-                    <Menu size={16} className="shrink-0 text-muted-foreground" />
-                  </div>
-                ) : null}
               </div>
             </div>
             <KrakenHeaderNav className="min-h-[44px] border-b border-border px-4 py-3 sm:px-6" />
