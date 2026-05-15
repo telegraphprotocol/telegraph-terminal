@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
-import { ThemeProvider } from "@/components/theme-provider";
+import { Providers } from "@/app/providers";
 import "./globals.css";
 
 const inter = Inter({
@@ -24,15 +24,15 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} h-dvh overflow-hidden antialiased`}
+      className={`dark ${inter.variable} h-dvh overflow-hidden antialiased`}
       suppressHydrationWarning
     >
       <body className="flex h-dvh min-h-0 flex-col overflow-hidden bg-background text-foreground">
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
+        <Providers>
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             {children}
           </div>
-        </ThemeProvider>
+        </Providers>
       </body>
     </html>
   );

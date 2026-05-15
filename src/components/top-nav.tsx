@@ -1,111 +1,121 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { ChevronDown, Wallet, PanelLeft } from "lucide-react";
+import { PanelLeft, Globe, ArrowLeft } from "lucide-react";
+import Link from "next/link";
+import { GlobalWallet } from "@/components/global-wallet";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { cn } from "@/lib/utils";
+import {
+  EngineSubnetPicker,
+  type EngineSubnetPickerProps,
+} from "@/components/engine-subnet-picker";
 
-const NETWORKS = [
-  "Bittensor",
-  "Ritual",
-  "Morpheus",
-  "Autonolas",
-  "Akash",
-  "Fetch.ai",
-];
+export type TopNavSubnetPickerProps = EngineSubnetPickerProps;
 
 interface TopNavProps {
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
+  subnetPicker: TopNavSubnetPickerProps;
+  backToDashboardHref?: string;
 }
 
-export function TopNav({ sidebarOpen, onToggleSidebar }: TopNavProps) {
-  const [selectedNetwork, setSelectedNetwork] = useState("Bittensor");
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+function NavLeadingControls({
+  sidebarOpen,
+  onToggleSidebar,
+  backToDashboardHref,
+}: Pick<TopNavProps, "sidebarOpen" | "onToggleSidebar" | "backToDashboardHref">) {
+  return (
+    <>
+      {!sidebarOpen && (
+        <button
+          type="button"
+          onClick={onToggleSidebar}
+          className="shrink-0 rounded-xl p-2.5 text-muted-foreground transition-all duration-300 hover:bg-primary/10 hover:text-primary"
+          aria-label="Open sidebar"
+        >
+          <PanelLeft size={19} />
+        </button>
+      )}
+      {backToDashboardHref ? (
+        <Link
+          href={backToDashboardHref}
+          className="shrink-0 rounded-xl border border-border/50 bg-muted/20 p-2.5 text-muted-foreground transition-all duration-300 hover:bg-primary/10 hover:text-primary"
+          aria-label="Back to dashboard"
+          title="Back to dashboard"
+        >
+          <ArrowLeft size={18} strokeWidth={2.25} />
+        </Link>
+      ) : null}
+    </>
+  );
+}
 
-  // Close dropdown on outside click
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(e.target as Node)
-      ) {
-        setDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
+export function TopNav({
+  sidebarOpen,
+  onToggleSidebar,
+  subnetPicker,
+  backToDashboardHref,
+}: TopNavProps) {
+  const showGlobalWallet = process.env.NEXT_PUBLIC_USE_CORE_X402 === "true";
+  const titleAndSubtitle = (
+    <div className="flex min-w-0 flex-1 flex-col">
+      <h1 className="min-w-0 truncate whitespace-nowrap text-[14px] font-bold tracking-tight text-foreground/90 md:text-[15px]">
+        <span className="text-gradient-premium hidden sm:inline">Telegraph</span>
+        <span className="text-primary sm:hidden">Telegraph</span>
+        <span className="font-black text-muted-foreground/40"> / </span>
+        <span className="sm:hidden">Terminal</span>
+        <span className="hidden sm:inline">Intelligence Terminal</span>
+      </h1>
+      <div className="hidden items-center gap-1.5 opacity-60 md:flex">
+        <Globe size={10} className="text-primary" />
+        <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">
+          Neural Gateway v1.4.2
+        </span>
+      </div>
+    </div>
+  );
+
+  const tools = (
+    <>
+      <ThemeToggle />
+      <EngineSubnetPicker {...subnetPicker} menuAlign="end" />
+      {showGlobalWallet ? <GlobalWallet className="shrink-0" /> : null}
+    </>
+  );
 
   return (
-    <header className="flex items-center px-3 h-14 border-b border-border bg-background shrink-0 gap-2">
-      {/* Left: open-sidebar button (only when sidebar is closed) + title */}
-      <div className="flex items-center gap-2 flex-1 min-w-0">
-        {!sidebarOpen && (
-          <button
-            onClick={onToggleSidebar}
-            className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors shrink-0"
-            aria-label="Open sidebar"
-          >
-            <PanelLeft size={17} />
-          </button>
-        )}
-        <h1 className="lg:text-base text-sm font-medium text-foreground truncate lg:pl-1">
-          Telegraph Intelligence Terminal
-        </h1>
+    <header className="z-40 flex shrink-0 flex-col gap-2 border-b border-border/40 bg-background/60 px-4 py-2 backdrop-blur-md md:h-16 md:flex-row md:items-center md:gap-4 md:py-0">
+      {/* Mobile: row 1 (nav + title), row 2 (tools) */}
+      <div className="flex w-full min-w-0 flex-col gap-2 md:hidden">
+        <div className="flex min-w-0 items-center gap-3">
+          <NavLeadingControls
+            sidebarOpen={sidebarOpen}
+            onToggleSidebar={onToggleSidebar}
+            backToDashboardHref={backToDashboardHref}
+          />
+          {titleAndSubtitle}
+        </div>
+        <div className="flex w-full min-w-0 items-center gap-2">
+          <ThemeToggle />
+          <div className="min-w-0 flex-1">
+            <EngineSubnetPicker {...subnetPicker} menuAlign="end" />
+          </div>
+          <div className="shrink-0">
+            {showGlobalWallet ? <GlobalWallet className="shrink-0" /> : null}
+          </div>
+        </div>
       </div>
 
-      {/* Right actions */}
-      <div className="flex items-center gap-2 shrink-0">
-        {/* Dark / Light toggle */}
-        <ThemeToggle />
-
-        {/* Network dropdown */}
-        <div className="relative" ref={dropdownRef}>
-          <button
-            onClick={() => setDropdownOpen((v) => !v)}
-            className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-border hover:bg-accent transition-colors text-sm text-foreground"
-          >
-            <span className="hidden sm:inline text-sm">{selectedNetwork}</span>
-            <ChevronDown
-              size={13}
-              className={cn(
-                "text-muted-foreground transition-transform duration-200",
-                dropdownOpen && "rotate-180",
-              )}
-            />
-          </button>
-
-          {/* Dropdown menu */}
-          {dropdownOpen && (
-            <div className="absolute right-0 top-[calc(100%+6px)] z-50 min-w-[148px] rounded-xl border border-border bg-popover shadow-lg overflow-hidden">
-              {NETWORKS.map((network) => (
-                <button
-                  key={network}
-                  onClick={() => {
-                    setSelectedNetwork(network);
-                    setDropdownOpen(false);
-                  }}
-                  className={cn(
-                    "w-full px-3 py-2 text-sm transition-colors text-left",
-                    selectedNetwork === network
-                      ? "bg-primary/10 text-foreground font-medium"
-                      : "text-muted-foreground hover:bg-accent",
-                  )}
-                >
-                  {network}
-                </button>
-              ))}
-            </div>
-          )}
+      {/* Desktop: original single row */}
+      <div className="hidden min-h-0 min-w-0 flex-1 items-center gap-4 md:flex">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <NavLeadingControls
+            sidebarOpen={sidebarOpen}
+            onToggleSidebar={onToggleSidebar}
+            backToDashboardHref={backToDashboardHref}
+          />
+          {titleAndSubtitle}
         </div>
-
-        {/* Connect Wallet */}
-        <button className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium transition-colors border border-border">
-          <Wallet size={14} />
-          <span className="hidden sm:inline">Connect</span>
-        </button>
+        <div className="flex shrink-0 items-center gap-3">{tools}</div>
       </div>
     </header>
   );
