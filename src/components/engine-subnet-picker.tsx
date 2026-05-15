@@ -11,6 +11,8 @@ export type EngineSubnetPickerProps = {
   onSubnetChange: (subnetId: string | null) => void;
   loading?: boolean;
   error?: string | null;
+  /** When true, only "Auto routing" is selectable (paid chat v1). */
+  paidChatAutoOnly?: boolean;
   /** Dropdown alignment under the trigger */
   menuAlign?: "start" | "end";
 };
@@ -21,6 +23,7 @@ export function EngineSubnetPicker({
   onSubnetChange,
   loading = false,
   error = null,
+  paidChatAutoOnly = false,
   menuAlign = "end",
 }: EngineSubnetPickerProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -88,6 +91,11 @@ export function EngineSubnetPicker({
             {error ? (
               <p className="px-3 py-2 text-[11px] text-amber-600 dark:text-amber-400">{error}</p>
             ) : null}
+            {paidChatAutoOnly ? (
+              <p className="px-3 py-1.5 text-[11px] text-muted-foreground">
+                Paid chat: auto routing only for now.
+              </p>
+            ) : null}
             <button
               type="button"
               onClick={() => {
@@ -115,19 +123,25 @@ export function EngineSubnetPicker({
                 <code className="text-[11px]">/v1/subnets</code>.
               </div>
             ) : (
-              subnets.map((s) => (
+              subnets.map((s) => {
+                const disabled = paidChatAutoOnly;
+                return (
                 <button
                   key={s.id}
                   type="button"
+                  disabled={disabled}
                   onClick={() => {
+                    if (disabled) return;
                     onSubnetChange(s.id);
                     setDropdownOpen(false);
                   }}
                   className={cn(
                     "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left text-[13px] font-medium transition-all duration-200 group",
-                    selectedSubnetId === s.id
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                    disabled
+                      ? "cursor-not-allowed opacity-45"
+                      : selectedSubnetId === s.id
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:bg-accent hover:text-foreground",
                   )}
                 >
                   <span className="truncate">{s.label}</span>
@@ -135,7 +149,8 @@ export function EngineSubnetPicker({
                     <div className="h-1 w-1 shrink-0 rounded-full bg-primary" />
                   ) : null}
                 </button>
-              ))
+                );
+              })
             )}
           </motion.div>
         )}

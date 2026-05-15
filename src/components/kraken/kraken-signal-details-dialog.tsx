@@ -4,9 +4,10 @@ import { useEffect, useState, type ReactNode } from "react";
 import { X, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DaemonResultItem } from "@/lib/engine-daemon-types";
-import { formatKrakenIntentCell } from "@/lib/kraken-signal-format";
-import { parseExecutionResult, summarizeExecutionResult } from "@/lib/kraken-signal-result";
+import { formatKrakenIntentCell, questionSourceArticleUrl } from "@/lib/kraken-signal-format";
+import { parseExecutionResult } from "@/lib/kraken-signal-result";
 import { KrakenStructuredResult } from "@/components/kraken/kraken-structured-result";
+import { KrakenSourceWithCopy } from "@/components/kraken/kraken-source-with-copy";
 
 function formatJsonPreview(value: unknown): string {
   if (value === undefined) return "";
@@ -83,6 +84,7 @@ export function KrakenSignalDetailsDialog({ item, open, onOpenChange }: KrakenSi
   const fullSignalJson = formatJsonPreview(item);
   const parsedResult = parseExecutionResult(item.execution.result);
   const { rawJson: resultRawJson, hasAnswer: hasStructuredAnswer } = parsedResult;
+  const sourceHref = questionSourceArticleUrl(item.question);
 
   return (
     <div
@@ -122,20 +124,26 @@ export function KrakenSignalDetailsDialog({ item, open, onOpenChange }: KrakenSi
           <div className="flex flex-col gap-4 pb-2">
             <DetailRow label="Created">{new Date(item.created_at).toLocaleString()}</DetailRow>
             <DetailRow label="Type">{item.type}</DetailRow>
-            <DetailRow label="Source">{item.source}</DetailRow>
+            <DetailRow label="Source">
+              <div className="flex min-w-0 flex-col gap-2">
+                <KrakenSourceWithCopy item={item} variant="panel" />
+                {sourceHref ? (
+                  <p className="break-all font-mono text-[11px] leading-relaxed text-muted-foreground" title={sourceHref}>
+                    {sourceHref}
+                  </p>
+                ) : null}
+              </div>
+            </DetailRow>
             <DetailRow label="Status">{item.status}</DetailRow>
             <DetailRow label="Intent">{formatKrakenIntentCell(item)}</DetailRow>
-            <DetailRow label="Result">
+            <DetailRow label="Input">
               <span className="whitespace-pre-wrap text-sm leading-relaxed">
-                {item.execution.error || summarizeExecutionResult(item.execution.result)}
+                {item.question.text?.trim() || "—"}
               </span>
             </DetailRow>
 
             <div className="border-t border-border/40 pt-3 mt-1">
               <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">Question</p>
-              <DetailRow label="Text">
-                <span className="whitespace-pre-wrap">{item.question.text || "—"}</span>
-              </DetailRow>
               <DetailRow label="Category">{item.question.category || "—"}</DetailRow>
               <DetailRow label="Interest">{item.question.interest_score}</DetailRow>
               <DetailRow label="Affected %">{item.question.affected_pct}</DetailRow>

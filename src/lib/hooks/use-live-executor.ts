@@ -31,6 +31,9 @@ function sleep(ms: number): Promise<void> {
 const X402_CHAT_MODEL =
   process.env.NEXT_PUBLIC_X402_CHAT_MODEL?.trim() || "gpt-4o-mini";
 
+const PAID_CHAT_FORCED_SUBNET_MSG =
+  'Paid chat supports auto-routing only. Choose "Auto routing" in the subnet picker.';
+
 export type LiveTerminalReceipt = {
   subnet: string;
   subnetId: string;
@@ -39,6 +42,8 @@ export type LiveTerminalReceipt = {
   timestamp: string;
   intent?: string;
   reasoning?: string;
+  /** Raw engine `result` for technical JSON foldout (null if absent). */
+  technicalDetails?: unknown | null;
   /** Browser x402 settlement (EVM) */
   x402TxHash?: string;
   x402ExplorerUrl?: string;
@@ -596,6 +601,7 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
           timestamp: resultData.timestamp,
           intent: resultData.intent,
           reasoning: resultData.reasoning,
+          technicalDetails: resultData.result ?? null,
         });
         setIsLoading(false);
         activeQueryCell.current.value = null;
@@ -739,6 +745,11 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
         return;
       }
 
+      if (USE_TERMINAL_BACKEND_PAID_CHAT && forcedSubnetIdRef.current) {
+        setRuntimeError(PAID_CHAT_FORCED_SUBNET_MSG);
+        return;
+      }
+
       const priorThread = (sessions.find((s) => s.id === sessionId)?.messages ?? []).filter(
         (m) => !(m.role === "user" && m.sendState === "failed"),
       );
@@ -798,6 +809,11 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
 
       if (USE_TERMINAL_BACKEND_PAID_CHAT && process.env.NEXT_PUBLIC_DEFAULT_NETWORK === "solana") {
         setRuntimeError("Terminal Backend paid chat via Solana is not wired in this build.");
+        return;
+      }
+
+      if (USE_TERMINAL_BACKEND_PAID_CHAT && forcedSubnetIdRef.current) {
+        setRuntimeError(PAID_CHAT_FORCED_SUBNET_MSG);
         return;
       }
 

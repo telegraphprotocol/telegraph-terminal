@@ -96,7 +96,7 @@ export function KrakenAnalytics({ items, loading }: KrakenAnalyticsProps) {
                 border: "1px solid var(--border)",
                 borderRadius: "12px",
                 fontSize: "12px",
-                color: "#fff"
+                color: "var(--card-foreground)",
               }}
             />
             <Bar dataKey="internal" radius={[4, 4, 0, 0]} barSize={12}>

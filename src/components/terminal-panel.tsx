@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, HelpCircle, Activity, ShieldCheck, Zap } from "lucide-react";
-import { TerminalLogEntry } from "@/lib/mock-data";
+import { ChevronDown, HelpCircle, Activity, ShieldCheck, Zap, Copy, Check } from "lucide-react";
+import { TerminalLogEntry, TerminalReceipt } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/tooltip";
 import { motion, AnimatePresence } from "framer-motion";
 import { LiveTerminalReceipt } from "@/lib/hooks/use-live-executor";
-import { TerminalReceipt } from "@/lib/mock-data";
 
 type TerminalReceiptLike = LiveTerminalReceipt | TerminalReceipt;
 
@@ -26,7 +25,95 @@ interface TerminalPanelProps {
   receipt: TerminalReceiptLike | null;
 }
 
-const RECEIPT_H = 180; // px — bottom padding so last log is never hidden behind receipt
+/** Bottom padding for log scroller so entries stay above the floating receipt. */
+const RECEIPT_H = 300;
+
+const MAX_TECH_JSON_CHARS = 120_000;
+
+function formatTechnicalDetailsJson(payload: unknown): string {
+  try {
+    let s = JSON.stringify(payload, null, 2);
+    if (s.length > MAX_TECH_JSON_CHARS) {
+      const omitted = s.length - MAX_TECH_JSON_CHARS;
+      s = `${s.slice(0, MAX_TECH_JSON_CHARS)}\n\n/* …truncated (${omitted.toLocaleString()} chars omitted) */`;
+    }
+    return s;
+  } catch {
+    return String(payload);
+  }
+}
+
+function TechnicalDetailsCopyRow({ payload }: { payload: unknown }) {
+  const [copied, setCopied] = useState(false);
+  const text = formatTechnicalDetailsJson(payload);
+  const byteLabel =
+    `${new TextEncoder().encode(text).length.toLocaleString()} bytes`;
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 2000);
+      } catch {
+        /* ignore */
+      }
+    }
+  };
+
+  return (
+    <div className="rounded-lg border border-border/35 bg-muted/10 px-2.5 py-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Technical details
+          </div>
+          <p className="mt-0.5 text-[10px] text-muted-foreground/80">
+            Pretty JSON from engine{" "}
+            <code className="rounded bg-muted px-1 py-px text-[9px]">result</code>
+            <span className="text-muted-foreground/55"> · {byteLabel}</span>
+          </p>
+        </div>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger
+              type="button"
+              onClick={() => void handleCopy()}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border/50 bg-background/80 px-2.5 py-1.5 text-[11px] font-medium text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              title="Copies full pretty-printed JSON to the clipboard."
+            >
+              {copied ? (
+                <>
+                  <Check size={13} className="text-success" aria-hidden />
+                  Copied
+                </>
+              ) : (
+                <>
+                  <Copy size={13} aria-hidden />
+                  Copy JSON
+                </>
+              )}
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-[220px] text-[11px]">
+              Copies full pretty-printed JSON to the clipboard (no preview in UI).
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+    </div>
+  );
+}
 
 interface TerminalFeedProps extends TerminalPanelProps {
   className?: string;
@@ -139,7 +226,7 @@ function TerminalFeed({
             animate={{ translateY: 0, opacity: 1 }}
             exit={{ translateY: "100%", opacity: 0 }}
             transition={{ type: "spring", damping: 20, stiffness: 100 }}
-            className="absolute right-0 bottom-0 left-0 z-10 min-w-0 max-w-full rounded-t-2xl border-t border-border/50 bg-background/80 px-4 py-6 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.3)] backdrop-blur-xl lg:px-6"
+            className="absolute right-0 bottom-0 left-0 z-10 flex max-h-[min(78vh,420px)] min-w-0 max-w-full flex-col rounded-t-2xl border-t border-border/50 bg-background/80 px-4 py-6 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.3)] backdrop-blur-xl lg:px-6"
           >
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2">
@@ -157,7 +244,8 @@ function TerminalFeed({
             </div>
 
             {receipt && (
-              <div className="grid min-w-0 w-full grid-cols-2 gap-x-6 gap-y-4">
+              <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar pr-1">
+                <div className="grid min-w-0 w-full grid-cols-2 gap-x-6 gap-y-4">
                 {(isLiveReceipt(receipt)
                   ? [
                       { label: "Subnet Provider", value: `${receipt.subnet} (SN${receipt.subnetId})`, icon: Activity },
@@ -199,17 +287,37 @@ function TerminalFeed({
                     </a>
                   </div>
                 ) : null}
+                </div>
               </div>
             )}
-            
-            <div className="mt-6 flex min-w-0 items-start justify-between gap-3 border-t border-border/40 pt-4">
-                <span className="min-w-0 max-w-[48%] shrink text-[9px] font-mono leading-snug text-muted-foreground/60 [overflow-wrap:anywhere] break-words uppercase tracking-widest">
-                  {receipt.timestamp}
-                </span>
-                <span className="min-w-0 max-w-[48%] shrink text-right text-[9px] font-mono leading-snug text-primary/60 [overflow-wrap:anywhere] break-words">
-                  {isLiveReceipt(receipt) ? (receipt.reasoning || "ROUTER_REASONING_UNAVAILABLE") : "TELEG_V1.0_PROD"}
-                </span>
-            </div>
+
+            {receipt ? (
+              <div className="mt-5 shrink-0 space-y-3 border-t border-border/40 pt-4">
+                <div className="min-w-0 space-y-1">
+                  <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                    Execution time
+                  </div>
+                  <p className="text-[11px] font-mono leading-relaxed text-muted-foreground [overflow-wrap:anywhere] break-words">
+                    {receipt.timestamp}
+                  </p>
+                </div>
+                {isLiveReceipt(receipt) ? (
+                  <div className="min-w-0 space-y-1">
+                    <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                      Router reasoning
+                    </div>
+                    <p className="text-[12px] leading-relaxed text-foreground/90 [overflow-wrap:anywhere] break-words">
+                      {receipt.reasoning?.trim() || "—"}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-[10px] font-mono text-muted-foreground/70">TELEG_V1.0_PROD</p>
+                )}
+                {isLiveReceipt(receipt) ? (
+                  <TechnicalDetailsCopyRow payload={receipt.technicalDetails ?? null} />
+                ) : null}
+              </div>
+            ) : null}
           </motion.div>
         )}
       </AnimatePresence>
@@ -300,7 +408,7 @@ export function TerminalPanel({
                   <HelpCircle size={14} className="text-muted-foreground" />
                 </div>
               </TooltipTrigger>
-              <TooltipContent className="glass-card max-w-[240px] p-3 text-[11px] leading-relaxed">
+              <TooltipContent className="glass-card max-w-[240px] p-3 text-[11px] leading-relaxed text-popover-foreground">
                 Real-time execution logs for provider routing, model
                 inference, validation checks, and on-chain settlement.
               </TooltipContent>

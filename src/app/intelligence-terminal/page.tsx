@@ -50,6 +50,7 @@ export default function LiveChatPage() {
     x402Phase,
     backendWalletStatus,
     useX402Chat,
+    useCorePaidChat,
     coreWalletFooter,
     handleSend,
     handleRetrySend,
@@ -135,6 +136,7 @@ export default function LiveChatPage() {
             onSubnetChange: setForcedSubnetId,
             loading: subnetsLoading,
             error: subnetsError,
+            paidChatAutoOnly: useCorePaidChat,
           }}
         />
 

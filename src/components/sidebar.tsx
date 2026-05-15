@@ -17,6 +17,13 @@ import { conversationHistory, type ConversationGroup } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
+const SUPPORT_URL =
+  process.env.NEXT_PUBLIC_SUPPORT_URL?.trim() ||
+  "https://telegraphprotocol.com/";
+const DOCS_URL =
+  process.env.NEXT_PUBLIC_DOCS_URL?.trim() ||
+  "https://telegraph-2.gitbook.io/telegraph";
+
 export type LiveChatSidebarActions = {
   onArchive: (id: string) => void;
   onRestore: (id: string) => void;
@@ -233,14 +240,24 @@ export function Sidebar({
           </div>
           
           <div className="flex items-center justify-center gap-4 pt-2">
-             <button className="text-[10px] font-bold text-muted-foreground/40 hover:text-foreground uppercase tracking-widest transition-colors flex items-center gap-1">
-                <HelpCircle size={12} />
-                Support
-             </button>
-             <div className="w-1 h-1 rounded-full bg-border" />
-             <button className="text-[10px] font-bold text-muted-foreground/40 hover:text-foreground uppercase tracking-widest transition-colors">
-                Docs
-             </button>
+            <a
+              href={SUPPORT_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[10px] font-bold text-muted-foreground/40 hover:text-foreground uppercase tracking-widest transition-colors inline-flex items-center gap-1"
+            >
+              <HelpCircle size={12} />
+              Support
+            </a>
+            <div className="w-1 h-1 rounded-full bg-border" />
+            <a
+              href={DOCS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[10px] font-bold text-muted-foreground/40 hover:text-foreground uppercase tracking-widest transition-colors"
+            >
+              Docs
+            </a>
           </div>
         </div>
       </div>

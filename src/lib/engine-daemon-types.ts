@@ -99,6 +99,11 @@ export type DaemonQuestionDoc = {
   interest_score: number;
   affected_pct: number;
   audience_pct: number;
+  /**
+   * Article / data URL when the collector stored one. Use `""` or omit when unknown;
+   * the UI treats missing and empty (after trim) as no link.
+   */
+  source_url?: string;
 };
 
 export type DaemonRoutingMeta = {
