@@ -3,6 +3,10 @@ import { EngineWsAction, EngineWsFrame } from "@/lib/engine-daemon-types";
 
 const WS_URL = process.env.NEXT_PUBLIC_ENGINE_WS_URL || "ws://localhost:7044/ws";
 
+/** Terminal Backend paid chat uses HTTP only; skip browser → engine WS (avoids HTTPS + ws:// SecurityError). */
+const SKIP_ENGINE_WS =
+  process.env.NEXT_PUBLIC_USE_TERMINAL_BACKEND_X402 === "true";
+
 export function useEngineWS() {
   const [isConnected, setIsConnected] = useState(false);
   const [lastMessage, setLastMessage] = useState<EngineWsFrame | null>(null);
@@ -47,6 +51,7 @@ export function useEngineWS() {
   }, []);
 
   useEffect(() => {
+    if (SKIP_ENGINE_WS) return;
     connectRef.current = connect;
     shouldReconnectRef.current = true;
     connect();
@@ -58,6 +63,7 @@ export function useEngineWS() {
   }, [connect]);
 
   const sendMessage = useCallback((message: EngineWsAction) => {
+    if (SKIP_ENGINE_WS) return;
     if (socketRef.current?.readyState === WebSocket.OPEN) {
       socketRef.current.send(JSON.stringify(message));
     } else {
