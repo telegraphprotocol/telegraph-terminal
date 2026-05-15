@@ -13,8 +13,20 @@ import { EngineAskResult, EngineWsFrame } from "@/lib/engine-daemon-types";
 const LS_KEY = "telegraph-live-chat-sessions-v1";
 const LS_VERSION = 2 as const;
 
-const USE_CORE_PAID_CHAT =
-  typeof process !== "undefined" && process.env.NEXT_PUBLIC_USE_CORE_X402 === "true";
+const USE_TERMINAL_BACKEND_PAID_CHAT =
+  typeof process !== "undefined" &&
+  process.env.NEXT_PUBLIC_USE_TERMINAL_BACKEND_X402 === "true";
+
+const WALLET_RETRY_ATTEMPTS = 3;
+const WALLET_RETRY_DELAY_MS = 450;
+
+export type BackendWalletStatus = "idle" | "checking" | "ready" | "unavailable";
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
 
 const X402_CHAT_MODEL =
   process.env.NEXT_PUBLIC_X402_CHAT_MODEL?.trim() || "gpt-4o-mini";
@@ -222,32 +234,48 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
 
   const [coreWallet, setCoreWallet] = useState<CoreWalletPayload | null>(null);
   const [coreWalletError, setCoreWalletError] = useState<string | null>(null);
+  const [backendWalletStatus, setBackendWalletStatus] = useState<BackendWalletStatus>(
+    USE_TERMINAL_BACKEND_PAID_CHAT ? "checking" : "idle",
+  );
 
   const fetchCoreWallet = useCallback(async () => {
-    if (!USE_CORE_PAID_CHAT) return;
-    try {
-      const res = await fetch("/api/core/wallet", { cache: "no-store" });
-      const text = await res.text();
-      if (!res.ok) {
-        setCoreWallet(null);
-        setCoreWalletError(text.slice(0, 400) || `HTTP ${res.status}`);
-        return;
+    if (!USE_TERMINAL_BACKEND_PAID_CHAT) return;
+    setBackendWalletStatus("checking");
+    let lastError: string | null = null;
+    for (let attempt = 0; attempt < WALLET_RETRY_ATTEMPTS; attempt++) {
+      if (attempt > 0) {
+        await sleep(WALLET_RETRY_DELAY_MS);
       }
-      setCoreWallet(JSON.parse(text) as CoreWalletPayload);
-      setCoreWalletError(null);
-    } catch (e) {
-      setCoreWallet(null);
-      setCoreWalletError(e instanceof Error ? e.message : "Could not reach Terminal Backend (wallet).");
+      try {
+        const res = await fetch("/api/core/wallet", { cache: "no-store" });
+        const text = await res.text();
+        if (!res.ok) {
+          lastError = text.slice(0, 400) || `HTTP ${res.status}`;
+          setCoreWallet(null);
+          continue;
+        }
+        setCoreWallet(JSON.parse(text) as CoreWalletPayload);
+        setCoreWalletError(null);
+        setBackendWalletStatus("ready");
+        return;
+      } catch (e) {
+        lastError =
+          e instanceof Error ? e.message : "Could not reach Terminal Backend (wallet).";
+        setCoreWallet(null);
+      }
     }
+    setCoreWalletError(lastError);
+    setBackendWalletStatus("unavailable");
   }, []);
 
   useEffect(() => {
     void fetchCoreWallet();
   }, [fetchCoreWallet]);
 
-  const coreReady = USE_CORE_PAID_CHAT && coreWallet != null && coreWalletError == null;
+  const coreReady =
+    USE_TERMINAL_BACKEND_PAID_CHAT && backendWalletStatus === "ready";
 
-  const isConnected = USE_CORE_PAID_CHAT ? coreReady : engineSocketConnected;
+  const isConnected = USE_TERMINAL_BACKEND_PAID_CHAT ? coreReady : engineSocketConnected;
 
   const activeSessionIdRef = useRef<string | null>(null);
   /** Latest `sessions` for async callbacks (e.g. queued microtasks) — avoids stale closures. */
@@ -699,14 +727,14 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
 
       if (!isConnected) {
         setRuntimeError(
-          USE_CORE_PAID_CHAT
-            ? "Terminal Backend wallet is not ready. Check Terminal Backend and Next `CORE_API_KEY` / proxy configuration."
+          USE_TERMINAL_BACKEND_PAID_CHAT
+            ? "Terminal Backend wallet is not ready. Check Terminal Backend and Next `TERMINAL_BACKEND_API_KEY` / proxy configuration."
             : "Engine WebSocket not connected",
         );
         return;
       }
 
-      if (USE_CORE_PAID_CHAT && process.env.NEXT_PUBLIC_DEFAULT_NETWORK === "solana") {
+      if (USE_TERMINAL_BACKEND_PAID_CHAT && process.env.NEXT_PUBLIC_DEFAULT_NETWORK === "solana") {
         setRuntimeError("Terminal Backend paid chat via Solana is not wired in this build.");
         return;
       }
@@ -723,7 +751,7 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
       setRuntimeError(null);
       setX402Phase(null);
 
-      if (USE_CORE_PAID_CHAT) {
+      if (USE_TERMINAL_BACKEND_PAID_CHAT) {
         try {
           await executeCorePaidChat(sessionId, userMsg.id, openAiMessages);
         } finally {
@@ -761,14 +789,14 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
 
       if (!isConnected) {
         setRuntimeError(
-          USE_CORE_PAID_CHAT
-            ? "Terminal Backend wallet is not ready. Check Terminal Backend and Next `CORE_API_KEY` / proxy configuration."
+          USE_TERMINAL_BACKEND_PAID_CHAT
+            ? "Terminal Backend wallet is not ready. Check Terminal Backend and Next `TERMINAL_BACKEND_API_KEY` / proxy configuration."
             : "Engine WebSocket not connected",
         );
         return;
       }
 
-      if (USE_CORE_PAID_CHAT && process.env.NEXT_PUBLIC_DEFAULT_NETWORK === "solana") {
+      if (USE_TERMINAL_BACKEND_PAID_CHAT && process.env.NEXT_PUBLIC_DEFAULT_NETWORK === "solana") {
         setRuntimeError("Terminal Backend paid chat via Solana is not wired in this build.");
         return;
       }
@@ -801,7 +829,7 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
       setRuntimeError(null);
       setX402Phase(null);
 
-      if (USE_CORE_PAID_CHAT) {
+      if (USE_TERMINAL_BACKEND_PAID_CHAT) {
         try {
           await executeCorePaidChat(sessionId, messageId, openAiMessages);
         } finally {
@@ -884,14 +912,15 @@ export function useLiveExecutor(opts?: { forcedSubnetId?: string | null }) {
     isLoading,
     terminalLogs,
     terminalReceipt,
-    engineError: runtimeError || (USE_CORE_PAID_CHAT ? null : lastError),
+    engineError: runtimeError || (USE_TERMINAL_BACKEND_PAID_CHAT ? null : lastError),
     isConnected,
     engineSocketConnected,
     x402Phase,
-    useCorePaidChat: USE_CORE_PAID_CHAT,
-    useX402Chat: USE_CORE_PAID_CHAT,
+    backendWalletStatus,
+    useCorePaidChat: USE_TERMINAL_BACKEND_PAID_CHAT,
+    useX402Chat: USE_TERMINAL_BACKEND_PAID_CHAT,
     coreWalletFooter:
-      USE_CORE_PAID_CHAT && coreWallet
+      USE_TERMINAL_BACKEND_PAID_CHAT && coreWallet
         ? {
             label: `${coreWallet.address.slice(0, 6)}…${coreWallet.address.slice(-4)}`,
             subtitle: `Chain ${coreWallet.chainId}${

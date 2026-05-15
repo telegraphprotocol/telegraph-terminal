@@ -1,25 +1,29 @@
 import { NextResponse } from "next/server";
 
-function coreBase(): string {
-  const raw = process.env.CORE_INTERNAL_URL ?? "http://127.0.0.1:3030";
+function terminalBackendBase(): string {
+  const raw =
+    process.env.TERMINAL_BACKEND_INTERNAL_URL ?? "http://127.0.0.1:3030";
   return raw.replace(/\/$/, "");
 }
 
 /**
- * Server-side proxy to Terminal Backend `GET /v1/wallet` so the browser never holds `CORE_API_KEY`.
+ * Server-side proxy to Terminal Backend `GET /v1/wallet` so the browser never holds `TERMINAL_BACKEND_API_KEY`.
  */
 export async function GET() {
-  const key = process.env.CORE_API_KEY;
+  const key = process.env.TERMINAL_BACKEND_API_KEY;
   if (!key?.trim()) {
     return NextResponse.json(
-      { error: "CORE_API_KEY is not set on the Next server (see .env.example)." },
+      {
+        error:
+          "TERMINAL_BACKEND_API_KEY is not set on the Next server (see .env.example).",
+      },
       { status: 500 },
     );
   }
 
   let upstream: Response;
   try {
-    upstream = await fetch(`${coreBase()}/v1/wallet`, {
+    upstream = await fetch(`${terminalBackendBase()}/v1/wallet`, {
       method: "GET",
       headers: { "X-Core-Api-Key": key.trim() },
       cache: "no-store",

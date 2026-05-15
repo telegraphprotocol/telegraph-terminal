@@ -1,6 +1,6 @@
 "use client";
 
-import { PanelLeft, Globe, ArrowLeft } from "lucide-react";
+import { PanelLeft, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { GlobalWallet } from "@/components/global-wallet";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -55,22 +55,13 @@ export function TopNav({
   subnetPicker,
   backToDashboardHref,
 }: TopNavProps) {
-  const showGlobalWallet = process.env.NEXT_PUBLIC_USE_CORE_X402 === "true";
+  const showGlobalWallet =
+    process.env.NEXT_PUBLIC_USE_TERMINAL_BACKEND_X402 === "true";
   const titleAndSubtitle = (
     <div className="flex min-w-0 flex-1 flex-col">
       <h1 className="min-w-0 truncate whitespace-nowrap text-[14px] font-bold tracking-tight text-foreground/90 md:text-[15px]">
-        <span className="text-gradient-premium hidden sm:inline">Telegraph</span>
-        <span className="text-primary sm:hidden">Telegraph</span>
-        <span className="font-black text-muted-foreground/40"> / </span>
-        <span className="sm:hidden">Terminal</span>
-        <span className="hidden sm:inline">Intelligence Terminal</span>
+        <span className="text-gradient-premium">Telegraph Intelligence Terminal</span>
       </h1>
-      <div className="hidden items-center gap-1.5 opacity-60 md:flex">
-        <Globe size={10} className="text-primary" />
-        <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">
-          Neural Gateway v1.4.2
-        </span>
-      </div>
     </div>
   );
 

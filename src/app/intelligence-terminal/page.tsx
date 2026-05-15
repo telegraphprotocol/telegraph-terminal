@@ -46,9 +46,9 @@ export default function LiveChatPage() {
     terminalLogs,
     terminalReceipt,
     engineError,
-    isConnected,
     engineSocketConnected,
     x402Phase,
+    backendWalletStatus,
     useX402Chat,
     coreWalletFooter,
     handleSend,
@@ -87,6 +87,17 @@ export default function LiveChatPage() {
         ? "Processing x402 payment and paid chat on Terminal Backend…"
         : "Waiting for Terminal Backend and Telegraph…";
   }
+
+  const showConnectionBanner =
+    Boolean(engineError) ||
+    (useX402Chat && backendWalletStatus === "unavailable") ||
+    (!useX402Chat && !engineSocketConnected);
+
+  const connectionBannerMessage =
+    engineError ??
+    (useX402Chat
+      ? "Terminal Backend wallet is not ready. Ensure Terminal Backend is running and Next has TERMINAL_BACKEND_API_KEY / TERMINAL_BACKEND_INTERNAL_URL set."
+      : "Engine connection unavailable. Retrying...");
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background md:flex-row">
@@ -130,12 +141,9 @@ export default function LiveChatPage() {
         <div className="flex flex-1 overflow-hidden">
           <div className="flex flex-col flex-1 overflow-hidden min-w-0">
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              {((useX402Chat ? !isConnected : !engineSocketConnected) || engineError) && (
+              {showConnectionBanner && (
                 <div className="mx-4 mb-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200 sm:mx-6">
-                  {engineError ||
-                    (useX402Chat
-                      ? "Terminal Backend wallet proxy is not ready. Ensure telegraph-core is running and Next has CORE_API_KEY / CORE_INTERNAL_URL set."
-                      : "Engine connection unavailable. Retrying...")}
+                  {connectionBannerMessage}
                 </div>
               )}
               {hasMessages ? (

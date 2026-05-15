@@ -102,7 +102,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
           animate={{ opacity: 0.4 }}
           className="text-center text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em] mt-4"
         >
-          Secured by Telegraph Neural Network v1.0
+          Telegraph Intelligence Terminal
         </motion.p>
       </div>
     </div>
