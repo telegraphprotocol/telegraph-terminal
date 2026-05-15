@@ -1,33 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef, useSyncExternalStore } from "react";
-import { createPortal } from "react-dom";
-import {
-  PenSquare,
-  PanelLeftClose,
-  Search,
-  Settings,
-  HelpCircle,
-  MoreHorizontal,
-  Archive,
-  Trash2,
-  RotateCcw,
-} from "lucide-react";
-import { conversationHistory, type ConversationGroup } from "@/lib/mock-data";
+import { PenSquare, PanelLeftClose } from "lucide-react";
+import { conversationHistory } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
-import { motion, AnimatePresence } from "framer-motion";
-
-export type LiveChatSidebarActions = {
-  onArchive: (id: string) => void;
-  onRestore: (id: string) => void;
-  onDelete: (id: string) => void;
-};
-
-export type SidebarWalletFooter = {
-  label: string;
-  subtitle?: string;
-  initials?: string | null;
-};
 
 interface SidebarProps {
   isOpen: boolean;
@@ -36,323 +11,96 @@ interface SidebarProps {
   activeId?: string;
   onSelect?: (id: string) => void;
   onNewChat?: () => void;
-  /** When set (e.g. live terminal), replaces mock demo history */
-  historyGroups?: ConversationGroup[];
-  /** Live terminal: row menu + archive/delete with confirmation */
-  liveChatActions?: LiveChatSidebarActions;
-  /** When set (e.g. Terminal Backend custodial wallet), replaces default footer identity */
-  walletFooter?: SidebarWalletFooter | null;
 }
 
 export function Sidebar({
   isOpen,
+  onClose,
   onToggle,
   activeId,
   onSelect,
   onNewChat,
-  historyGroups,
-  liveChatActions,
-  walletFooter,
-  showHistory = true,
-}: SidebarProps & { showHistory?: boolean }) {
-  const walletLabel = walletFooter?.label ?? "Test User";
-  const walletInitials = walletFooter?.initials ?? null;
-  const footerLine2 = walletFooter
-    ? walletFooter.subtitle?.trim() || "Global wallet"
-    : "Pro Account";
-
-  const groups = historyGroups ?? conversationHistory;
-  /** Portal menu — avoids clipping from sidebar `overflow-hidden` / scroll containers. */
-  const [openChatMenu, setOpenChatMenu] = useState<{
-    id: string;
-    archived: boolean;
-    anchor: DOMRect;
-  } | null>(null);
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const menuPortalRef = useRef<HTMLUListElement>(null);
-  const mounted = useSyncExternalStore(
-    () => () => {},
-    () => true,
-    () => false,
-  );
-
-  useEffect(() => {
-    if (!openChatMenu) return;
-    const close = (e: MouseEvent) => {
-      const t = e.target as HTMLElement | null;
-      if (!t) return;
-      if (menuPortalRef.current?.contains(t)) return;
-      if (t.closest(`[data-chat-menu-trigger="${openChatMenu.id}"]`)) return;
-      setOpenChatMenu(null);
-    };
-    document.addEventListener("mousedown", close, true);
-    return () => document.removeEventListener("mousedown", close, true);
-  }, [openChatMenu]);
-
+}: SidebarProps) {
   return (
     <aside
       className={cn(
-        "shrink-0 overflow-hidden fixed inset-y-0 left-0 z-50 h-full w-[260px] md:relative md:z-auto transition-all duration-500 ease-[0.16, 1, 0.3, 1]",
+        // Outer shell — clips content during the width collapse
+        "shrink-0 overflow-hidden",
+        // Mobile: fixed overlay, width stays 220 px, slide via transform
+        "fixed inset-y-0 left-0 z-50 h-full w-[248px]",
+        // Desktop: relative inline, width animates
+        "md:relative md:z-auto",
+        // Animation
+        "transition-all duration-300 ease-in-out",
+        // Open / closed states
         isOpen
-          ? "translate-x-0 md:w-[260px]"
+          ? "translate-x-0 md:w-[248px]"
           : "-translate-x-full md:w-0 md:translate-x-0",
       )}
     >
-      <div className="flex flex-col h-full w-[260px] min-w-[260px] border-r border-border/40 bg-sidebar/80 backdrop-blur-2xl">
-        {/* Header Actions */}
-        <div className="flex items-center justify-between px-4 py-4 shrink-0">
+      {/*
+        Inner wrapper: fixed 220 px so content never reflows while the outer
+        element collapses — overflow-hidden on the outer clips it cleanly.
+      */}
+      <div className="flex flex-col h-full w-[248px] min-w-[248px] border-r border-border bg-sidebar">
+        {/* Top actions: PanelLeftClose (left) — PenSquare (right) */}
+        <div className="flex items-center justify-between px-3 py-3 shrink-0">
           <button
             onClick={onToggle}
-            className="p-2 rounded-xl hover:bg-primary/10 text-muted-foreground hover:text-primary transition-all duration-300"
+            className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
             aria-label="Close sidebar"
           >
-            <PanelLeftClose size={18} />
+            <PanelLeftClose size={17} />
           </button>
-          
-          <div className="flex items-center gap-1">
-             <button
-              className="p-2 rounded-xl hover:bg-primary/10 text-muted-foreground hover:text-primary transition-all duration-300"
-              aria-label="Search"
-            >
-              <Search size={18} />
-            </button>
-            <button
-              onClick={onNewChat}
-              className="p-2 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all duration-300 shadow-sm shadow-primary/20"
-              aria-label="New chat"
-            >
-              <PenSquare size={18} />
-            </button>
-          </div>
+          <button
+            onClick={onNewChat}
+            className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+            aria-label="New chat"
+          >
+            <PenSquare size={17} />
+          </button>
         </div>
 
-        {/* History List */}
-        {showHistory && (
-          <nav className="flex-1 overflow-y-auto px-3 pb-4 custom-scrollbar">
-            <AnimatePresence mode="popLayout">
-              {groups.map((group) => (
-                <div key={group.label} className="mt-4">
-                  <p className="px-3 mb-2 text-[10px] font-bold text-muted-foreground/60 uppercase tracking-[0.2em]">
-                    {group.label}
-                  </p>
-                  <ul className="space-y-1">
-                    {group.items.map((item) => (
-                      <motion.li
-                        key={item.id}
-                        initial={{ opacity: 0, x: -5 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.3 }}
-                        className="relative"
-                      >
-                        <div
-                          className={cn(
-                            "flex items-center gap-1 rounded-xl transition-all duration-300 group relative",
-                            activeId === item.id
-                              ? "bg-primary/10 text-primary shadow-[inset_0_0_0_1px_rgba(140,89,255,0.2)]"
-                              : "text-foreground/70 hover:bg-accent/50 hover:text-foreground",
-                          )}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => {
-                              onSelect?.(item.id);
-                              setOpenChatMenu(null);
-                            }}
-                            className="relative flex-1 min-w-0 text-left px-3 py-2.5 text-[13px] font-medium"
-                          >
-                            <span className="relative z-10 truncate block">{item.title}</span>
-                            {activeId === item.id && (
-                              <motion.div
-                                layoutId="active-pill"
-                                className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-primary rounded-r-full"
-                              />
-                            )}
-                          </button>
-                          {liveChatActions ? (
-                            <div className="relative shrink-0 pr-1.5">
-                              <button
-                                type="button"
-                                data-chat-menu-trigger={item.id}
-                                aria-label="Chat options"
-                                aria-expanded={openChatMenu?.id === item.id}
-                                aria-haspopup="menu"
-                                className={cn(
-                                  "rounded-full border border-border/60 p-1 text-muted-foreground hover:bg-background/80 hover:text-foreground transition-colors",
-                                  openChatMenu?.id === item.id &&
-                                    "bg-background/80 text-primary border-primary/30",
-                                )}
-                                onMouseDown={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const btn = e.currentTarget as HTMLElement;
-                                  setOpenChatMenu((prev) =>
-                                    prev?.id === item.id
-                                      ? null
-                                      : {
-                                          id: item.id,
-                                          archived: !!item.archived,
-                                          anchor: btn.getBoundingClientRect(),
-                                        },
-                                  );
-                                }}
-                              >
-                                <MoreHorizontal size={14} strokeWidth={2.25} />
-                              </button>
-                            </div>
-                          ) : null}
-                        </div>
-                      </motion.li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </AnimatePresence>
-          </nav>
-        )}
+        {/* Conversation history */}
+        <nav className="flex-1 overflow-y-auto px-2 pb-4 space-y-4">
+          {conversationHistory.map((group) => (
+            <div key={group.label}>
+              <p className="px-2 py-1 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                {group.label}
+              </p>
+              <ul className="mt-1 space-y-0.5">
+                {group.items.map((item) => (
+                  <li key={item.id}>
+                    <button
+                      onClick={() => onSelect?.(item.id)}
+                      className={cn(
+                        "w-full text-left px-2 py-1.5 rounded-lg text-sm transition-colors truncate",
+                        activeId === item.id
+                          ? "bg-secondary text-foreground"
+                          : "text-foreground/80 hover:bg-accent hover:text-foreground",
+                      )}
+                    >
+                      {item.title}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </nav>
 
-        {/* Footer */}
-        <div className="p-4 space-y-2 border-t border-border/40">
-          <div className="flex items-center gap-2 p-2 rounded-xl hover:bg-accent/50 cursor-pointer transition-all group">
-            <div className="w-8 h-8 rounded-full bg-gradient-premium flex items-center justify-center shrink-0 shadow-lg shadow-primary/20">
-              <span className="text-[11px] text-white font-black">
-                {walletInitials ?? "TM"}
-              </span>
+        {/* Account */}
+        <div className="px-3 py-3 border-t border-border shrink-0">
+          <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-accent cursor-pointer transition-colors">
+            <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+              <span className="text-xs text-primary font-semibold">T</span>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-bold text-foreground/90 truncate group-hover:text-primary transition-colors">
-                {walletLabel ?? "Test User"}
-              </p>
-              <p className="text-[10px] text-muted-foreground/60 truncate uppercase tracking-widest font-medium">
-                {footerLine2}
-              </p>
-            </div>
-            <Settings size={14} className="text-muted-foreground/40 group-hover:text-foreground transition-colors" />
-          </div>
-          
-          <div className="flex items-center justify-center gap-4 pt-2">
-             <button className="text-[10px] font-bold text-muted-foreground/40 hover:text-foreground uppercase tracking-widest transition-colors flex items-center gap-1">
-                <HelpCircle size={12} />
-                Support
-             </button>
-             <div className="w-1 h-1 rounded-full bg-border" />
-             <button className="text-[10px] font-bold text-muted-foreground/40 hover:text-foreground uppercase tracking-widest transition-colors">
-                Docs
-             </button>
+            <span className="text-sm text-foreground/80 truncate">
+              Test User
+            </span>
           </div>
         </div>
       </div>
-
-      {mounted &&
-        openChatMenu &&
-        liveChatActions &&
-        createPortal(
-          <ul
-            ref={menuPortalRef}
-            role="menu"
-            className="fixed z-[250] min-w-[160px] rounded-xl border border-border/60 bg-popover py-1 shadow-xl backdrop-blur-xl"
-            style={{
-              top: openChatMenu.anchor.bottom + 4,
-              left: Math.max(
-                8,
-                Math.min(
-                  typeof window !== "undefined"
-                    ? window.innerWidth - 168
-                    : 0,
-                  openChatMenu.anchor.right - 160,
-                ),
-              ),
-            }}
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            {!openChatMenu.archived ? (
-              <li role="none">
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] font-medium text-foreground hover:bg-accent"
-                  onClick={() => {
-                    liveChatActions.onArchive(openChatMenu.id);
-                    setOpenChatMenu(null);
-                  }}
-                >
-                  <Archive size={14} />
-                  Archive
-                </button>
-              </li>
-            ) : (
-              <li role="none">
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] font-medium text-foreground hover:bg-accent"
-                  onClick={() => {
-                    liveChatActions.onRestore(openChatMenu.id);
-                    setOpenChatMenu(null);
-                  }}
-                >
-                  <RotateCcw size={14} />
-                  Restore
-                </button>
-              </li>
-            )}
-            <li role="none">
-              <button
-                type="button"
-                role="menuitem"
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] font-medium text-red-400 hover:bg-red-500/10"
-                onClick={() => {
-                  setOpenChatMenu(null);
-                  setDeleteConfirmId(openChatMenu.id);
-                }}
-              >
-                <Trash2 size={14} />
-                Delete
-              </button>
-            </li>
-          </ul>,
-          document.body,
-        )}
-
-      {deleteConfirmId && liveChatActions ? (
-        <div
-          className="fixed inset-0 z-[260] flex items-center justify-center bg-black/55 p-4 backdrop-blur-[2px]"
-          role="alertdialog"
-          aria-modal="true"
-          aria-labelledby="delete-chat-title"
-          aria-describedby="delete-chat-desc"
-        >
-          <div className="w-full max-w-sm rounded-2xl border border-border/60 bg-card p-6 shadow-2xl">
-            <h2 id="delete-chat-title" className="text-lg font-bold text-foreground">
-              Delete this chat?
-            </h2>
-            <p id="delete-chat-desc" className="mt-2 text-sm text-muted-foreground leading-relaxed">
-              This removes the conversation from this browser. You can’t undo it.
-            </p>
-            <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
-              <button
-                type="button"
-                className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium whitespace-nowrap text-muted-foreground hover:bg-muted transition-colors"
-                onClick={() => setDeleteConfirmId(null)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl bg-red-600 px-5 py-2.5 text-sm font-semibold whitespace-nowrap text-white hover:bg-red-500 transition-colors"
-                onClick={() => {
-                  liveChatActions.onDelete(deleteConfirmId);
-                  setDeleteConfirmId(null);
-                }}
-              >
-                Delete chat
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </aside>
   );
 }

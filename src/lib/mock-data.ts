@@ -1,14 +1,8 @@
 // ─── Conversation history ────────────────────────────────────────────────────
 
-export type ConversationGroupItem = {
-  id: string;
-  title: string;
-  archived?: boolean;
-};
-
 export type ConversationGroup = {
   label: string;
-  items: ConversationGroupItem[];
+  items: { id: string; title: string }[];
 };
 
 export const conversationHistory: ConversationGroup[] = [
@@ -28,16 +22,10 @@ export type MessageRole = "user" | "assistant";
 
 export type MessageContent = { kind: "text"; text: string };
 
-/** Live chat only: optimistic send / failure / retry (omitted in stored mock scenarios). */
-export type MessageSendState = "ok" | "pending" | "failed";
-
 export type ChatMessage = {
   id: string;
   role: MessageRole;
   content: MessageContent[];
-  sendState?: MessageSendState;
-  /** Present when `sendState === "failed"` */
-  sendError?: string;
 };
 
 // ─── Terminal types ───────────────────────────────────────────────────────────
