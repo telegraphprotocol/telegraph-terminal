@@ -1,0 +1,14 @@
+{
+  "slugs": [
+    "bittensor-sn1-apex",
+    "bittensor-sn18-zeus",
+    "bittensor-sn19-nineteen",
+    "bittensor-sn20-bounty",
+    "bittensor-sn22-desearch",
+    "bittensor-sn32-itsai",
+    "bittensor-sn34-bitmind",
+    "bittensor-sn64-chutes",
+    "groq-compound",
+    "openai"
+  ]
+}

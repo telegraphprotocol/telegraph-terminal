@@ -1,0 +1,107 @@
+version: "1"
+kind: subnet
+id: 20
+slug: bittensor-sn20-bounty
+protocol: bittensor
+name: Bounty / GoGoAgent (Bittensor SN20)
+description: >
+  Bittensor Subnet 20 — GoGoAgent provides task-oriented chat completion
+  inference via the Bittensor network. Suitable for conversational AI tasks
+  and agent orchestration within the autonomous engine.
+
+base_url: https://api.gogoagent.ai/v1
+
+auth:
+  type: header
+  env_var: GOGOAGENT_API_KEY
+  header_name: Authorization
+
+rate_limit_per_sec: 10
+cache_ttl_sec: 0
+circuit_threshold: 5
+circuit_cooldown_seconds: 30
+
+endpoints:
+  - path: /chat
+    external_path: /chat/completions
+    method: POST
+    description: Chat completion endpoint.
+
+input_schema:
+  type: object
+  required: [messages]
+  properties:
+    messages:
+      type: array
+      items:
+        type: object
+        required: [role, content]
+        properties:
+          role: { type: string, enum: [system, user, assistant] }
+          content: { type: string }
+    model: { type: string }
+    temperature: { type: number }
+    max_tokens: { type: integer }
+
+output_schema:
+  type: object
+  properties:
+    choices:
+      type: array
+      items:
+        type: object
+        properties:
+          message:
+            type: object
+            properties:
+              role: { type: string }
+              content: { type: string }
+
+semantics:
+  signal_mapping:
+    type: task_completion
+    label_field: choices
+  supported_intents:
+    - TASK_COMPLETION
+    - CHAT_COMPLETION
+    - AGENT_TASK
+# on_chain: layout for /chat endpoint (OpenAI-compatible format, same as Chutes/OpenAI).
+# Response: {choices:[{message:{content,role},finish_reason}], model, usage:{...}}
+# transform=direct: clean path extraction — no LLM needed.
+#
+# On-chain array layout (shared by all OpenAI-compatible LLM subnets):
+#   strings[0]  = response_text       (generated content)
+#   strings[1]  = model               (model name used)
+#   integers[0] = completion_tokens   (output token count)
+#   integers[1] = prompt_tokens       (input token count)
+on_chain:
+  description: >
+    LLM task completion response. Shared layout for all OpenAI-compatible
+    inference subnets (Bounty, Apex, Chutes, Groq, OpenAI, etc.).
+  transform: direct
+  min_price_usdc: 0.03
+  fields:
+    strings:
+      - index: 0
+        name: response_text
+        description: Generated text content from the model.
+        source_path: choices.0.message.content
+      - index: 1
+        name: model
+        description: Model name used for generation.
+        source_path: model
+    integers:
+      - index: 0
+        name: completion_tokens
+        description: Number of completion (output) tokens used.
+        source_path: usage.completion_tokens
+      - index: 1
+        name: prompt_tokens
+        description: Number of prompt (input) tokens used.
+        source_path: usage.prompt_tokens
+  request:
+    - endpoint: chat
+      method: POST
+      body:
+        model: { source: strings.0 }
+        messages: { source: strings.1, format: chat_messages }

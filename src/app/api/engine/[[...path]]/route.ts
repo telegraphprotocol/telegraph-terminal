@@ -1,4 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  logApiProxyConfig,
+  logApiProxyFetchError,
+  logApiProxyUpstreamError,
+} from "@/lib/api-proxy-log";
+
+const LOG_TAG = "engine";
 
 function engineBase(): string {
   const raw = process.env.ENGINE_INTERNAL_URL ?? "http://127.0.0.1:7044";
@@ -17,6 +24,7 @@ async function proxyEngine(
 ): Promise<NextResponse> {
   const path = upstreamPath(segments);
   if (!path) {
+    logApiProxyConfig(LOG_TAG, "Missing engine path segment in /api/engine/* request.");
     return NextResponse.json({ error: "Missing engine path." }, { status: 404 });
   }
 
@@ -39,11 +47,13 @@ async function proxyEngine(
       body: method === "POST" ? body || undefined : undefined,
       cache: "no-store",
     });
-  } catch {
+  } catch (err) {
+    logApiProxyFetchError(LOG_TAG, url, err);
     return NextResponse.json({ error: "Could not reach Engine." }, { status: 502 });
   }
 
   const text = await upstream.text();
+  logApiProxyUpstreamError(LOG_TAG, url, upstream.status, text);
   return new NextResponse(text, {
     status: upstream.status,
     headers: {

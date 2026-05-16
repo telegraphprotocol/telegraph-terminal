@@ -1,0 +1,201 @@
+version: "1"
+kind: subnet
+id: 18
+slug: bittensor-sn18-zeus
+protocol: bittensor
+name: Zeus Weather Forecasting (Bittensor SN18)
+description: >
+  Bittensor Subnet 18 — Zeus (Boreas Edge API) provides AI-powered hourly
+  weather forecasting backed by the Bittensor network.
+
+  Pass ERA5 short variable names in 'hourly' (or the alias 'variable'):
+    2t   → 2 m temperature (Kelvin)
+    2d   → 2 m dewpoint temperature (Kelvin)
+    100u → 100 m U-component of wind (m/s)
+    100v → 100 m V-component of wind (m/s)
+    sp   → surface pressure (Pa)
+    tp   → total precipitation (m)
+
+  Use 'forecast_hours' (integer, default 24) for the forecast window.
+
+base_url: https://api.zeussubnet.com
+
+auth:
+  type: header
+  header_name: X-API-Key
+  env_var: SUBNET_18_API_KEY
+
+rate_limit_per_sec: 5
+cache_ttl_sec: 30
+circuit_threshold: 5
+circuit_cooldown_seconds: 30
+
+endpoints:
+  - path: /predict
+    external_path: /v1/forecast/point
+    method: GET
+    telegraph_direct:
+      required_payload_keys: [lat, lon]
+    description: >
+      Single-point hourly weather forecast. Pass lat/lon and an ERA5 short
+      variable name in 'hourly' (or the alias 'variable', e.g. '2t' for 2 m
+      temperature). Set 'forecast_hours' for the horizon length (default 24).
+    param_map:
+      variable: hourly
+
+input_schema:
+  type: object
+  required: [lat, lon]
+  properties:
+    lat:
+      type: number
+      minimum: -90
+      maximum: 90
+      description: Latitude of the forecast location.
+    lon:
+      type: number
+      minimum: -180
+      maximum: 180
+      description: Longitude of the forecast location.
+    hourly:
+      type: string
+      description: "ERA5 short variable name (e.g. '2t', '2d', '100u', '100v', 'sp', 'tp')."
+    variable:
+      type: string
+      description: "Alias for 'hourly'. ERA5 short variable name (e.g. '2t' for 2 m temperature)."
+    forecast_hours:
+      type: integer
+      minimum: 1
+      description: "Number of hours ahead to forecast (default 24)."
+
+output_schema:
+  type: object
+  properties:
+    latitude: { type: number }
+    longitude: { type: number }
+    model:
+      type: string
+      description: Model name (e.g. 'zeus').
+    reference_time:
+      type: string
+      description: ISO 8601 reference time of the forecast run.
+    ingested_at:
+      type: string
+      description: ISO 8601 timestamp when data was ingested.
+    hourly_steps:
+      type: integer
+      description: Number of hourly steps in the forecast.
+    hourly_units:
+      type: object
+      description: "Units for each variable key (e.g. {'time': 'iso8601', '2t': 'K'})."
+    hourly:
+      type: object
+      description: >
+        Hourly forecast data. Contains 'time' (ISO 8601 array) and one array
+        per requested variable (keyed by ERA5 short name, e.g. '2t').
+      properties:
+        time:
+          type: array
+          items: { type: string }
+          description: ISO 8601 timestamps for each forecast step.
+
+semantics:
+  signal_mapping:
+    type: weather_risk
+    label_field: model
+  supported_intents:
+    - WEATHER_CHECK
+    - STORM_ALERT
+    - WEATHER_FORECAST
+    - WEATHER_RISK_ASSESSMENT
+# on_chain: defines how the raw Zeus API response is transformed into on-chain data.
+# Zeus returns hourly forecast arrays for a single requested variable (e.g. 2t, 100u).
+# The variable key inside hourly is dynamic (whatever the caller requested).
+# transform=llm is used because the LLM must: (1) find the hour index closest to
+# current UTC, (2) extract the variable value at that index.
+#
+# Convention: the LLM extracts RAW values only (no unit conversion or arithmetic).
+# Each field has a multiplier that Go code applies at storage time. The receiver
+# reverses the multiplier and does any remaining unit conversion themselves.
+# This keeps the LLM prompt simple and prevents data loss from imprecise LLM math.
+#
+# On-chain array layout:
+#   integers[0] = temperature_raw        (raw API Kelvin value, Go applies ×100 → e.g. 30425)
+#   integers[1] = wind_speed_raw         (raw API m/s value, Go applies ×100 → e.g. 723)
+#   strings[0]  = forecast_time          (ISO8601 of selected hour)
+#   strings[1]  = location               ("lat,lon")
+#   strings[2]  = model                  (e.g. "zeus")
+on_chain:
+  description: >
+    Current weather snapshot at the requested location for the forecast hour
+    closest to the current UTC time. Adaptable to any hourly weather forecast
+    API returning temperature and wind speed arrays with timestamps.
+  transform: llm
+  min_price_usdc: 0.01
+  prompt_template: |
+    You are a deterministic weather data extractor for blockchain on-chain storage.
+
+    Fields to extract:
+    {field_schema}
+
+    Current UTC time: {current_utc}
+
+    Raw API response:
+    {raw_response}
+
+    Instructions:
+    1. Find the index in hourly.time whose value is closest to the current UTC time above.
+    2. For each weather variable present in hourly (any key that is not "time"):
+       - Extract the EXACT numeric value from the API response at the selected time index.
+         Return the number as-is — do not convert units, do not multiply, do not round.
+         The storage system handles all scaling (see multiplier in field descriptions).
+    3. Set temperature_raw to the raw value from the temperature variable (2t or 2d)
+       if present, otherwise set to 0.
+    4. Set wind_speed_raw to the raw value from the wind variable (100u, 100v)
+       if present, otherwise set to 0.
+    5. Set forecast_time to the ISO8601 string at the selected index from hourly.time.
+    6. Set location to "latitude,longitude" using the top-level latitude and longitude fields.
+    7. Set model to the top-level model field value.
+
+    Return a JSON object with exactly these field names and no others.
+  fields:
+    strings:
+      - index: 0
+        name: forecast_time
+        description: ISO8601 timestamp of the selected forecast hour from hourly.time.
+      - index: 1
+        name: location
+        description: >
+          Location as "lat,lon" string using the top-level latitude and longitude fields
+          (e.g. "24.75,67.0").
+      - index: 2
+        name: model
+        description: Weather model name from the top-level model field (e.g. "zeus").
+    integers:
+      - index: 0
+        name: temperature_raw
+        description: >
+          Raw temperature value in Kelvin from the API response at the nearest
+          forecast hour. The Go storage layer multiplies by 100 before storing
+          (e.g. API returns 304.25 → stored on-chain as 30425). Receiver must
+          divide by 100 to recover Kelvin, then subtract 273.15 for Celsius.
+          0 if no temperature variable in response.
+        multiplier: 100
+      - index: 1
+        name: wind_speed_raw
+        description: >
+          Raw wind speed value in m/s from the API response at the nearest
+          forecast hour. The Go storage layer multiplies by 100 before storing
+          (e.g. API returns 7.23 → stored on-chain as 723). Receiver must
+          divide by 100 to recover the original value.
+          0 if no wind variable in response.
+        multiplier: 100
+  request:
+    - endpoint: predict
+      method: GET
+      query_params:
+        lat: { source: strings.0 }
+        lon: { source: strings.1 }
+        hourly: { source: strings.2 }
+        start_datetime: { source: strings.3 }
+        end_datetime: { source: strings.4 }

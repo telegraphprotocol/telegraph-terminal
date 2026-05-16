@@ -8,16 +8,19 @@ import { cn } from "@/lib/utils";
 interface ChatInputProps {
   onSend?: (message: string) => void;
   disabled?: boolean;
+  /** Allow firing send with an empty textarea (e.g. direct subnet flow with only image URL). */
+  allowEmptySend?: boolean;
 }
 
-export function ChatInput({ onSend, disabled }: ChatInputProps) {
+export function ChatInput({ onSend, disabled, allowEmptySend = false }: ChatInputProps) {
   const [value, setValue] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isFocused, setIsFocused] = useState(false);
 
   const handleSend = () => {
+    if (disabled) return;
     const trimmed = value.trim();
-    if (!trimmed || disabled) return;
+    if (!trimmed && !allowEmptySend) return;
     onSend?.(trimmed);
     setValue("");
     if (textareaRef.current) {
@@ -72,7 +75,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
           />
 
           <AnimatePresence mode="wait">
-            {value.trim() ? (
+            {value.trim() || allowEmptySend ? (
               <motion.button
                 key="send-button"
                 initial={{ scale: 0.8, opacity: 0 }}
@@ -102,7 +105,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
           animate={{ opacity: 0.4 }}
           className="text-center text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em] mt-4"
         >
-          Secured by Telegraph Neural Network v1.0
+          Telegraph Intelligence Terminal
         </motion.p>
       </div>
     </div>

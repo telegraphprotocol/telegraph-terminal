@@ -4,6 +4,8 @@ import { motion } from "framer-motion";
 import { ShieldCheck, ChevronDown, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DaemonResultItem } from "@/lib/engine-daemon-types";
+import { KrakenSourceWithCopy } from "@/components/kraken/kraken-source-with-copy";
+import { summarizeExecutionResult } from "@/lib/kraken-signal-result";
 
 interface KrakenAlertsProps {
   alerts: DaemonResultItem[];
@@ -21,12 +23,8 @@ function buildSubtitle(alert: DaemonResultItem) {
 
 function buildDescription(alert: DaemonResultItem) {
   if (alert.execution.error) return alert.execution.error;
-  if (typeof alert.execution.result === "string") return alert.execution.result;
-  if (alert.execution.result && typeof alert.execution.result === "object") {
-    const record = alert.execution.result as Record<string, unknown>;
-    if (typeof record.answer === "string") return record.answer;
-    if (Array.isArray(record.citations)) return `Includes ${record.citations.length} supporting citations.`;
-  }
+  const summary = summarizeExecutionResult(alert.execution.result);
+  if (summary && !summary.startsWith("Structured subnet response")) return summary;
   return alert.routing.reasoning || "Signal enriched by engine routing.";
 }
 
@@ -84,13 +82,16 @@ export function KrakenAlerts({ alerts, loading }: KrakenAlertsProps) {
                   <span>{alert.question.category || "OTHER"}</span>
                 </button>
                 
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                    <ShieldCheck size={12} className="text-primary" />
-                    {alert.routing.subnet_name || "Engine subnet"}
-                  </div>
-                  <div className="text-[11px] font-bold text-white bg-primary px-2 py-0.5 rounded-md">
-                    ${alert.execution.cost_usd.toFixed(4)}
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                  <KrakenSourceWithCopy item={alert} variant="feed" />
+                  <div className="flex shrink-0 items-center gap-3">
+                    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                      <ShieldCheck size={12} className="text-primary shrink-0" />
+                      <span className="max-w-[180px] truncate">{alert.routing.subnet_name || "Engine subnet"}</span>
+                    </div>
+                    <div className="text-[11px] font-bold text-white bg-primary px-2 py-0.5 rounded-md whitespace-nowrap">
+                      ${alert.execution.cost_usd.toFixed(4)}
+                    </div>
                   </div>
                 </div>
               </div>

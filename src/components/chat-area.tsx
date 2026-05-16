@@ -40,10 +40,18 @@ export function ChatArea({
   mobileTerminal,
   onRetrySend,
 }: ChatAreaProps) {
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollRootRef = useRef<HTMLDivElement>(null);
 
+  /** Pin to bottom on the scroll container (avoids `scrollIntoView` smooth + loader unmount jitter). */
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const root = scrollRootRef.current;
+    if (!root) return;
+    const t = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        root.scrollTop = root.scrollHeight;
+      });
+    });
+    return () => cancelAnimationFrame(t);
   }, [messages, isLoading]);
 
   let lastUserIdx = -1;
@@ -111,31 +119,26 @@ export function ChatArea({
   };
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain py-8 custom-scrollbar">
+    <div
+      ref={scrollRootRef}
+      className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain py-8 custom-scrollbar [scrollbar-gutter:stable]"
+    >
       <div className="mx-auto w-full max-w-[720px] space-y-8 px-6">
-        <AnimatePresence mode="popLayout">
+        <AnimatePresence mode="sync">
           {lastUserIdx >= 0 ? (
             <Fragment key="chat-split">
               {messages.slice(0, lastUserIdx + 1).map(renderMessage)}
-              <motion.div
-                key="mobile-terminal"
-                layout
-                className="my-4"
-              >
+              <div key="mobile-terminal" className="my-4">
                 {mobileTerminal}
-              </motion.div>
+              </div>
               {messages.slice(lastUserIdx + 1).map(renderMessage)}
             </Fragment>
           ) : (
             <Fragment key="chat-empty">
               {messages.map(renderMessage)}
-              <motion.div
-                key="mobile-terminal-empty"
-                layout
-                className="my-4"
-              >
+              <div key="mobile-terminal-empty" className="my-4">
                 {mobileTerminal}
-              </motion.div>
+              </div>
             </Fragment>
           )}
 
@@ -149,6 +152,7 @@ export function ChatArea({
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
               className="flex max-w-[640px] items-start gap-4"
             >
               <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-2xl">
@@ -166,8 +170,6 @@ export function ChatArea({
             </motion.div>
           )}
         </AnimatePresence>
-
-        <div ref={bottomRef} />
       </div>
     </div>
   );

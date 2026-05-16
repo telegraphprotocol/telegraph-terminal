@@ -1,0 +1,196 @@
+version: "1"
+kind: subnet
+id: 101
+slug: groq-compound
+protocol: generic
+name: Groq Compound Web Search
+description: >
+  Groq's Compound AI system with built-in web search powered by Tavily.
+  groq/compound and groq/compound-mini automatically search the web,
+  synthesize results, and return cited answers — suitable for real-time
+  news, market data, fact-checking, and research synthesis.
+
+base_url: https://api.groq.com
+
+auth:
+  type: bearer
+  env_var: GROQ_API_KEY
+
+rate_limit_per_sec: 10
+cache_ttl_sec: 30
+circuit_threshold: 5
+circuit_cooldown_seconds: 30
+
+endpoints:
+  - path: /search
+    external_path: /openai/v1/chat/completions
+    method: POST
+    telegraph_direct:
+      required_payload_keys: [model, messages]
+      default_model: "openai/gpt-oss-20b"
+    description: >
+      AI-powered web search using Groq compound systems and GPT-OSS models.
+      Automatically searches the web, synthesizes results, and returns a cited
+      answer. Request body must include a messages[] array with at least one
+      user message.
+      Supported models are:
+      Id: openai/gpt-oss-120b (best for complex reasoning with built-in browser
+      search and code execution, 500 t/s, 131K context),
+      Id: openai/gpt-oss-20b (best for fast web-augmented responses with
+      built-in browser search, 1000 t/s, 131K context),
+      Id: llama-3.3-70b-versatile (best for balanced quality and speed without
+      built-in search, pair with web search tool manually, 280 t/s, 131K context),
+      Id: llama-3.1-8b-instant (best for ultra-fast lightweight search-augmented
+      responses, 560 t/s, 131K context),
+      Id: meta-llama/llama-4-scout-17b-16e-instruct (best for multimodal search
+      tasks with vision support, 750 t/s, 131K context).
+
+  - path: /search/mini
+    external_path: /openai/v1/chat/completions
+    method: POST
+    telegraph_direct:
+      required_payload_keys: [model, messages]
+      default_model: "groq/compound-mini"
+    description: >
+      Faster, lower-cost web search optimized for simple queries and high
+      throughput. Uses smaller/faster models with a single search call per
+      request (~3x lower latency than /search). Same request format as /search.
+      Supported models are:
+      Id: groq/compound-mini (best default for mini search, auto tool use,
+      ~450 t/s, 131K context),
+      Id: openai/gpt-oss-20b (best for fast reasoning with built-in browser
+      search, 1000 t/s, 131K context),
+      Id: llama-3.1-8b-instant (best for maximum throughput, lowest latency,
+      560 t/s, 131K context),
+      Id: meta-llama/llama-4-scout-17b-16e-instruct (best mini option with
+      vision support, 750 t/s, 131K context).
+
+input_schema:
+  type: object
+  required: [model, messages]
+  properties:
+    messages:
+      type: array
+      description: Conversation messages. At minimum a user message containing the search query.
+      items:
+        type: object
+        required: [role, content]
+        properties:
+          role:
+            type: string
+            enum: [user, assistant, system]
+          content:
+            type: string
+    model:
+      type: string
+      description: >
+        Model to pass for the groq to use.
+    search_settings:
+      type: object
+      description: Optional controls for the underlying web search.
+      properties:
+        include_domains:
+          type: array
+          items: { type: string }
+          description: "Domain whitelist with wildcard support (e.g. '*.edu')."
+        exclude_domains:
+          type: array
+          items: { type: string }
+          description: Domains to exclude from results.
+        country:
+          type: string
+          description: "Boost results from this country (ISO code, e.g. 'us')."
+
+output_schema:
+  type: object
+  properties:
+    id: { type: string }
+    object: { type: string }
+    created: { type: integer }
+    model: { type: string }
+    choices:
+      type: array
+      items:
+        type: object
+        properties:
+          index: { type: integer }
+          message:
+            type: object
+            properties:
+              role: { type: string }
+              content:
+                type: string
+                description: Synthesized answer with automatic inline citations from search results.
+              executed_tools:
+                type: array
+                description: >
+                  Search calls made during inference. Each entry includes type ("search"),
+                  arguments (JSON-encoded query string), and output (raw result text with
+                  titles, URLs, and relevance scores).
+    usage:
+      type: object
+      properties:
+        prompt_tokens: { type: integer }
+        completion_tokens: { type: integer }
+        total_tokens: { type: integer }
+
+semantics:
+  signal_mapping:
+    type: search_relevance
+    label_field: choices
+    reason_field: choices
+  supported_intents:
+    - WEB_SEARCH
+    - NEWS_SEARCH
+    - FACT_CHECK
+    - RESEARCH_SYNTHESIS
+
+# on_chain: layout for /search endpoint (Groq Compound, OpenAI-compatible).
+# Actual response: {choices:[{message:{content, executed_tools, search_results}, finish_reason}],
+#                  model, usage:{prompt_tokens, completion_tokens, total_tokens}}
+# executed_tools and search_results are too large for on-chain — only the synthesized
+# answer text and token counts are stored.
+# transform=direct: clean path extraction.
+#
+# On-chain array layout (same as other OpenAI-compatible LLM subnets):
+#   strings[0]  = response_text     (synthesized answer with inline citations)
+#   strings[1]  = model             (model used, e.g. "groq/compound-mini")
+#   integers[0] = completion_tokens
+#   integers[1] = prompt_tokens
+on_chain:
+  description: >
+    Groq Compound web search synthesized answer. The full search results and
+    tool traces are not stored on-chain — only the final synthesized answer text,
+    model name, and token usage.
+  transform: direct
+  min_price_usdc: 0.05
+  fields:
+    strings:
+      - index: 0
+        name: response_text
+        description: Synthesized answer with inline citations from the web search.
+        source_path: choices.0.message.content
+      - index: 1
+        name: model
+        description: Model used (e.g. "groq/compound-mini" or "groq/compound").
+        source_path: model
+    integers:
+      - index: 0
+        name: completion_tokens
+        description: Number of completion tokens used.
+        source_path: usage.completion_tokens
+      - index: 1
+        name: prompt_tokens
+        description: Number of prompt tokens used.
+        source_path: usage.prompt_tokens
+  request:
+    - endpoint: chat
+      method: POST
+      body:
+        model: { source: strings.0 }
+        messages: { source: strings.1, format: chat_messages }
+    - endpoint: search
+      method: POST
+      body:
+        model: { source: strings.0 }
+        messages: { source: strings.1, format: chat_messages }

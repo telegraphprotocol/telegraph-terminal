@@ -1,10 +1,12 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { CheckCircle2, AlertCircle, Copy, ReceiptText, ChevronRight } from "lucide-react";
+import { CheckCircle2, AlertCircle, ReceiptText, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DaemonResultItem } from "@/lib/engine-daemon-types";
+import { KrakenSourceWithCopy } from "@/components/kraken/kraken-source-with-copy";
 import { formatKrakenIntentCell } from "@/lib/kraken-signal-format";
+import { summarizeExecutionResult } from "@/lib/kraken-signal-result";
 
 interface KrakenFeedProps {
   items: DaemonResultItem[];
@@ -17,12 +19,19 @@ const statusConfig = {
   error: { label: "Error", color: "text-red-500 bg-red-500/10 border-red-500/20", icon: AlertCircle },
 };
 
-const FEED_HEADERS = ["TIMESTAMP", "INTENT", "INPUT SNIPPET", "STATUS", "COST", "SOURCE", "PROOF", ""] as const;
+const FEED_HEADERS = ["TIMESTAMP", "INTENT", "INPUT SNIPPET", "STATUS", "COST", "SOURCE", "PROOF"] as const;
 
-const GRID_COLS = "grid-cols-[110px_1fr_150px_130px_90px_130px_60px_40px]";
+/** Tighter tail (source → proof + details); wider INPUT for full question text */
+const GRID_COLS =
+  "grid-cols-[100px_minmax(0,1fr)_minmax(220px,2fr)_120px_80px_minmax(0,100px)_64px]";
 
 function proofTitle(log: DaemonResultItem) {
-  return log.execution.error || log.routing.reasoning || "No routing details stored for this row.";
+  if (log.execution.error) return log.execution.error;
+  const summary = summarizeExecutionResult(log.execution.result);
+  if (summary && !summary.startsWith("No subnet result") && !summary.startsWith("Structured subnet")) {
+    return summary;
+  }
+  return log.routing.reasoning || "No routing details stored for this row.";
 }
 
 function StatusBadge({ status }: { status: DaemonResultItem["status"] }) {
@@ -56,26 +65,6 @@ function CostBadge({ log }: { log: DaemonResultItem }) {
   );
 }
 
-function SourceWithCopy({ log }: { log: DaemonResultItem }) {
-  return (
-    <div className="flex min-w-0 items-center gap-2 group">
-      <span className="min-w-0 truncate text-[12px] text-white/90 font-mono tracking-tighter">{log.source}</span>
-      <button
-        type="button"
-        title="Copy source"
-        aria-label="Copy source name"
-        className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        onClick={(e) => {
-          e.stopPropagation();
-          void navigator.clipboard.writeText(log.source);
-        }}
-      >
-        <Copy size={12} />
-      </button>
-    </div>
-  );
-}
-
 function ProofIcon({ log }: { log: DaemonResultItem }) {
   return (
     <span title={proofTitle(log)}>
@@ -100,13 +89,13 @@ function DetailsChevron({
     <button
       type="button"
       aria-label="View signal details"
-      className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted/30 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted/30 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       onClick={(e) => {
         e.stopPropagation();
         onRowSelect(log);
       }}
     >
-      <ChevronRight size={18} aria-hidden />
+      <ChevronRight size={16} aria-hidden />
     </button>
   );
 }
@@ -143,13 +132,14 @@ export function KrakenFeed({ items, loading, onRowSelect }: KrakenFeedProps) {
               className="space-y-3 p-4 transition-colors hover:bg-muted/10"
             >
               <div className="flex items-start justify-between gap-2">
-                <span className="text-xs font-medium text-white/70 tabular-nums">
+                <span className="text-xs font-medium text-white/70 tabular-nums shrink-0 pt-0.5">
                   {new Date(log.created_at).toLocaleTimeString()}
                 </span>
-                <div className="flex shrink-0 items-center gap-0.5">
-                  <div className="flex justify-center p-1">
-                    <ProofIcon log={log} />
+                <div className="flex min-w-0 items-center justify-end gap-1">
+                  <div className="min-w-0 max-w-[min(46vw,200px)]">
+                    <KrakenSourceWithCopy item={log} variant="feed" />
                   </div>
+                  <ProofIcon log={log} />
                   <DetailsChevron log={log} onRowSelect={onRowSelect} />
                 </div>
               </div>
@@ -159,15 +149,12 @@ export function KrakenFeed({ items, loading, onRowSelect }: KrakenFeedProps) {
               >
                 {formatKrakenIntentCell(log)}
               </div>
-              <p className="text-[11px] font-mono text-muted-foreground leading-relaxed break-words">
+              <p className="text-[13px] font-bold text-white leading-snug break-words whitespace-pre-wrap">
                 {log.question.text || "No question text"}
               </p>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                 <StatusBadge status={log.status} />
                 <CostBadge log={log} />
-                <div className="min-w-0 w-full basis-full sm:w-auto sm:basis-auto">
-                  <SourceWithCopy log={log} />
-                </div>
               </div>
             </motion.div>
           ))}
@@ -176,10 +163,10 @@ export function KrakenFeed({ items, loading, onRowSelect }: KrakenFeedProps) {
 
       {/* Table layout: lg and up */}
       <div className="hidden min-w-0 overflow-x-auto lg:block">
-        <div className={cn("grid gap-3 px-4 py-3 border-b border-border/50 bg-muted/20", GRID_COLS)}>
+        <div className={cn("grid gap-x-2 gap-y-2 px-4 py-3 border-b border-border/50 bg-muted/20", GRID_COLS)}>
           {FEED_HEADERS.map((header) => (
             <div
-              key={header === "" ? "feed-col-details" : header}
+              key={header}
               className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider"
             >
               {header}
@@ -195,30 +182,34 @@ export function KrakenFeed({ items, loading, onRowSelect }: KrakenFeedProps) {
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.05 }}
-              className={cn("grid gap-3 px-4 py-3 items-center hover:bg-muted/10 transition-colors", GRID_COLS)}
+              className={cn(
+                "grid gap-x-2 gap-y-2 px-4 py-3 items-start hover:bg-muted/10 transition-colors",
+                GRID_COLS,
+              )}
             >
-              <div className="text-xs font-medium text-white/70 tabular-nums">
+              <div className="text-xs font-medium text-white/70 tabular-nums pt-0.5">
                 {new Date(log.created_at).toLocaleTimeString()}
               </div>
-              <div className="text-[12px] font-semibold text-white tracking-tight truncate" title={formatKrakenIntentCell(log)}>
+              <div className="text-[12px] font-semibold text-white tracking-tight truncate pt-0.5" title={formatKrakenIntentCell(log)}>
                 {formatKrakenIntentCell(log)}
               </div>
-              <div className="text-[10px] text-muted-foreground truncate font-mono">
+              <div
+                className="min-w-0 text-sm font-bold text-white leading-snug break-words whitespace-pre-wrap"
+                title={log.question.text || undefined}
+              >
                 {log.question.text || "No question text"}
               </div>
-              <div>
+              <div className="pt-0.5">
                 <StatusBadge status={log.status} />
               </div>
-              <div>
+              <div className="pt-0.5">
                 <CostBadge log={log} />
               </div>
-              <div>
-                <SourceWithCopy log={log} />
+              <div className="min-w-0 pt-0.5">
+                <KrakenSourceWithCopy item={log} variant="feed" />
               </div>
-              <div className="flex justify-center">
+              <div className="flex shrink-0 items-center justify-end gap-0 pt-0.5">
                 <ProofIcon log={log} />
-              </div>
-              <div className="flex justify-center">
                 <DetailsChevron log={log} onRowSelect={onRowSelect} />
               </div>
             </motion.div>

@@ -97,7 +97,8 @@ function KrakenHeaderNav({ className }: { className?: string }) {
 }
 
 export default function KrakenDashboard() {
-  const showGlobalWallet = process.env.NEXT_PUBLIC_USE_CORE_X402 === "true";
+  const showGlobalWallet =
+    process.env.NEXT_PUBLIC_USE_TERMINAL_BACKEND_X402 === "true";
   const [signals, setSignals] = useState<DaemonResultItem[]>([]);
   const [topSignals, setTopSignals] = useState<DaemonResultItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);

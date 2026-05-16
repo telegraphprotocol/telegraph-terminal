@@ -1,0 +1,142 @@
+version: "1"
+kind: subnet
+id: 34
+slug: bittensor-sn34-bitmind
+protocol: bittensor
+name: BitMind Deepfake Detector (Bittensor SN34)
+description: >
+  Bittensor Subnet 34 — BitMind detects deepfake images and videos using
+  the Bittensor network. The autonomous engine can use BitMind to verify
+  media authenticity before acting on visual signals (e.g. blocking
+  transactions triggered by deepfake video ads, verifying identity media).
+
+base_url: https://api.bitmind.ai
+
+auth:
+  type: header
+  env_var: BITMIND_API_KEY
+  header_name: Authorization
+
+rate_limit_per_sec: 5
+cache_ttl_sec: 0
+circuit_threshold: 5
+circuit_cooldown_seconds: 30
+
+telegraph_direct:
+  ui_endpoint_paths:
+    - /detect-image
+
+endpoints:
+  - path: /detect-image
+    external_path: /detect-image
+    method: POST
+    telegraph_direct:
+      required_payload_keys: [image]
+    description: Detect whether an image is a deepfake. Accepts a JSON body with an 'image' field (base64 or URL). If user provided a image base64 in request also fill the request part for bitmind payload and add that image base64 in the request body.
+
+  - path: /detect-video
+    external_path: /detect-video
+    method: POST
+    description: >
+      Detect whether a video is a deepfake. Accepts multipart/form-data with
+      a 'file' field (video binary) or 'url' field (video URL).
+    multipart_fields: [file, url, video, startTime, endTime, fps, rich, source, generateThumbnails]
+
+  - path: /preprocess-video
+    external_path: /preprocess-video
+    method: POST
+    description: Pre-process a video for deepfake analysis.
+    multipart_fields: [file, url, video, startTime, endTime, fps]
+
+  - path: /get-video-upload-url
+    external_path: /get-video-upload-url
+    method: POST
+    description: Get a pre-signed URL for uploading a video for analysis.
+
+input_schema:
+  type: object
+  properties:
+    image:
+      type: string
+      description: Base64-encoded image or public image URL (for /detect-image).
+    url:
+      type: string
+      description: Public video URL (for video endpoints).
+    file:
+      type: string
+      description: Binary video file (multipart, for video endpoints).
+
+output_schema:
+  type: object
+  properties:
+    isAI:
+      type: boolean
+      description: Whether the media was detected as AI-generated / deepfake.
+    confidence:
+      type: number
+      minimum: 0
+      maximum: 1
+      description: Detection confidence score.
+    label: { type: string }
+
+semantics:
+  signal_mapping:
+    type: media_authenticity
+    confidence_field: confidence
+    label_field: isAI
+  supported_intents:
+    - DEEPFAKE_DETECTION
+    - MEDIA_AUTHENTICITY_CHECK
+    - IMAGE_VERIFICATION
+    - VIDEO_VERIFICATION
+# on_chain: layout for detect-image endpoint.
+# Actual response: {isAI: bool, confidence: float, similarity: float, objectKey: string}
+# similarity == confidence (redundant). objectKey is an S3 key, not useful on-chain.
+# transform=direct: both fields map cleanly without LLM.
+#
+# On-chain array layout (adaptable to any binary AI detection API):
+#   bools[0]    = is_ai_generated   (true if content is AI-generated)
+#   integers[0] = confidence_x10000 (e.g. 9029 = 0.9029 confidence)
+on_chain:
+  description: >
+    AI-generated image / deepfake detection result for the detect-image endpoint.
+    Adaptable to any binary AI detection API returning a boolean verdict and
+    a confidence score between 0 and 1.
+  transform: direct
+  min_price_usdc: 0.02
+  fields:
+    bools:
+      - index: 0
+        name: is_ai_generated
+        description: True if the image is AI-generated or a deepfake.
+        source_path: isAI
+    integers:
+      - index: 0
+        name: confidence_x10000
+        description: Detection confidence × 10000 (e.g. 9029 = 0.9029 confidence).
+        source_path: confidence
+        multiplier: 10000
+  request:
+    - endpoint: detect-image
+      method: POST
+      body:
+        image: { source: strings.0 }
+    - endpoint: detect-video
+      method: POST
+      body:
+        video: { source: strings.0 }
+        startTime: { source: numbers.0 }
+        endTime: { source: numbers.1 }
+        fps: { source: numbers.2 }
+        rich: { source: bools.0, optional: true }
+    - endpoint: preprocess-video
+      method: POST
+      body:
+        video: { source: strings.0 }
+        endTime: { source: strings.1 }
+        startTime: { source: numbers.0 }
+        fps: { source: numbers.1 }
+    - endpoint: get-video-upload-url
+      method: POST
+      body:
+        filename: { source: strings.0 }
