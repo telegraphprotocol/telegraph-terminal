@@ -109,13 +109,138 @@ function stringOrEmpty(value: unknown): string {
   return "";
 }
 
+function tryParseJsonString(value: string): unknown | null {
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) return null;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return null;
+  }
+}
+
+function scalarDisplay(value: unknown): string {
+  if (value === null || value === undefined) return "—";
+  if (typeof value === "string") {
+    const parsed = tryParseJsonString(value);
+    if (parsed !== null && typeof parsed === "object") {
+      return "";
+    }
+    return value.trim() || "—";
+  }
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return "";
+}
+
+/** Flatten objects/arrays into key-value rows for display (no raw JSON blocks). */
+function flattenToKeyValueRows(labelPrefix: string, value: unknown, depth = 0): KeyValueRow[] {
+  if (depth > 5) {
+    return [{ label: labelPrefix, value: stringOrEmpty(value) || "…" }];
+  }
+
+  if (value === null || value === undefined) {
+    return [{ label: labelPrefix, value: "—" }];
+  }
+
+  if (typeof value === "string") {
+    const parsed = tryParseJsonString(value);
+    if (parsed !== null) {
+      return flattenToKeyValueRows(labelPrefix, parsed, depth + 1);
+    }
+    return [{ label: labelPrefix, value: value.trim() || "—" }];
+  }
+
+  if (typeof value === "number" || typeof value === "boolean") {
+    return [{ label: labelPrefix, value: String(value) }];
+  }
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) return [{ label: labelPrefix, value: "(empty list)" }];
+    const rows: KeyValueRow[] = [];
+    value.forEach((entry, i) => {
+      const childLabel = `${labelPrefix}[${i}]`;
+      const childRows = flattenToKeyValueRows(childLabel, entry, depth + 1);
+      if (childRows.length === 1 && childRows[0].label === childLabel) {
+        rows.push(childRows[0]);
+      } else {
+        rows.push(...childRows);
+      }
+    });
+    return rows;
+  }
+
+  const record = asRecord(value);
+  if (!record) {
+    return [{ label: labelPrefix, value: String(value) }];
+  }
+
+  const keys = Object.keys(record);
+  if (keys.length === 0) return [{ label: labelPrefix, value: "(empty object)" }];
+
+  const rows: KeyValueRow[] = [];
+  for (const key of keys) {
+    const childLabel = labelPrefix ? `${labelPrefix}.${key}` : key;
+    const child = record[key];
+    if (child !== null && typeof child === "object") {
+      rows.push(...flattenToKeyValueRows(childLabel, child, depth + 1));
+    } else {
+      const scalar = scalarDisplay(child);
+      if (scalar === "" && typeof child === "string") {
+        rows.push(...flattenToKeyValueRows(childLabel, child, depth + 1));
+      } else {
+        rows.push({ label: childLabel, value: scalar || stringOrEmpty(child) || "—" });
+      }
+    }
+  }
+  return rows;
+}
+
+function valueToKeyValueRows(label: string, value: unknown): KeyValueRow[] {
+  return flattenToKeyValueRows(label, value, 0);
+}
+
+/** OpenAI /responses API: output_text or output[0].content[0].text */
+function extractResponsesApiContent(record: Record<string, unknown>): string {
+  const outputText = stringOrEmpty(record.output_text);
+  if (outputText) return outputText;
+
+  const output = record.output;
+  if (!Array.isArray(output)) return "";
+
+  for (const item of output) {
+    const entry = asRecord(item);
+    if (!entry) continue;
+
+    const entryType = stringOrEmpty(entry.type);
+    if (entryType && entryType !== "message") continue;
+
+    const parts = entry.content;
+    if (Array.isArray(parts)) {
+      for (const part of parts) {
+        const block = asRecord(part);
+        if (!block) continue;
+        const text = stringOrEmpty(block.text ?? block.output_text);
+        if (text) return text;
+      }
+    }
+
+    const direct = stringOrEmpty(entry.text);
+    if (direct) return direct;
+  }
+
+  return "";
+}
+
 function extractOpenAiContent(record: Record<string, unknown>): string {
+  const responses = extractResponsesApiContent(record);
+  if (responses) return responses;
+
   const choices = record.choices;
   if (!Array.isArray(choices) || choices.length === 0) return "";
   const first = asRecord(choices[0]);
   if (!first) return "";
   const message = asRecord(first.message);
-  const content = message?.content ?? first.text ?? record.output_text;
+  const content = message?.content ?? first.text;
   const text = stringOrEmpty(content);
   if (text) return text;
 
@@ -253,7 +378,11 @@ export function parseExecutionResult(result: unknown): ParsedExecutionResult {
   }
 
   if (Array.isArray(normalized)) {
-    const sections = [{ type: "json" as const, title: "Result", body: rawJson }];
+    const rows = flattenToKeyValueRows("item", normalized, 0);
+    const sections: StructuredResultSection[] =
+      rows.length > 0
+        ? [{ type: "keyValues", title: "Result", rows }]
+        : [{ type: "text", title: "Answer", body: "Empty array result." }];
     return { sections, rawJson, hasAnswer: false };
   }
 
@@ -273,7 +402,7 @@ export function parseExecutionResult(result: unknown): ParsedExecutionResult {
   const openAi = extractOpenAiContent(record);
   if (openAi) {
     sections.push({ type: "text", title: "Answer", body: openAi });
-    mark("choices");
+    mark("choices", "output", "output_text");
   }
 
   const answer = stringOrEmpty(record.answer);
@@ -335,18 +464,23 @@ export function parseExecutionResult(result: unknown): ParsedExecutionResult {
   for (const [key, value] of Object.entries(record)) {
     if (consumed.has(key)) continue;
     if (value === undefined || value === null || value === "") continue;
-    if (typeof value === "object") {
-      remaining.push({ label: key, value: formatJson(value) });
-    } else {
-      remaining.push({ label: key, value: stringOrEmpty(value) || String(value) });
-    }
+    remaining.push(...valueToKeyValueRows(key, value));
   }
   if (remaining.length > 0) {
     sections.push({ type: "keyValues", title: "Additional fields", rows: remaining });
   }
 
   if (sections.length === 0) {
-    sections.push({ type: "json", title: "Result", body: rawJson });
+    const rows = valueToKeyValueRows("result", normalized);
+    if (rows.length > 0) {
+      sections.push({ type: "keyValues", title: "Result", rows });
+    } else {
+      sections.push({
+        type: "text",
+        title: "Answer",
+        body: "Structured result available — use Copy JSON for the raw payload.",
+      });
+    }
   }
 
   return { sections, rawJson, hasAnswer: parsedResultHasAnswer(sections) };

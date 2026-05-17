@@ -14,7 +14,7 @@ function SectionTitle({ children }: { children: ReactNode }) {
 
 function TextBlock({ title, body }: { title?: string; body: string }) {
   return (
-    <div className="space-y-1">
+    <div className="space-y-2 rounded-lg border border-border/30 bg-muted/10 px-3 py-2.5">
       {title ? <div className="text-[11px] font-semibold text-muted-foreground">{title}</div> : null}
       {title === "Answer" || title === "Reasoning" || looksLikeMarkdown(body) ? (
         <MarkdownContent variant="signal">{body}</MarkdownContent>
@@ -104,29 +104,35 @@ function BadgesRow({ items }: { items: { label: string; value: string }[] }) {
   );
 }
 
-function KeyValuesBlock({ title, rows }: { title?: string; rows: { label: string; value: string }[] }) {
+function KeyValueRow({ label, value }: { label: string; value: string }) {
+  const renderMarkdown = looksLikeMarkdown(value);
+
   return (
-    <div className="space-y-2">
-      {title ? <div className="text-[11px] font-semibold text-muted-foreground">{title}</div> : null}
-      <dl className="space-y-2">
-        {rows.map((row) => (
-          <div key={row.label} className="grid gap-1 sm:grid-cols-[120px_1fr] sm:gap-3">
-            <dt className="text-xs font-semibold text-muted-foreground">{row.label}</dt>
-            <dd className="whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed text-white/85">
-              {row.value}
-            </dd>
-          </div>
-        ))}
-      </dl>
+    <div className="rounded-lg border border-border/30 bg-muted/10 px-3 py-2.5">
+      <dt className="break-all text-[11px] font-semibold leading-snug text-muted-foreground">{label}</dt>
+      <dd className="mt-1.5 min-w-0">
+        {renderMarkdown ? (
+          <MarkdownContent variant="signal">{value}</MarkdownContent>
+        ) : (
+          <p className="whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed text-white/85">
+            {value}
+          </p>
+        )}
+      </dd>
     </div>
   );
 }
 
-function JsonBlock({ body }: { body: string }) {
+function KeyValuesBlock({ title, rows }: { title?: string; rows: { label: string; value: string }[] }) {
   return (
-    <pre className="max-h-64 overflow-auto rounded-lg border border-border/40 bg-muted/20 p-3 font-mono text-[11px] leading-relaxed text-white/80">
-      {body}
-    </pre>
+    <div className="space-y-2">
+      {title ? <div className="text-[11px] font-semibold text-muted-foreground">{title}</div> : null}
+      <dl className="flex flex-col gap-2.5">
+        {rows.map((row) => (
+          <KeyValueRow key={row.label} label={row.label} value={row.value} />
+        ))}
+      </dl>
+    </div>
   );
 }
 
@@ -158,12 +164,7 @@ function renderSection(section: StructuredResultSection, index: number) {
     case "keyValues":
       return <KeyValuesBlock key={index} title={section.title} rows={section.rows} />;
     case "json":
-      return (
-        <div key={index}>
-          {section.title ? <SectionTitle>{section.title}</SectionTitle> : null}
-          <JsonBlock body={section.body} />
-        </div>
-      );
+      return null;
     default:
       return null;
   }

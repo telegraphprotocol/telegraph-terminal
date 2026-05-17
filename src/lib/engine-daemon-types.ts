@@ -91,7 +91,10 @@ export type DaemonCategory =
   | "SPORTS"
   | "SCIENCE"
   | "SOCIAL"
-  | "OTHER";
+  | "OTHER"
+  /** UI / future daemon taxonomy — may not be returned by API yet */
+  | "PHARMA"
+  | "LAW";
 
 export type DaemonQuestionDoc = {
   text: string;
