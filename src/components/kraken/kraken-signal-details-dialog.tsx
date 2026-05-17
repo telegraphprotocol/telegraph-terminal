@@ -20,9 +20,9 @@ function formatJsonPreview(value: unknown): string {
 
 function DetailRow({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
   return (
-    <div className={cn("grid gap-1 sm:grid-cols-[140px_1fr] sm:gap-3 text-sm", className)}>
-      <div className="font-semibold text-muted-foreground">{label}</div>
-      <div className="text-white/90 break-words min-w-0">{children}</div>
+    <div className={cn("grid gap-1.5 sm:grid-cols-[140px_1fr] sm:items-start sm:gap-3 text-sm", className)}>
+      <div className="shrink-0 font-semibold text-muted-foreground">{label}</div>
+      <div className="min-w-0 break-words text-white/90">{children}</div>
     </div>
   );
 }
@@ -83,7 +83,7 @@ export function KrakenSignalDetailsDialog({ item, open, onOpenChange }: KrakenSi
 
   const fullSignalJson = formatJsonPreview(item);
   const parsedResult = parseExecutionResult(item.execution.result);
-  const { rawJson: resultRawJson, hasAnswer: hasStructuredAnswer } = parsedResult;
+  const { rawJson: resultRawJson } = parsedResult;
   const sourceHref = questionSourceArticleUrl(item.question);
 
   return (
@@ -175,21 +175,7 @@ export function KrakenSignalDetailsDialog({ item, open, onOpenChange }: KrakenSi
                   <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Result</p>
                   <CopyJsonButton text={resultRawJson} copyLabel="Copy result JSON" />
                 </div>
-                <KrakenStructuredResult result={item.execution.result} className={hasStructuredAnswer ? undefined : "mb-0"} />
-                {!hasStructuredAnswer ? (
-                  <pre className="mt-3 max-h-[min(40vh,360px)] overflow-auto rounded-lg border border-border/40 bg-muted/20 p-3 font-mono text-[11px] leading-relaxed text-white/80">
-                    {resultRawJson}
-                  </pre>
-                ) : (
-                  <details className="mt-4 group">
-                    <summary className="cursor-pointer text-[11px] font-semibold text-muted-foreground hover:text-white/90">
-                      Raw result (JSON)
-                    </summary>
-                    <pre className="mt-2 max-h-[min(32vh,280px)] overflow-auto rounded-lg border border-border/40 bg-muted/20 p-3 font-mono text-[11px] leading-relaxed text-white/80">
-                      {resultRawJson}
-                    </pre>
-                  </details>
-                )}
+                <KrakenStructuredResult result={item.execution.result} />
               </div>
             </div>
 

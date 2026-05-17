@@ -125,7 +125,7 @@ export function KrakenFeed({ items, loading, onRowSelect }: KrakenFeedProps) {
           {emptySlot}
           {items.map((log, i) => (
             <motion.div
-              key={log.id}
+              key={`feed-sm-${log.id}`}
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.05 }}
@@ -178,7 +178,7 @@ export function KrakenFeed({ items, loading, onRowSelect }: KrakenFeedProps) {
           {emptySlot}
           {items.map((log, i) => (
             <motion.div
-              key={log.id}
+              key={`feed-lg-${log.id}`}
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.05 }}
