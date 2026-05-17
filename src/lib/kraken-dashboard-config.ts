@@ -1,5 +1,4 @@
-/** Default: 3 minutes — feed pool refresh and catch-up batch advance. */
-const DEFAULT_FEED_POLL_INTERVAL_MS = 3 * 60 * 1000;
+const DEFAULT_THREE_MIN_MS = 3 * 60 * 1000;
 
 function parsePositiveMs(raw: string | undefined, fallback: number): number {
   if (raw === undefined || raw.trim() === "") return fallback;
@@ -8,11 +7,14 @@ function parsePositiveMs(raw: string | undefined, fallback: number): number {
   return Math.floor(n);
 }
 
-/**
- * Kraken dashboard poll interval (ms).
- * Set `KRAKEN_FEED_POLL_INTERVAL_MS` in `.env` (exposed via `next.config.ts` `env`).
- */
+/** How often to refetch the collector pool from the daemon API. */
 export const KRAKEN_FEED_POLL_INTERVAL_MS = parsePositiveMs(
   process.env.KRAKEN_FEED_POLL_INTERVAL_MS,
-  DEFAULT_FEED_POLL_INTERVAL_MS,
+  DEFAULT_THREE_MIN_MS,
+);
+
+/** How often auto catch-up mode advances to the next page of 50 results (independent of poll). */
+export const KRAKEN_CATCHUP_ADVANCE_INTERVAL_MS = parsePositiveMs(
+  process.env.KRAKEN_CATCHUP_ADVANCE_INTERVAL_MS,
+  DEFAULT_THREE_MIN_MS,
 );
