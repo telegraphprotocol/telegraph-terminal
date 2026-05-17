@@ -16,7 +16,6 @@ export const WINDOW_START_H = 5;
 export const CATCHUP_LIMIT = 50;
 /** Collector rows cached for instant category toggles. */
 export const COLLECTOR_POOL_TARGET = 400;
-export const TICK_MS = 3 * 60 * 1000;
 export const ALERTS_LIMIT = 10;
 
 export type DaemonSort = "recent" | "interest" | "affected" | "audience";

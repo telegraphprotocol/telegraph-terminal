@@ -22,11 +22,11 @@ import {
   COLLECTOR_POOL_TARGET,
   DEFAULT_SELECTED_CATEGORIES,
   fetchCollectorPool,
-  TICK_MS,
   topAlertsFromPool,
   type DashboardCategoryId,
   type DaemonSort,
 } from "@/lib/kraken-dashboard-filters";
+import { KRAKEN_FEED_POLL_INTERVAL_MS } from "@/lib/kraken-dashboard-config";
 import { normalizeEngineSubnets, type SubnetPickItem } from "@/lib/subnet-catalog";
 import { downloadSignalsCsv } from "@/lib/export-signals-csv";
 
@@ -231,7 +231,7 @@ export default function KrakenDashboard() {
     void refreshCollectorPool();
     const timer = setInterval(() => {
       void refreshCollectorPool();
-    }, TICK_MS);
+    }, KRAKEN_FEED_POLL_INTERVAL_MS);
     return () => clearInterval(timer);
   }, [refreshCollectorPool]);
 
@@ -239,7 +239,7 @@ export default function KrakenDashboard() {
     if (useManualTimeRange) return;
     const id = setInterval(() => {
       setCatchUpPage((prev) => prev + 1);
-    }, TICK_MS);
+    }, KRAKEN_FEED_POLL_INTERVAL_MS);
     return () => clearInterval(id);
   }, [useManualTimeRange]);
 
