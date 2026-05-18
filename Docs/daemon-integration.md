@@ -267,7 +267,7 @@ Important:
 
 ### B) Dashboard Feed (`KrakenFeed`)
 
-See **[kraken-dashboard-ui.md](kraken-dashboard-ui.md)** for the implemented column layout, CSV export, and signal details modal.
+See **[kraken-dashboard-ui.md](kraken-dashboard-ui.md)** (columns, category OR filter, footer counts) and **[kraken-dashboard-feed-loading.md](kraken-dashboard-feed-loading.md)** (cache, pagination, env vars).
 
 | Feed field | Daemon / API field | Mapping (current UI) |
 |---|---|---|
@@ -288,10 +288,11 @@ Recommended query:
 /api/questions?since_hours=24&sort=recent&order=desc&limit=20&offset=0
 ```
 
-For collector-only feed:
+For collector-only feed (current app):
 
-- filter to `source in {reddit, gdelt, polymarket, hackernews, openmeteo}`
-- or add `min_interest=1`
+- Client-side: `source in {reddit, gdelt, polymarket, hackernews, openmeteo}` and category OR filter (see `CATEGORY_ALIASES` for PHARMA/LAW).
+- Optional server-side: `min_interest` only when `NEXT_PUBLIC_KRAKEN_MIN_INTEREST` is set (default: omitted).
+- Default time window: `since_hours=24` (manual mode on first load).
 
 ### C) Alerts (`KrakenAlerts`)
 

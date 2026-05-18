@@ -1,12 +1,33 @@
 # Kraken dashboard UI (Telegraph terminal)
 
-This document describes the Kraken intelligence dashboard UI in the Next.js app (`/` → [`src/app/page.tsx`](../src/app/page.tsx)), the feed and supporting components, and related utilities. It reflects the implementation as of the work session that added intent labeling, CSV export, signal details, and feed interaction refinements.
+This document describes the Kraken intelligence dashboard UI in the Next.js app (`/` → [`src/app/page.tsx`](../src/app/page.tsx)), the feed and supporting components, and related utilities.
 
 ## Data flow
 
-1. **Daemon read API** — The browser calls same-origin **`/api/daemon/*`** (see [`api-client.ts`](../src/lib/api-client.ts)); Next proxies to the daemon using **`DAEMON_INTERNAL_URL`** (default `http://127.0.0.1:8081`). The dashboard loads `/api/questions` (proxied as `/api/daemon/api/questions`) with filters (`since_hours`, `category`, `sort`, `order`, `limit`, `offset`, `min_interest`) and `/api/questions/top` for the right-hand alerts column. Health is checked via `/health` (proxied as `/api/daemon/health`).
-2. **Collector-only feed** — The main table applies a client-side filter: rows where `source` is one of `reddit`, `gdelt`, `polymarket`, `hackernews`, `openmeteo`, excluding `user`. Totals still reflect the daemon page `total`; the table may show fewer rows than `total` when non-collector rows exist on the same page.
-3. **Engine catalog** — [`GET /v1/subnets`](../src/lib/api-client.ts) via **`/api/engine/v1/subnets`**; Next proxies to the engine using **`ENGINE_INTERNAL_URL`** (default `http://127.0.0.1:7044`). This feeds the header subnet picker and [`KrakenSkillCards`](../src/components/kraken/kraken-skill-cards.tsx). This is independent of the daemon feed.
+1. **Daemon read API** — The browser calls same-origin **`/api/daemon/*`** (see [`api-client.ts`](../src/lib/api-client.ts)); Next proxies to the daemon using **`DAEMON_INTERNAL_URL`** (default `http://127.0.0.1:8081`). The dashboard loads `/api/daemon/api/questions` with `since_hours`, `sort`, `order`, `limit`, `offset`, and optional `min_interest` (see `NEXT_PUBLIC_KRAKEN_MIN_INTEREST`). Category filtering is **client-side OR** over a cached collector pool. State and fetching live in [`use-kraken-collector-cache.ts`](../src/lib/use-kraken-collector-cache.ts). Health: `/api/daemon/health`.
+2. **Collector pool + feed view** — See **[`kraken-dashboard-feed-loading.md`](kraken-dashboard-feed-loading.md)** for staged loading (incremental first 50 rows), polling, pagination, auto-advance, and **`KRAKEN_FEED_*`** env vars.
+3. **Collector-only feed** — Pool rows where `source` is one of `reddit`, `gdelt`, `polymarket`, `hackernews`, `openmeteo`, excluding `user`. Footer counts reflect filtered matches in the pool, not raw daemon `total`.
+4. **Engine catalog** — [`GET /v1/subnets`](../src/lib/api-client.ts) via **`/api/engine/v1/subnets`**; Next proxies to the engine using **`ENGINE_INTERNAL_URL`** (default `http://127.0.0.1:7044`). This feeds the header subnet picker and [`KrakenSkillCards`](../src/components/kraken/kraken-skill-cards.tsx). This is independent of the daemon feed.
+
+## Category filter (`KrakenCategoryFilter`)
+
+**File:** [`src/components/kraken/kraken-category-filter.tsx`](../src/components/kraken/kraken-category-filter.tsx)
+
+- Multi-select checklist; **All** / **Clear** shortcuts.
+- Matching is **OR** across checked boxes (any selected category bucket can match).
+- **`PHARMA`** and **`LAW`** are UI buckets expanded to daemon categories via `CATEGORY_ALIASES` (see [`kraken-dashboard-feed-loading.md`](kraken-dashboard-feed-loading.md)).
+- Changing categories re-filters the cache only (no daemon refetch). Changing sort or time range reloads the cache.
+
+## Time range control
+
+Dropdown: LAST 1H / 6H / 24H / 72H. Default **`useManualTimeRange: true`** so the initial load uses **24 hours**. Changing the dropdown sets manual mode and calls `resetPageIndex()`.
+
+## Feed footer and pagination
+
+Below the table:
+
+- **Footer:** `Showing {n} of {filteredTotal} filtered · {cacheSize} in cache · {daemonTotal} daemon` plus optional status (`batch N`, `loading more…`, etc.).
+- **Prev / Next:** Slice the filtered view (50 rows per page). **Next** may fetch another daemon page when the cache slice is exhausted but the API is not.
 
 ## Feed table (`KrakenFeed`)
 
@@ -54,6 +75,9 @@ This document describes the Kraken intelligence dashboard UI in the Next.js app 
 | File                                                                                              | Role                                                                          |
 | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
 | [`src/lib/kraken-signal-format.ts`](../src/lib/kraken-signal-format.ts)                           | `formatKrakenIntentCell(item)` for feed and CSV intent column.                |
+| [`src/lib/kraken-dashboard-filters.ts`](../src/lib/kraken-dashboard-filters.ts)                 | Category OR/aliases, pool merge, progressive fetch helpers.                   |
+| [`src/lib/use-kraken-collector-cache.ts`](../src/lib/use-kraken-collector-cache.ts)               | Feed cache hook: bootstrap, poll, pagination, footer metrics.                 |
+| [`src/lib/kraken-dashboard-config.ts`](../src/lib/kraken-dashboard-config.ts)                   | Poll/catch-up intervals, optional `KRAKEN_MIN_INTEREST`.                      |
 | [`src/lib/engine-daemon-types.ts`](../src/lib/engine-daemon-types.ts)                             | `DaemonResultItem` and related types aligned with daemon `SubnetResult` JSON. |
 | [`src/components/kraken/kraken-alerts.tsx`](../src/components/kraken/kraken-alerts.tsx)           | Live alpha alerts from top signals.                                           |
 | [`src/components/kraken/kraken-analytics.tsx`](../src/components/kraken/kraken-analytics.tsx)     | Charts from current feed slice.                                               |
@@ -66,7 +90,12 @@ See [`.env`](../.env) (or [`.env.example`](../.env.example)) for:
 - **`DAEMON_INTERNAL_URL`** — Next server → daemon HTTP (browser uses `/api/daemon/*`).
 - **`ENGINE_INTERNAL_URL`** — Next server → engine HTTP (browser uses `/api/engine/*`).
 - **`NEXT_PUBLIC_ENGINE_WS_URL`** — Browser → engine WebSocket (still direct; not proxied by Next).
+- **`KRAKEN_FEED_POLL_INTERVAL_MS`**, **`KRAKEN_CATCHUP_ADVANCE_INTERVAL_MS`** — Feed poll and auto-advance intervals.
+- **`NEXT_PUBLIC_KRAKEN_MIN_INTEREST`** — Optional daemon interest floor (omit = no filter).
+
+Details: [`kraken-dashboard-feed-loading.md`](kraken-dashboard-feed-loading.md).
 
 ## Related documentation
 
+- [`kraken-dashboard-feed-loading.md`](kraken-dashboard-feed-loading.md) — staged pool load, incremental first screen (50 rows), Next/Prev, auto-advance, env vars.
 - [`daemon-integration.md`](daemon-integration.md) — broader daemon and engine API mapping; the feed table row in that doc should be read together with this file for UI-vs-JSON naming (`subnet_*` in API vs “Intent” / “Miner” labels in the modal).

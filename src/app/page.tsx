@@ -7,29 +7,19 @@ import { KrakenSkillCards } from "@/components/kraken/kraken-skill-cards";
 import { KrakenAnalytics } from "@/components/kraken/kraken-analytics";
 import { KrakenAlerts } from "@/components/kraken/kraken-alerts";
 import { Search, Bell, LayoutDashboard, Database, Shield, Zap, MessageSquare } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { GlobalWallet } from "@/components/global-wallet";
 import { EngineSubnetPicker } from "@/components/engine-subnet-picker";
 import { apiClient } from "@/lib/api-client";
 import { DaemonResultItem } from "@/lib/engine-daemon-types";
-import {
-  ALERTS_LIMIT,
-  buildFeedViewFromPool,
-  buildTimeQueryParams,
-  CATCHUP_LIMIT,
-  COLLECTOR_POOL_TARGET,
-  DEFAULT_SELECTED_CATEGORIES,
-  fetchCollectorPool,
-  topAlertsFromPool,
-  type DashboardCategoryId,
-  type DaemonSort,
-} from "@/lib/kraken-dashboard-filters";
+import { DEFAULT_SELECTED_CATEGORIES, type DashboardCategoryId } from "@/lib/kraken-dashboard-filters";
 import {
   KRAKEN_CATCHUP_ADVANCE_INTERVAL_MS,
   KRAKEN_FEED_POLL_INTERVAL_MS,
 } from "@/lib/kraken-dashboard-config";
+import { useKrakenCollectorCache } from "@/lib/use-kraken-collector-cache";
 import { normalizeEngineSubnets, type SubnetPickItem } from "@/lib/subnet-catalog";
 import { downloadSignalsCsv } from "@/lib/export-signals-csv";
 
@@ -116,26 +106,19 @@ function KrakenHeaderNav({ className }: { className?: string }) {
 export default function KrakenDashboard() {
   const showGlobalWallet =
     process.env.NEXT_PUBLIC_USE_TERMINAL_BACKEND_X402 === "true";
-  const [signals, setSignals] = useState<DaemonResultItem[]>([]);
-  const [topSignals, setTopSignals] = useState<DaemonResultItem[]>([]);
-  const [collectorPool, setCollectorPool] = useState<DaemonResultItem[]>([]);
-  const [isPoolLoading, setIsPoolLoading] = useState(true);
-  const [daemonError, setDaemonError] = useState<string | null>(null);
-  const poolFetchIdRef = useRef(0);
   const [selectedCategories, setSelectedCategories] = useState<DashboardCategoryId[]>([
     ...DEFAULT_SELECTED_CATEGORIES,
   ]);
-  const selectedCategorySet = useMemo(
-    () => new Set(selectedCategories),
-    [selectedCategories],
-  );
   const [sort, setSort] = useState<"recent" | "interest" | "affected" | "audience">("affected");
   const [sinceHours, setSinceHours] = useState(24);
-  const [useManualTimeRange, setUseManualTimeRange] = useState(false);
-  const [offset, setOffset] = useState(0);
-  const [catchUpPage, setCatchUpPage] = useState(0);
-  const [filteredTotal, setFilteredTotal] = useState(0);
-  const [hasMorePages, setHasMorePages] = useState(false);
+  const [useManualTimeRange, setUseManualTimeRange] = useState(true);
+
+  const feed = useKrakenCollectorCache({
+    sort,
+    sinceHours,
+    useManualTimeRange,
+    selectedCategories,
+  });
 
   const [engineSubnets, setEngineSubnets] = useState<SubnetPickItem[]>([]);
   const [engineSubnetsLoading, setEngineSubnetsLoading] = useState(true);
@@ -143,11 +126,24 @@ export default function KrakenDashboard() {
   const [dashboardSubnetId, setDashboardSubnetId] = useState<string | null>(null);
   const [detailsItem, setDetailsItem] = useState<DaemonResultItem | null>(null);
 
-  const autoCatchUp = !useManualTimeRange;
-
   useEffect(() => {
     document.title = "Kraken Intelligence Dashboard";
   }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      void feed.pollTick();
+    }, KRAKEN_FEED_POLL_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [feed.pollTick]);
+
+  useEffect(() => {
+    if (!feed.autoAdvanceEnabled) return;
+    const id = setInterval(() => {
+      void feed.goToNextPage();
+    }, KRAKEN_CATCHUP_ADVANCE_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [feed.autoAdvanceEnabled, feed.goToNextPage]);
 
   useEffect(() => {
     let cancelled = false;
@@ -172,96 +168,9 @@ export default function KrakenDashboard() {
     };
   }, []);
 
-  const skipFiltered = autoCatchUp ? catchUpPage * CATCHUP_LIMIT : offset;
-
-  const applyViewFromPool = useCallback(
-    (
-      pool: DaemonResultItem[],
-      categories: readonly DashboardCategoryId[],
-      sortKey: DaemonSort,
-      skip: number,
-    ) => {
-      const categorySet = new Set(categories);
-      const view = buildFeedViewFromPool(pool, categorySet, sortKey, skip, CATCHUP_LIMIT);
-      setSignals(view.items);
-      setFilteredTotal(view.filteredTotal);
-      setHasMorePages(view.hasMore);
-      setTopSignals(topAlertsFromPool(pool, categorySet, ALERTS_LIMIT));
-    },
-    [],
-  );
-
-  const refreshCollectorPool = useCallback(async () => {
-    const fetchId = ++poolFetchIdRef.current;
-    setIsPoolLoading((loading) => loading || collectorPool.length === 0);
-    setDaemonError(null);
-    try {
-      const timeParams = buildTimeQueryParams(useManualTimeRange, sinceHours);
-      const fetchPage = (pageOffset: number) =>
-        apiClient.fetchSignals({
-          ...timeParams,
-          sort,
-          order: "desc",
-          limit: CATCHUP_LIMIT,
-          offset: pageOffset,
-          min_interest: 1,
-        });
-
-      const [pool, health] = await Promise.all([
-        fetchCollectorPool(fetchPage, { targetCount: COLLECTOR_POOL_TARGET }),
-        apiClient.getHealth(),
-      ]);
-
-      if (fetchId !== poolFetchIdRef.current) return;
-      if (health.status.toLowerCase() !== "ok") {
-        throw new Error(`Daemon health check returned "${health.status}"`);
-      }
-
-      setCollectorPool(pool);
-    } catch (error) {
-      if (fetchId !== poolFetchIdRef.current) return;
-      setDaemonError(error instanceof Error ? error.message : "Failed to load daemon data");
-    } finally {
-      if (fetchId === poolFetchIdRef.current) setIsPoolLoading(false);
-    }
-  }, [collectorPool.length, sinceHours, sort, useManualTimeRange]);
-
-  useEffect(() => {
-    applyViewFromPool(collectorPool, selectedCategories, sort, skipFiltered);
-  }, [applyViewFromPool, collectorPool, selectedCategories, sort, skipFiltered]);
-
-  useEffect(() => {
-    if (!autoCatchUp || catchUpPage === 0) return;
-    if (signals.length === 0 && filteredTotal > 0) {
-      setCatchUpPage(0);
-    }
-  }, [autoCatchUp, catchUpPage, filteredTotal, signals.length]);
-
-  useEffect(() => {
-    void refreshCollectorPool();
-    const timer = setInterval(() => {
-      void refreshCollectorPool();
-    }, KRAKEN_FEED_POLL_INTERVAL_MS);
-    return () => clearInterval(timer);
-  }, [refreshCollectorPool]);
-
-  useEffect(() => {
-    if (useManualTimeRange) return;
-    const id = setInterval(() => {
-      setCatchUpPage((prev) => prev + 1);
-    }, KRAKEN_CATCHUP_ADVANCE_INTERVAL_MS);
-    return () => clearInterval(id);
-  }, [useManualTimeRange]);
-
-  const handleCategoriesChange = useCallback(
-    (next: DashboardCategoryId[]) => {
-      setSelectedCategories(next);
-      setOffset(0);
-      setCatchUpPage(0);
-      applyViewFromPool(collectorPool, next, sort, 0);
-    },
-    [applyViewFromPool, collectorPool, sort],
-  );
+  const handleCategoriesChange = useCallback((next: DashboardCategoryId[]) => {
+    setSelectedCategories(next);
+  }, []);
 
   return (
     <div className="flex h-screen bg-background overflow-hidden font-sans">
@@ -373,9 +282,9 @@ export default function KrakenDashboard() {
             <div className="flex-1 flex flex-col gap-8 min-w-0">
               {/* Top Section: Feed */}
               <section className="flex flex-col gap-4">
-                {daemonError && (
+                {feed.error && (
                   <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">
-                    Daemon read API error: {daemonError}
+                    Daemon read API error: {feed.error}
                   </div>
                 )}
                 <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -388,8 +297,7 @@ export default function KrakenDashboard() {
                       value={sort}
                       onChange={(e) => {
                         setSort(e.target.value as "recent" | "interest" | "affected" | "audience");
-                        setOffset(0);
-                        setCatchUpPage(0);
+                        feed.resetPageIndex();
                       }}
                       className="h-9 px-3 rounded-lg bg-muted/60 border border-border/50 text-xs text-foreground"
                     >
@@ -403,8 +311,7 @@ export default function KrakenDashboard() {
                       onChange={(e) => {
                         setSinceHours(Number(e.target.value));
                         setUseManualTimeRange(true);
-                        setOffset(0);
-                        setCatchUpPage(0);
+                        feed.resetPageIndex();
                       }}
                       className="h-9 px-3 rounded-lg bg-muted/60 border border-border/50 text-xs text-foreground"
                     >
@@ -416,52 +323,46 @@ export default function KrakenDashboard() {
                   </div>
                   <button
                     type="button"
-                    disabled={signals.length === 0}
-                    onClick={() => downloadSignalsCsv(signals)}
+                    disabled={feed.signals.length === 0}
+                    onClick={() => downloadSignalsCsv(feed.signals)}
                     className="h-9 px-3 rounded-lg bg-muted/60 border border-border/50 text-xs text-muted-foreground hover:text-white transition-colors disabled:opacity-40 disabled:pointer-events-none"
                   >
                     Export CSV
                   </button>
                 </div>
                 <KrakenFeed
-                  items={signals}
-                  loading={isPoolLoading && signals.length === 0}
+                  items={feed.signals}
+                  loading={feed.showTableSpinner}
                   onRowSelect={(item) => setDetailsItem(item)}
                 />
                 <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
                   <span>
-                    Showing {signals.length} of {filteredTotal} results
-                    {autoCatchUp ? ` · batch ${catchUpPage + 1}` : ""}
+                    Showing {feed.signals.length} of {feed.filteredTotal} filtered
+                    {feed.cacheSize > 0 ? ` · ${feed.cacheSize} in cache` : ""}
+                    {feed.daemonTotal != null ? ` · ${feed.daemonTotal} daemon` : ""}
+                    {feed.footerExtra}
                   </span>
                   <div className="flex items-center gap-2">
                     <button
-                      disabled={autoCatchUp ? catchUpPage === 0 : offset === 0}
-                      onClick={() =>
-                        autoCatchUp
-                          ? setCatchUpPage((prev) => Math.max(0, prev - 1))
-                          : setOffset((prev) => Math.max(0, prev - CATCHUP_LIMIT))
-                      }
+                      disabled={feed.pageIndex === 0}
+                      onClick={feed.prevPage}
                       className="h-8 px-2 rounded border border-border/50 disabled:opacity-40"
                     >
                       Prev
                     </button>
                     <button
-                      disabled={!hasMorePages}
-                      onClick={() =>
-                        autoCatchUp
-                          ? setCatchUpPage((prev) => prev + 1)
-                          : setOffset((prev) => prev + CATCHUP_LIMIT)
-                      }
+                      disabled={!feed.canGoNext || feed.isFetchingNextPage}
+                      onClick={() => void feed.goToNextPage()}
                       className="h-8 px-2 rounded border border-border/50 disabled:opacity-40"
                     >
-                      Next
+                      {feed.isFetchingNextPage ? "Loading…" : "Next"}
                     </button>
                   </div>
                 </div>
               </section>
 
               <section className="flex flex-col gap-4 xl:hidden" aria-label="Live alpha alerts">
-                <KrakenAlerts alerts={topSignals} loading={isPoolLoading && topSignals.length === 0} />
+                <KrakenAlerts alerts={feed.topAlerts} loading={feed.showTableSpinner && feed.topAlerts.length === 0} />
               </section>
 
               {/* Engine subnets from `/v1/subnets` (no static placeholder protocols) */}
@@ -483,13 +384,13 @@ export default function KrakenDashboard() {
                   <div className="w-1.5 h-6 bg-primary rounded-full" />
                   <h2 className="text-xl font-bold text-white tracking-tight">Protocol Efficiency</h2>
                 </div>
-                <KrakenAnalytics items={signals} loading={isPoolLoading && signals.length === 0} />
+                <KrakenAnalytics items={feed.signals} loading={feed.showTableSpinner} />
               </section>
             </div>
 
             {/* Right Sidebar (Alerts) */}
             <aside className="w-[420px] shrink-0 hidden xl:flex flex-col gap-6">
-              <KrakenAlerts alerts={topSignals} loading={isPoolLoading && topSignals.length === 0} />
+              <KrakenAlerts alerts={feed.topAlerts} loading={feed.showTableSpinner && feed.topAlerts.length === 0} />
             </aside>
           </div>
         </main>
