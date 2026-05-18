@@ -70,6 +70,7 @@ export default function LiveChatPage() {
     isLoading,
     terminalLogs,
     terminalReceipt,
+    terminalIsRevealing,
     engineError,
     engineSocketConnected,
     x402Phase,
@@ -186,6 +187,7 @@ export default function LiveChatPage() {
                           showReceipt={!!terminalReceipt}
                           receipt={terminalReceipt}
                           isLoading={isLoading}
+                          isRevealing={terminalIsRevealing}
                         />
                       </div>
                     ) : null
@@ -230,6 +232,7 @@ export default function LiveChatPage() {
                 logs={terminalLogs}
                 showReceipt={!!terminalReceipt}
                 receipt={terminalReceipt}
+                isRevealing={terminalIsRevealing}
               />
             </div>
           )}

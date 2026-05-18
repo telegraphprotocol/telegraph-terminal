@@ -8,7 +8,7 @@ For historical context on the old **browser** x402 path, see [x402-integration.m
 
 - **One custodial wallet** on the server (Core) pays x402 for the engine **`POST /v1/ask`** HTTP resource (auto-routing), or **`POST /v1/ask/:subnet_id`** when the Terminal uses a **selected subnet** (direct miner call).
 - **Auto-routing:** latest user message is sent as **`{ query }`** to **`POST /v1/ask`**. **Direct subnet:** body includes **`subnetId`** + **`direct`** (`method`, `endpoint`, `payload`) for **`POST /v1/ask/:subnet_id`** (see engine README).
-- **Intelligence Terminal**: user sends → **one** browser call to Next **`POST /api/core/chat/paid`** → Core runs paid `fetch` against the engine → UI receives **`assistantText` + `terminalReceipt` + `terminalLogs`**.
+- **Intelligence Terminal**: user sends → **one** browser call to Next **`POST /api/core/chat/paid`** → Core runs paid `fetch` against the engine → UI receives **`assistantText` + `terminalReceipt` + `terminalLogs`** in one JSON response. The **right rail** replays `terminalLogs` gradually and shows the receipt before the **assistant message** appears in chat (see [terminal-feed-playback.md](./terminal-feed-playback.md)).
 - **GlobalWallet** UI on **Kraken dashboard** and **Intelligence Terminal** top nav, fed by **`GET /api/core/wallet`** (proxied to Core **`GET /v1/wallet`**).
 - **Engine WebSocket** is still used when **`NEXT_PUBLIC_USE_TERMINAL_BACKEND_X402`** is **false** (legacy engine-only live chat).
 
@@ -32,6 +32,7 @@ sequenceDiagram
   Engine-->>Core: 200 ask JSON + PAYMENT-RESPONSE
   Core-->>Next: ok assistantText terminalReceipt terminalLogs
   Next-->>Browser: JSON
+  Note over Browser: Terminal feed replays logs then receipt then assistant
 ```
 
 ## telegraph-core (NestJS)
@@ -120,7 +121,8 @@ See [`.env.example`](../.env.example).
 - [`GlobalWallet`](../src/components/global-wallet.tsx) — polls **`/api/core/wallet`**; shown when `NEXT_PUBLIC_USE_TERMINAL_BACKEND_X402=true` in [`top-nav.tsx`](../src/components/top-nav.tsx) and [`src/app/page.tsx`](../src/app/page.tsx).
 - **Sidebar** footer uses optional **`walletFooter`** from the live executor when Core mode is on.
 - **Subnet routing:** [`EngineSubnetPicker`](../src/components/engine-subnet-picker.tsx) stays full-width on small viewports (`min-w-0`, touch-friendly height). With a subnet selected in paid mode, [`DirectSubnetFields`](../src/components/direct-subnet-fields.tsx) stacks endpoint and extra inputs in one column (`min-w-0`) and uses a **collapsible** “Direct request” block on narrow screens (expanded by default on `md+`).
-- **Terminal receipt** panel shows engine-routed `subnet_name`, `cost_usd`, `reasoning`, `intent`, and x402 settlement when headers expose it.
+- **Terminal rail** — [`TerminalPanel`](../src/components/terminal-panel.tsx): **Live Settlement & Logic Feed**, timestamp pills, sectioned logs, sticky **Receipt Generated** bar with expandable details. Playback is client-side only ([`use-terminal-playback.ts`](../src/lib/hooks/use-terminal-playback.ts), [`build-terminal-script.ts`](../src/lib/build-terminal-script.ts)); see [terminal-feed-playback.md](./terminal-feed-playback.md).
+- **Chat timing** — Assistant reply is appended only after terminal playback completes (`onComplete`), while `isLoading` stays true until then.
 
 ### FAQ: does x402 include the chat message?
 
@@ -130,5 +132,6 @@ See [`.env.example`](../.env.example).
 
 ## Related documents
 
+- [terminal-feed-playback.md](./terminal-feed-playback.md) — Gradual terminal feed + deferred assistant reply (UI-only).
 - [daemon-integration.md](./daemon-integration.md) — Engine HTTP + WS (used when Core paid chat is off).
 - [x402-integration.md](./x402-integration.md) — **Deprecated** browser wagmi path (removed from code; kept for history).

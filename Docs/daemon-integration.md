@@ -257,12 +257,26 @@ Important:
 
 ### A) Intelligence Terminal (`/intelligence-terminal`)
 
+**Custodial paid chat (default when `NEXT_PUBLIC_USE_TERMINAL_BACKEND_X402=true`):** see [core-custodial-x402.md](core-custodial-x402.md) and [terminal-feed-playback.md](terminal-feed-playback.md). Core returns `terminalLogs` + `terminalReceipt` in one HTTP response; the UI replays logs over ~4s, shows **Receipt Generated**, then appends the assistant message.
+
+| UI target | Backend source | Mapping |
+|---|---|---|
+| Submit ask | `POST /api/core/chat/paid` (proxied) | OpenAI-style `messages` or direct `subnetId` + `direct` |
+| Progress logs (preflight) | Client | `buildPreflightScript` — ROUTING, WALLET, STATUS from picker + GlobalWallet |
+| Progress logs (payment) | Core `terminalLogs` | X402 POST/response, SETTLED; replayed via `useTerminalPlayback` |
+| Progress logs (routing detail) | Core `terminalReceipt` | ROUTED, INTENT, REASONING lines appended after HTTP (deduped) |
+| Assistant answer | Core `assistantText` | Shown **after** terminal `onComplete` (not on HTTP return) |
+| Receipt/footer | Core `terminalReceipt` | Sticky **Receipt Generated** bar; expand for full grid + Copy JSON |
+| Engine banner | Core wallet readiness / HTTP error | connection banner when wallet or paid chat fails |
+
+**Engine WebSocket path (`NEXT_PUBLIC_USE_TERMINAL_BACKEND_X402=false`):**
+
 | UI target | Backend source | Mapping |
 |---|---|---|
 | Submit ask | WS send | `{ "action":"ask", "query": text }` |
-| Progress logs | WS `connected/received/routing/routed/executing/error` | one log row per frame (`label=type`, `time=timestamp`, details from `data`) |
-| Assistant answer | WS `result.data.result` | render by subnet-aware parser; fallback to JSON |
-| Receipt/footer | WS `result.data` | `subnet_used`, `subnet_name`, `cost`, `timestamp`, optional `reasoning` |
+| Progress logs | WS frames | `appendThrottled(toLog(frame))` — min ~280ms between rows |
+| Assistant answer | WS `result.data.result` | After `queueReceiptAfterThrottle` completes (same deferral as paid chat) |
+| Receipt/footer | WS `result` + receipt builder | `LiveTerminalReceipt` from `subnet_name`, `cost_usd`, `reasoning`, etc. |
 | Engine banner | WS disconnect/error/runtime error | separate engine status banner |
 
 ### B) Dashboard Feed (`KrakenFeed`)
@@ -399,8 +413,8 @@ type DaemonQuestionItem = {
 Current frontend state:
 
 - `src/lib/api-client.ts` currently defines `smartAsk` response as `{ answer, logs, receipt }`, which does not match canonical engine contract.
-- `src/lib/hooks/use-live-executor.ts` currently expects that legacy shape.
-- `src/lib/hooks/use-engine-ws.ts` already provides basic WS connection/send primitives and should be the primary path for live progress logs.
+- `src/lib/hooks/use-live-executor.ts` uses Core paid chat when `NEXT_PUBLIC_USE_TERMINAL_BACKEND_X402=true`, else WS; terminal playback via `use-terminal-playback.ts` (see [terminal-feed-playback.md](terminal-feed-playback.md)).
+- `src/lib/hooks/use-engine-ws.ts` provides WS connection/send when Core paid chat is off.
 - `src/components/kraken/*` are currently mock/static and should be migrated to daemon-backed data.
 
 Recommended implementation order:

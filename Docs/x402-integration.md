@@ -1,6 +1,6 @@
 # Browser x402 Paid Chat (Intelligence Terminal) — deprecated
 
-> **Current product path:** custodial x402 + engine **`POST /v1/ask`** via **`telegraph-core`**. See [core-custodial-x402.md](./core-custodial-x402.md).
+> **Current product path:** custodial x402 + engine **`POST /v1/ask`** via **`telegraph-core`**. See [core-custodial-x402.md](./core-custodial-x402.md). Terminal rail playback UX: [terminal-feed-playback.md](./terminal-feed-playback.md).
 
 This document describes the **removed** browser wagmi flow: paid requests went **directly** to Telegraph’s **subnet-dispatcher** chat route (subnet **102**), instead of the engine **WebSocket** `ask` flow.
 

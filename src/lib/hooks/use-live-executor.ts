@@ -18,6 +18,14 @@ import {
   type ParsedSubnetYaml,
   type PaidDirectCallBody,
 } from "@/lib/subnet-direct-spec";
+import { useTerminalPlayback } from "@/lib/hooks/use-terminal-playback";
+import {
+  buildErrorScript,
+  buildPostResponseScript,
+  buildPreflightScript,
+  scriptEntriesFromDisplayedLogs,
+  type TerminalScriptContext,
+} from "@/lib/build-terminal-script";
 
 const LS_KEY = "telegraph-live-chat-sessions-v1";
 const LS_VERSION = 2 as const;
@@ -89,7 +97,7 @@ function toLog(frame: EngineWsFrame): TerminalLogEntry {
       time: toTimeLabel(frame.timestamp),
       label,
       detail: `Routed to ${subnetName} (SN${subnetId})${intent}`,
-      section: "Routing",
+      section: "Initial Routing",
     };
   }
 
@@ -108,7 +116,8 @@ function toLog(frame: EngineWsFrame): TerminalLogEntry {
     time: toTimeLabel(frame.timestamp),
     label,
     detail: String(statusMessage),
-    section: frame.type === "executing" || frame.type === "result" ? "Execution" : "Routing",
+    section:
+      frame.type === "executing" || frame.type === "result" ? "Execution" : "Initial Routing",
   };
 }
 
@@ -227,13 +236,15 @@ export function useLiveExecutor(opts?: {
   engineSubnets?: SubnetPickItem[];
 }) {
   const forcedSubnetId = opts?.forcedSubnetId ?? null;
+  const engineSubnets = opts?.engineSubnets ?? [];
 
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
-  const [terminalLogs, setTerminalLogs] = useState<TerminalLogEntry[]>([]);
+  const terminalPlayback = useTerminalPlayback<LiveTerminalReceipt>();
+  const displayedLogsRef = useRef<TerminalLogEntry[]>([]);
   const [subnetYamlSpec, setSubnetYamlSpec] = useState<ParsedSubnetYaml | null>(null);
   const [subnetSpecLoading, setSubnetSpecLoading] = useState(false);
   const [subnetSpecError, setSubnetSpecError] = useState<string | null>(null);
@@ -243,7 +254,6 @@ export function useLiveExecutor(opts?: {
   const [directLat, setDirectLat] = useState("");
   const [directLon, setDirectLon] = useState("");
   const [directGateError, setDirectGateError] = useState<string | null>(null);
-  const [terminalReceipt, setTerminalReceipt] = useState<LiveTerminalReceipt | null>(null);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
   const [x402Phase, setX402Phase] = useState<null | "paying" | "settled">(null);
   /** Bump whenever paid subnet / endpoint changes so we re-apply YAML default_model. */
@@ -296,6 +306,40 @@ export function useLiveExecutor(opts?: {
   useEffect(() => {
     void fetchCoreWallet();
   }, [fetchCoreWallet]);
+
+  const {
+    displayedLogs: terminalLogs,
+    displayedReceipt: terminalReceipt,
+    isRevealing: terminalIsRevealing,
+    reset: resetTerminalPlayback,
+    playScript: playTerminalScript,
+    appendThrottled: appendTerminalLogThrottled,
+    queueReceiptAfterThrottle,
+  } = terminalPlayback;
+
+  useEffect(() => {
+    displayedLogsRef.current = terminalLogs;
+  }, [terminalLogs]);
+
+  const scriptContext = useMemo((): TerminalScriptContext => {
+    return {
+      forcedSubnetId,
+      engineSubnets,
+      coreWallet: coreWallet
+        ? {
+            address: coreWallet.address,
+            usdcBalance: coreWallet.usdcBalance,
+            chainId: coreWallet.chainId,
+          }
+        : null,
+      useTerminalBackend: USE_TERMINAL_BACKEND_PAID_CHAT,
+    };
+  }, [forcedSubnetId, engineSubnets, coreWallet]);
+
+  const startTerminalPreflight = useCallback(() => {
+    resetTerminalPlayback();
+    playTerminalScript(buildPreflightScript(scriptContext));
+  }, [resetTerminalPlayback, playTerminalScript, scriptContext]);
 
   const coreReady =
     USE_TERMINAL_BACKEND_PAID_CHAT && backendWalletStatus === "ready";
@@ -471,23 +515,21 @@ export function useLiveExecutor(opts?: {
         activeSessionIdRef.current = pick.id;
         setActiveSessionId(pick.id);
       }
-      setTerminalLogs([]);
-      setTerminalReceipt(null);
+      resetTerminalPlayback();
       setIsLoading(false);
       setX402Phase(null);
       setRuntimeError(null);
       activeQueryCell.current.value = null;
     });
-  }, [sessions, activeSessionId, hydrated]);
+  }, [sessions, activeSessionId, hydrated, resetTerminalPlayback]);
 
   const clearTerminalSession = useCallback(() => {
-    setTerminalLogs([]);
-    setTerminalReceipt(null);
+    resetTerminalPlayback();
     setIsLoading(false);
     setX402Phase(null);
     setRuntimeError(null);
     activeQueryCell.current.value = null;
-  }, []);
+  }, [resetTerminalPlayback]);
 
   const archiveSession = useCallback((id: string) => {
     let switchTo: string | null = null;
@@ -618,18 +660,17 @@ export function useLiveExecutor(opts?: {
 
       if (frame.type === "pong") return;
 
-      setTerminalLogs((prev) => [...prev, toLog(frame)]);
+      {
+        const { label, detail, section } = toLog(frame);
+        appendTerminalLogThrottled({ label, detail, section });
+      }
 
       if (frame.type === "routed" && frame.data?.reasoning) {
-        setTerminalLogs((prev) => [
-          ...prev,
-          {
-            time: toTimeLabel(frame.timestamp),
-            label: "REASONING",
-            detail: String(frame.data?.reasoning),
-            section: "Routing",
-          },
-        ]);
+        appendTerminalLogThrottled({
+          label: "REASONING",
+          detail: String(frame.data?.reasoning),
+          section: "Initial Routing",
+        });
       }
 
       if (frame.type === "error") {
@@ -653,46 +694,60 @@ export function useLiveExecutor(opts?: {
       if (frame.type === "result" && frame.data) {
         const resultData = frame.data as unknown as EngineAskResult;
         const assistantText = extractAssistantText(resultData.result);
-        appendToActiveMessages((prev) => {
-          let lastUserIdx = -1;
-          for (let i = prev.length - 1; i >= 0; i--) {
-            if (prev[i].role === "user") {
-              lastUserIdx = i;
-              break;
+
+        const deliverAssistant = () => {
+          appendToActiveMessages((prev) => {
+            let lastUserIdx = -1;
+            for (let i = prev.length - 1; i >= 0; i--) {
+              if (prev[i].role === "user") {
+                lastUserIdx = i;
+                break;
+              }
             }
-          }
-          const withOkUser =
-            lastUserIdx === -1
-              ? prev
-              : prev.map((m, i) =>
-                  i === lastUserIdx && m.role === "user"
-                    ? { ...m, sendState: "ok" as const, sendError: undefined }
-                    : m,
-                );
-          return [
-            ...withOkUser,
-            {
-              id: `live-assistant-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-              role: "assistant",
-              content: [{ kind: "text", text: assistantText }],
-            },
-          ];
-        });
-        setTerminalReceipt({
-          subnet: resultData.subnet_name,
-          subnetId: String(resultData.subnet_used ?? resultData.subnet_id ?? "n/a"),
-          costUsd: resultData.cost_usd ?? 0,
-          durationMs: resultData.duration_ms ?? 0,
-          timestamp: resultData.timestamp,
-          intent: resultData.intent,
-          reasoning: resultData.reasoning,
-          technicalDetails: resultData.result ?? null,
-        });
-        setIsLoading(false);
-        activeQueryCell.current.value = null;
+            const withOkUser =
+              lastUserIdx === -1
+                ? prev
+                : prev.map((m, i) =>
+                    i === lastUserIdx && m.role === "user"
+                      ? { ...m, sendState: "ok" as const, sendError: undefined }
+                      : m,
+                  );
+            return [
+              ...withOkUser,
+              {
+                id: `live-assistant-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+                role: "assistant",
+                content: [{ kind: "text", text: assistantText }],
+              },
+            ];
+          });
+          setIsLoading(false);
+          activeQueryCell.current.value = null;
+        };
+
+        queueReceiptAfterThrottle(
+          {
+            subnet: resultData.subnet_name,
+            subnetId: String(resultData.subnet_used ?? resultData.subnet_id ?? "n/a"),
+            costUsd: resultData.cost_usd ?? 0,
+            durationMs: resultData.duration_ms ?? 0,
+            timestamp: resultData.timestamp,
+            intent: resultData.intent,
+            reasoning: resultData.reasoning,
+            technicalDetails: resultData.result ?? null,
+          },
+          undefined,
+          deliverAssistant,
+        );
       }
     });
-  }, [subscribe, appendToActiveMessages, markUserMessageDelivery]);
+  }, [
+    subscribe,
+    appendToActiveMessages,
+    markUserMessageDelivery,
+    appendTerminalLogThrottled,
+    queueReceiptAfterThrottle,
+  ]);
 
   const executeCorePaidChat = useCallback(
     async (
@@ -701,16 +756,16 @@ export function useLiveExecutor(opts?: {
       openAiMessages: { role: "user" | "assistant" | "system"; content: string }[],
       paidDirect?: PaidDirectCallBody | null,
     ) => {
-      const pushLog = (label: string, detail: string) => {
-        const time = new Date().toLocaleTimeString();
-        setTerminalLogs((prev) => [
-          ...prev,
-          { time, label, detail, section: "Payment & Rail" },
-        ]);
-      };
-      const fail = (err: unknown) => {
-        pushLog("ERROR", formatErrorForLog(err));
+      const fail = (err: unknown, serverLogs?: { label: string; detail: string; section: string }[]) => {
         const msg = err instanceof Error ? err.message : String(err);
+        const already = scriptEntriesFromDisplayedLogs(displayedLogsRef.current);
+        const errScript = buildErrorScript(
+          serverLogs ?? [],
+          formatErrorForLog(err),
+          scriptContext,
+          already,
+        );
+        playTerminalScript(errScript, undefined, { mode: "append" });
         markUserMessageDelivery(sessionId, userMessageId, {
           sendState: "failed",
           sendError: msg,
@@ -747,31 +802,20 @@ export function useLiveExecutor(opts?: {
         const rec = data as Record<string, unknown>;
         const serverLogs = Array.isArray(rec.terminalLogs)
           ? (rec.terminalLogs as { label: string; detail: string; section: string }[])
-          : undefined;
-
-        if (serverLogs?.length) {
-          setTerminalLogs(() =>
-            serverLogs.map((l) => ({
-              time: new Date().toLocaleTimeString(),
-              label: l.label,
-              detail: l.detail,
-              section: l.section,
-            })),
-          );
-        }
+          : [];
 
         if (!res.ok) {
           const errMsg =
             typeof rec.error === "string"
               ? rec.error
               : describeHttpError(res.status, res.statusText, rawText);
-          fail(new Error(errMsg));
+          fail(new Error(errMsg), serverLogs);
           return;
         }
 
         if (rec.ok !== true) {
           const errMsg = typeof rec.error === "string" ? rec.error : "Paid chat failed";
-          fail(new Error(errMsg));
+          fail(new Error(errMsg), serverLogs);
           return;
         }
 
@@ -779,34 +823,48 @@ export function useLiveExecutor(opts?: {
           typeof rec.assistantText === "string" ? rec.assistantText : extractAssistantText(data);
         const tr = rec.terminalReceipt as LiveTerminalReceipt | undefined;
 
-        appendToSessionMessages(sessionId, (prev) => {
-          const withOkUser = prev.map((m) =>
+        appendToSessionMessages(sessionId, (prev) =>
+          prev.map((m) =>
             m.id === userMessageId && m.role === "user"
               ? { ...m, sendState: "ok" as const, sendError: undefined }
               : m,
-          );
-          return [
-            ...withOkUser,
-            {
-              id: `live-assistant-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-              role: "assistant" as const,
-              content: [{ kind: "text" as const, text: assistantText }],
+          ),
+        );
+
+        const already = scriptEntriesFromDisplayedLogs(displayedLogsRef.current);
+        const script = buildPostResponseScript(serverLogs, tr, scriptContext, already);
+
+        await new Promise<void>((resolve) => {
+          playTerminalScript(script, tr && typeof tr === "object" ? tr : undefined, {
+            mode: "append",
+            revealReceiptAfter: Boolean(tr && typeof tr === "object"),
+            onComplete: () => {
+              appendToSessionMessages(sessionId, (prev) => [
+                ...prev,
+                {
+                  id: `live-assistant-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+                  role: "assistant" as const,
+                  content: [{ kind: "text" as const, text: assistantText }],
+                },
+              ]);
+              setX402Phase("settled");
+              setRuntimeError(null);
+              void fetchCoreWallet();
+              resolve();
             },
-          ];
+          });
         });
-
-        if (tr && typeof tr === "object") {
-          setTerminalReceipt(tr);
-        }
-
-        setX402Phase("settled");
-        setRuntimeError(null);
-        void fetchCoreWallet();
       } catch (err) {
         fail(err);
       }
     },
-    [appendToSessionMessages, markUserMessageDelivery, fetchCoreWallet],
+    [
+      appendToSessionMessages,
+      markUserMessageDelivery,
+      fetchCoreWallet,
+      scriptContext,
+      playTerminalScript,
+    ],
   );
 
   const handleSend = useCallback(
@@ -885,8 +943,7 @@ export function useLiveExecutor(opts?: {
 
       appendToSessionMessages(sessionId, (prev) => [...prev, userMsg]);
       setIsLoading(true);
-      setTerminalLogs([]);
-      setTerminalReceipt(null);
+      startTerminalPreflight();
       setRuntimeError(null);
       setX402Phase(null);
 
@@ -921,6 +978,7 @@ export function useLiveExecutor(opts?: {
       directImageUrl,
       directLat,
       directLon,
+      startTerminalPreflight,
     ],
   );
 
@@ -1003,8 +1061,7 @@ export function useLiveExecutor(opts?: {
       const openAiMessages = chatMessagesToOpenAi(forApi);
 
       setIsLoading(true);
-      setTerminalLogs([]);
-      setTerminalReceipt(null);
+      startTerminalPreflight();
       setRuntimeError(null);
       setX402Phase(null);
 
@@ -1037,6 +1094,7 @@ export function useLiveExecutor(opts?: {
       directImageUrl,
       directLat,
       directLon,
+      startTerminalPreflight,
     ],
   );
 
@@ -1045,27 +1103,25 @@ export function useLiveExecutor(opts?: {
     activeSessionIdRef.current = row.id;
     setActiveSessionId(row.id);
     setSessions((prev) => [row, ...prev]);
-    setTerminalLogs([]);
-    setTerminalReceipt(null);
+    resetTerminalPlayback();
     setIsLoading(false);
     setX402Phase(null);
     setRuntimeError(null);
     activeQueryCell.current.value = null;
-  }, []);
+  }, [resetTerminalPlayback]);
 
   const handleSelectSession = useCallback(
     (id: string) => {
       if (!hydrated || id === activeSessionId) return;
       activeSessionIdRef.current = id;
       setActiveSessionId(id);
-      setTerminalLogs([]);
-      setTerminalReceipt(null);
+      resetTerminalPlayback();
       setIsLoading(false);
       setX402Phase(null);
       setRuntimeError(null);
       activeQueryCell.current.value = null;
     },
-    [hydrated, activeSessionId],
+    [hydrated, activeSessionId, resetTerminalPlayback],
   );
 
   const chatHistoryGroups: ConversationGroup[] = useMemo(() => {
@@ -1103,6 +1159,7 @@ export function useLiveExecutor(opts?: {
     isLoading,
     terminalLogs,
     terminalReceipt,
+    terminalIsRevealing,
     engineError: runtimeError || (USE_TERMINAL_BACKEND_PAID_CHAT ? null : lastError),
     isConnected,
     engineSocketConnected,
