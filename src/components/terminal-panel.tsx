@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, HelpCircle, Activity, ShieldCheck, Zap, Copy, Check } from "lucide-react";
 import { TerminalLogEntry, TerminalReceipt } from "@/lib/mock-data";
+import { formatExecutionTime } from "@/lib/format-datetime";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -160,7 +161,7 @@ function ReceiptDetailBody({ receipt }: { receipt: TerminalReceiptLike }) {
                 { label: "Network Fee", value: receipt.settlementCost, icon: Zap },
                 {
                   label: "System Clock",
-                  value: receipt.timestamp.split(" ")[1] || receipt.timestamp,
+                  value: formatExecutionTime(receipt.timestamp),
                   icon: Activity,
                 },
               ]
@@ -198,8 +199,8 @@ function ReceiptDetailBody({ receipt }: { receipt: TerminalReceiptLike }) {
             <motion.div layout className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
               Execution time
             </motion.div>
-            <p className="text-[11px] font-mono leading-relaxed text-muted-foreground [overflow-wrap:anywhere] break-words">
-              {receipt.timestamp}
+            <p className="text-[13px] leading-relaxed text-muted-foreground [overflow-wrap:anywhere] break-words">
+              {formatExecutionTime(receipt.timestamp)}
             </p>
           </motion.div>
           {isLiveReceipt(receipt) ? (
@@ -247,8 +248,8 @@ function CompactReceiptFooter({ receipt }: { receipt: TerminalReceiptLike }) {
             Receipt Generated
           </p>
           <p className="mt-1 truncate text-[13px] font-semibold text-primary">{provider}</p>
-          <p className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground/80">
-            {receipt.timestamp}
+          <p className="mt-0.5 truncate text-[10px] text-muted-foreground/80">
+            {formatExecutionTime(receipt.timestamp)}
             {durationLabel ? ` · ${durationLabel}` : ""}
           </p>
         </motion.div>
