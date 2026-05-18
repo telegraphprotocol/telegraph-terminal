@@ -337,9 +337,9 @@ export default function KrakenDashboard() {
                 />
                 <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
                   <span>
-                    Showing {feed.signals.length} of {feed.filteredTotal} filtered
-                    {feed.cacheSize > 0 ? ` · ${feed.cacheSize} in cache` : ""}
-                    {feed.daemonTotal != null ? ` · ${feed.daemonTotal} daemon` : ""}
+                    Showing {feed.signals.length} of {feed.filteredTotal} feed
+                    {feed.cacheSize > 0 ? ` · ${feed.cacheSize} cached` : ""}
+                    {feed.footerStats ? ` · ${feed.footerStats}` : ""}
                     {feed.footerExtra}
                   </span>
                   <div className="flex items-center gap-2">

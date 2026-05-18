@@ -7,105 +7,121 @@ For table columns and signal details, see [`kraken-dashboard-ui.md`](kraken-dash
 ## Three concepts
 
 ```text
-Daemon API  →  cache (≤2000 collector rows)  →  view (filter + sort)  →  page slice (50 rows)
+Daemon API (category)  →  cache (≤800)  →  view (success + category)  →  page slice (50)
 ```
 
 | Layer | What it is |
 | ----- | ---------- |
-| **Cache** | In-memory collector rows (deduped by `id`, max `COLLECTOR_POOL_TARGET` = 2000). Built from daemon `/api/questions` without server-side category filter. |
-| **View** | OR filter on expanded categories + `sort` over the cache. Recomputed instantly when checkboxes change. |
-| **Page** | `pageIndex` 0, 1, 2… → `view.slice(pageIndex × 50, pageIndex × 50 + 50)`. |
+| **Cache** | In-memory success rows (deduped by `id`, max `COLLECTOR_POOL_TARGET` = 800). Built from `/api/questions` with `category` (comma-separated OR) when the checklist is not “All”. |
+| **View** | Client `passesDashboardFilters` (success + category OR) + `sort`. |
+| **Page** | `pageIndex` 0, 1, 2… → slice of 50 rows. |
 
-### Time range
+### Time range (sliding 5h windows)
 
-- **Default:** `useManualTimeRange` is `true` on first load, so the LAST 24H dropdown sends **`since_hours: 24`** immediately.
-- **Auto catch-up:** When `useManualTimeRange` is `false`, requests use **`since_hours: 5`** (`WINDOW_START_H`) regardless of the dropdown label until the user changes the time control.
+Requests use RFC3339 **`since` + `until`** per window (not `since_hours`). Windows are built newest-first: `[now−5h, now]`, then `[now−10h, now−5h]`, until the UI span is covered or the pool has enough rows.
 
-### Category filter (client-side OR)
+- **Manual (LAST 1H/6H/24H/72H):** total span = dropdown value (e.g. 24h → up to five 5h windows).
+- **Auto catch-up:** total span = **`WINDOW_START_H`** (5h), single window.
+- **Bootstrap:** paginate within each window; if **&lt; 50** success feed rows after a window, slide to the next older window.
+- **Poll:** only the newest window (`since=now−5h`, `until=now` or shorter in auto mode).
+- **Next / gap-fill:** resume at saved `windowIndex` + `offset`, then older windows when the current one is exhausted.
 
-Checklist selections use **OR** logic: a row matches if `question.category` is in the **expanded** set for any checked box.
+### Category filter (server + client OR)
 
-UI buckets map to daemon categories via `CATEGORY_ALIASES` in [`kraken-dashboard-filters.ts`](../src/lib/kraken-dashboard-filters.ts):
+- Daemon: `category=PHARMA,POLITICS` (comma-separated OR). Built by `buildApiCategoryParam()` in [`kraken-dashboard-filters.ts`](../src/lib/kraken-dashboard-filters.ts).
+- When **all** checklist options are selected, the `category` param is **omitted** (fetch full set).
+- **Category change** triggers `resetAndBootstrap()` (full refetch with new `category` param).
+- Client still applies `matchesSelectedCategories` as a safety net.
 
-| UI checkbox | Matches daemon `question.category` |
-| ----------- | ------------------------------------ |
-| `PHARMA` | `HEALTH` |
-| `LAW` | `POLITICS`, `ECONOMICS` |
-| Other labels | Same string (e.g. `GEOPOLITICS` → `GEOPOLITICS`) |
+Default selection: `POLITICS`, `GEOPOLITICS`, `PHARMA`, `LAW`.
 
-Default selection: `POLITICS`, `GEOPOLITICS`, `PHARMA`, `LAW` (see `DEFAULT_SELECTED_CATEGORIES`).
+### Success-only feed (client)
+
+- API requests do **not** send `status` (remote daemon may ignore it anyway).
+- Client keeps only `status === "success"` in `collectorRowsFromPage` and `passesDashboardFilters`. Errors never appear in the feed or alerts.
+
+### Sources
+
+- There is **no** `COLLECTOR_SOURCES` allowlist. Any daemon `source` (e.g. `reddit`, `clinicaltrials`, `openfda`, `courtlistener`) can appear in the feed if it is success and matches the category checklist.
 
 ### `min_interest`
 
-Optional. When `NEXT_PUBLIC_KRAKEN_MIN_INTEREST` is unset, daemon queries **omit** `min_interest`. Set to `1` in `.env` to restore the previous server-side floor.
+Optional. When `NEXT_PUBLIC_KRAKEN_MIN_INTEREST` is unset, daemon queries **omit** `min_interest`.
 
 ## Load pipeline
 
 One hook owns all fetching (`resetAndBootstrap`):
 
-1. **Bootstrap** (`status: bootstrapping`) — Fetch API pages until **50 visible** rows (after category filter) or API exhausted. Updates cache after each page so the feed grows 1 → 50 on page 0.
-2. **Background** (`status: background`) — Continue until **2000** collectors or API exhausted. Does not change `pageIndex`.
-3. **Poll** (interval) — Fetch offset 0 only; prepend new rows into cache.
-4. **Next gap fill** — If user/timer needs the next page but the cache has no slice yet, fetch **one** API page and append.
+1. **Bootstrap** — Walk 5h windows (newest first) until **50** success feed rows or full span exhausted.
+2. **Background** — Continue across windows until **800** rows or span exhausted.
+3. **Poll** — Merge newest page from the latest window only (offset 0).
+4. **Next gap fill** — One API page at the saved window cursor; advance to older windows when needed.
 
-**Category change:** Re-filter view only; **no** refetch.
-
-**Sort or time range change:** `resetAndBootstrap()` (cache cleared, `pageIndex` → 0).
+**Category or sort/time change:** `resetAndBootstrap()`.
 
 ## Pagination
 
 - **Prev:** `pageIndex--` (no network).
-- **Next:** If the next slice is in the cache, `pageIndex++`. Otherwise one API page, then `pageIndex++`.
-- **Auto-advance:** Timer on **page 0 only**, after the first screen is full (≥50 visible or API exhausted with some results). Pauses when `pageIndex > 0`; resumes when user **Prev** back to page 0.
+- **Next:** Slice from cache, or one API page then `pageIndex++`.
+- **Auto-advance:** Timer on page 0 only when auto catch-up mode is on.
 
 ## Environment variables
 
-Set in [`.env`](../.env) / [`.env.example`](../.env.example). Exposed via [`next.config.ts`](../next.config.ts). **Restart the dev server** after changes.
-
-```env
-KRAKEN_FEED_POLL_INTERVAL_MS=180000
-KRAKEN_CATCHUP_ADVANCE_INTERVAL_MS=180000
-# NEXT_PUBLIC_KRAKEN_MIN_INTEREST=1
-```
+See [`.env.example`](../.env.example). **Restart the dev server** after changes.
 
 | Variable | Default | Role |
 | -------- | ------- | ---- |
-| `KRAKEN_FEED_POLL_INTERVAL_MS` | `180000` (3 min) | Poll: merge newest page into cache |
-| `KRAKEN_CATCHUP_ADVANCE_INTERVAL_MS` | `180000` (3 min) | Auto-advance from batch 1 → 2 on page 0 |
-| `NEXT_PUBLIC_KRAKEN_MIN_INTEREST` | *(unset)* | Optional daemon `min_interest` (0–10); omit = no filter |
-
-Keep **catch-up interval ≫ poll interval** (e.g. dev: `10000` poll + `180000` catch-up).
-
-## UI status
-
-| Signal | Meaning |
-| ------ | ------- |
-| Table spinner | Bootstrap and zero visible rows |
-| `filling X/50` | Bootstrap in progress on page 0 |
-| `loading more…` | Background fill toward 2000 |
-| `auto-advance paused` | User on batch 2+ |
+| `KRAKEN_FEED_POLL_INTERVAL_MS` | `180000` | Poll: merge newest page into cache |
+| `KRAKEN_CATCHUP_ADVANCE_INTERVAL_MS` | `180000` | Auto-advance batch on page 0 |
+| `NEXT_PUBLIC_KRAKEN_MIN_INTEREST` | *(unset)* | Optional daemon `min_interest` |
 
 ## Footer counts
 
-The feed footer (see [`page.tsx`](../src/app/page.tsx)) shows three layers:
-
 ```text
-Showing {pageRows} of {filteredTotal} filtered · {cacheSize} in cache · {daemonTotal} daemon
+Showing {pageRows} of {filteredTotal} feed · {cacheSize} cached · {daemonTotal} daemon
 ```
 
-| Segment | Meaning |
-| ------- | ------- |
-| `pageRows` / `filteredTotal` | Current page slice vs all rows matching category OR + collector filter in cache |
-| `cacheSize` | Collector rows loaded into memory (≤ 2000) |
-| `daemonTotal` | Raw `total` from the daemon for the active time/sort query (before client category filter) |
+| Metric | Meaning |
+| ------ | ------- |
+| **feed** | Rows in the current view after success + category filters (`filteredTotal`). |
+| **cached** | Success rows in the in-memory pool (`cache.length`). |
+| **daemon** | Largest `total` from the daemon API for the active query (category + time windows). Includes errors and all sources; usually **≥ feed**. |
+
+**Why feed &lt; daemon:** The pool may not have paginated the full span yet (5h windows, bootstrap stop at 50 feed rows), and the feed excludes `status === "error"`.
+
+### Verify with curl (default four categories, LAST 24H)
+
+Daemon total (matches footer **daemon** when `category=GEOPOLITICS,LAW,PHARMA,POLITICS` is sent):
+
+```bash
+curl -s "http://127.0.0.1:8081/api/questions?category=GEOPOLITICS,LAW,PHARMA,POLITICS&since_hours=24&limit=1&offset=0" \
+  | python3 -c "import json,sys; print('daemon:', json.load(sys.stdin).get('total', 0))"
+```
+
+Full success count for the same query (paginate all pages; often **&gt; feed** until cache finishes loading):
+
+```bash
+DAEMON=$(curl -s "http://127.0.0.1:8081/api/questions?category=GEOPOLITICS,LAW,PHARMA,POLITICS&since_hours=24&limit=1&offset=0" \
+  | python3 -c "import json,sys; print(json.load(sys.stdin)['total'])")
+FEED=0
+for ((o=0; o<DAEMON; o+=100)); do
+  n=$(curl -s "http://127.0.0.1:8081/api/questions?category=GEOPOLITICS,LAW,PHARMA,POLITICS&since_hours=24&limit=100&offset=$o" \
+    | python3 -c "import json,sys; d=json.load(sys.stdin); print(sum(1 for r in d['results'] if r.get('status')=='success'))")
+  FEED=$((FEED + n))
+done
+echo "feed (success): $FEED"
+echo "daemon (all):   $DAEMON"
+```
+
+When **all** checklist categories are selected in the UI, the app **omits** `category` on the URL and filters the default buckets on the client; use the same curl without `category=` and filter in Python if you need to match that mode.
 
 ## Constants (code)
 
 | Name | Value |
 | ---- | ----- |
 | `CATCHUP_LIMIT` | 50 rows per page |
-| `COLLECTOR_POOL_TARGET` | 2000 max cache size |
+| `COLLECTOR_POOL_TARGET` | 800 max cache size |
 | `COLLECTOR_FETCH_MAX_PAGES` | 120 max API pages per progressive fetch |
-| `WINDOW_START_H` | 5 hours in auto mode |
-| `CATEGORY_ALIASES` | PHARMA→HEALTH, LAW→POLITICS+ECONOMICS (OR with other selected categories) |
-| `NEXT_PUBLIC_KRAKEN_MIN_INTEREST` | Optional; omit = no `min_interest` filter |
+| `FETCH_WINDOW_H` | 5 hours per sliding API window |
+| `WINDOW_START_H` | 5 hours total span in auto mode |
+| `MAX_PAGES_PER_WINDOW` | 30 offset pages max per window before sliding |

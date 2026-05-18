@@ -161,7 +161,10 @@ export type DaemonHealthResponse = {
 };
 
 export type DaemonQueryParams = {
+  /** Comma-separated OR list, e.g. `PHARMA,POLITICS`. */
   category?: string;
+  /** Result status filter, e.g. `success` to exclude failed asks. */
+  status?: "success" | "error";
   source?: string;
   sort?: "recent" | "interest" | "affected" | "audience";
   order?: "asc" | "desc";

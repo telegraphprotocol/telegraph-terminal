@@ -16,7 +16,7 @@ It includes agreed product decisions, exact response contracts, UI mapping, and 
 - Category mapping uses daemon enum values **as-is**
 - Persistence expectation is **daemon only**
 - Realtime strategy for live ask is **WebSocket**
-- Dashboard should be collector-signal focused (avoid api/websocket echo rows)
+- Dashboard feed shows success rows for selected categories (all daemon sources).
 
 ## Startup / Local Test Order
 
@@ -282,17 +282,21 @@ See **[kraken-dashboard-ui.md](kraken-dashboard-ui.md)** (columns, category OR f
 
 Historical note: older docs referred to a flat `subnet_response` shape; live `/api/questions` items are nested (`question`, `routing`, `execution`) per `DaemonResultItem`.
 
-Recommended query:
+Recommended query (daemon CLI / curl):
 
 ```text
-/api/questions?since_hours=24&sort=recent&order=desc&limit=20&offset=0
+/api/questions?category=GEOPOLITICS,LAW,PHARMA,POLITICS&since_hours=24&sort=recent&order=desc&limit=20&offset=0
 ```
 
-For collector-only feed (current app):
+Kraken dashboard (current app):
 
-- Client-side: `source in {reddit, gdelt, polymarket, hackernews, openmeteo}` and category OR filter (see `CATEGORY_ALIASES` for PHARMA/LAW).
+- Server: comma-separated `category` (OR), RFC3339 `since`/`until` per 5h window (or `since_hours` in curl examples). Omit `category` when every checklist option is selected.
+- Client: `status === "success"` and selected category checklist; **no** `COLLECTOR_SOURCES` filter — all sources (e.g. `clinicaltrials`, `openfda`, `reddit`) are eligible.
+- Footer **daemon** = API `total`; **feed** / **cached** = success rows loaded and filtered in the browser (see [`kraken-dashboard-feed-loading.md`](kraken-dashboard-feed-loading.md#footer-counts)).
 - Optional server-side: `min_interest` only when `NEXT_PUBLIC_KRAKEN_MIN_INTEREST` is set (default: omitted).
-- Default time window: `since_hours=24` (manual mode on first load).
+- Default time window: LAST 24H (`useManualTimeRange: true` on first load).
+
+**Note:** The Go daemon DB supports `status=success|error`, but the HTTP parser in `parseQueryParams` may not wire `status` until deployed; the terminal filters success on the client regardless.
 
 ### C) Alerts (`KrakenAlerts`)
 
@@ -330,8 +334,9 @@ Derive from `/api/questions` rows:
 
 `GET /api/questions`:
 
-- `category`
+- `category` (comma-separated OR, e.g. `PHARMA,POLITICS`; native values include `PHARMA`, `LAW`)
 - `source`
+- `status` (`success` | `error` — DB filter; confirm HTTP layer on your daemon build)
 - `sort` (`recent`, `interest`, `affected`, `audience`)
 - `order` (`asc`, `desc`)
 - `since` / `until`
