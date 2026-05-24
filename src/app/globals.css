@@ -43,6 +43,15 @@
   --radius-xl: calc(var(--radius) * 1.4);
 }
 
+/* RainbowKit injects a <div data-rk> wrapper when a theme is passed.
+   It has no height/flex styling and breaks the full-height flex chain. */
+[data-rk] {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 /* Light theme */
 :root {
   --background: rgba(246, 245, 249, 1);
