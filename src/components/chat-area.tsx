@@ -77,7 +77,7 @@ export function ChatArea({
             className={
               failed
                 ? "max-w-[440px] w-fit rounded-2xl border border-red-500/45 bg-red-950/35 px-4 py-[15px] sm:max-w-[min(440px,85%)]"
-                : "max-w-[440px] w-fit rounded-2xl bg-[#282636] px-4 py-[15px] sm:max-w-[min(440px,85%)]"
+                : "max-w-[440px] w-fit rounded-2xl bg-secondary px-4 py-[15px] sm:max-w-[min(440px,85%)]"
             }
           >
             {message.content.map((c, i) => (
@@ -86,7 +86,7 @@ export function ChatArea({
                 className={
                   failed
                     ? "text-[14px] font-normal leading-[150%] text-red-100"
-                    : "text-[14px] font-normal leading-[150%] text-white"
+                    : "text-[14px] font-normal leading-[150%] text-secondary-foreground"
                 }
               >
                 {c.text}
@@ -163,7 +163,7 @@ export function ChatArea({
                 />
               </div>
               <div className="min-w-0 flex-1 pt-2">
-                <p className="text-[14px] font-normal leading-[150%] text-[#9597AC]">
+                <p className="text-[14px] font-normal leading-[150%] text-muted-foreground">
                   {loadingHint ?? "Reasoning through the steps..."}
                 </p>
               </div>

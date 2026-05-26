@@ -92,7 +92,7 @@ export function KrakenCategoryFilter({ selected, onChange, className }: KrakenCa
               <button
                 type="button"
                 onClick={clearAll}
-                className="text-[10px] font-semibold text-muted-foreground hover:text-white hover:underline"
+                className="text-[10px] font-semibold text-muted-foreground hover:text-foreground hover:underline"
               >
                 Clear
               </button>
@@ -107,8 +107,8 @@ export function KrakenCategoryFilter({ selected, onChange, className }: KrakenCa
                     className={cn(
                       "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors",
                       checked
-                        ? "bg-primary/15 text-white"
-                        : "text-muted-foreground hover:bg-muted/40 hover:text-white",
+                        ? "bg-primary/15 text-foreground"
+                        : "text-muted-foreground hover:bg-muted/40 hover:text-foreground",
                     )}
                   >
                     <input

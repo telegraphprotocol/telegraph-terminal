@@ -33,10 +33,10 @@ export function KrakenAlerts({ alerts, loading }: KrakenAlertsProps) {
     <div className="flex flex-col gap-4 w-full rounded-3xl bg-card border border-border/50 p-4">
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
-          <h3 className="text-lg font-bold text-white tracking-tight">Live Alpha Alerts</h3>
+          <h3 className="text-lg font-bold text-foreground tracking-tight">Live Alpha Alerts</h3>
           <Info size={14} className="text-muted-foreground" />
         </div>
-        <button className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-muted/30 text-[11px] font-medium text-white/70 hover:bg-muted transition-colors border border-border/30">
+        <button className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-muted/30 text-[11px] font-medium text-muted-foreground hover:bg-muted transition-colors border border-border/30">
           Recent <ChevronDown size={12} />
         </button>
       </div>
@@ -58,7 +58,7 @@ export function KrakenAlerts({ alerts, loading }: KrakenAlertsProps) {
           >
             <div className="p-5 flex flex-col gap-3">
               <div>
-                <h4 className="text-[15px] font-bold text-white mb-1 group-hover:text-primary transition-colors">
+                <h4 className="text-[15px] font-bold text-foreground mb-1 group-hover:text-primary transition-colors">
                   {alert.question.text || "Untitled signal"}
                 </h4>
                 <div className={cn(
@@ -74,9 +74,9 @@ export function KrakenAlerts({ alerts, loading }: KrakenAlertsProps) {
               </p>
               
               <div className="flex flex-col gap-3 mt-1">
-                <button className="flex items-center justify-between px-4 h-9 rounded-xl bg-secondary text-white text-[12px] font-bold border border-primary/20 hover:bg-primary transition-all">
+                <button className="flex items-center justify-between px-4 h-9 rounded-xl bg-secondary text-secondary-foreground text-[12px] font-bold border border-primary/20 hover:bg-primary hover:text-primary-foreground transition-all">
                   <div className="flex items-center gap-2">
-                    <span className="text-primary group-hover:text-white">✦</span>
+                    <span className="text-primary group-hover:text-primary-foreground">✦</span>
                     Action:
                   </div>
                   <span>{alert.question.category || "OTHER"}</span>
@@ -89,7 +89,7 @@ export function KrakenAlerts({ alerts, loading }: KrakenAlertsProps) {
                       <ShieldCheck size={12} className="text-primary shrink-0" />
                       <span className="max-w-[180px] truncate">{alert.routing.subnet_name || "Engine subnet"}</span>
                     </div>
-                    <div className="text-[11px] font-bold text-white bg-primary px-2 py-0.5 rounded-md whitespace-nowrap">
+                    <div className="text-[11px] font-bold text-primary-foreground bg-primary px-2 py-0.5 rounded-md whitespace-nowrap">
                       ${alert.execution.cost_usd.toFixed(4)}
                     </div>
                   </div>

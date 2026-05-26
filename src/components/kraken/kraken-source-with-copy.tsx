@@ -23,12 +23,12 @@ export function KrakenSourceWithCopy({ item, variant = "feed" }: KrakenSourceWit
   const copyIconSize = isFeed ? 12 : 14;
 
   const linkClass = isFeed
-    ? "min-w-0 truncate text-[11px] text-white/90 font-mono font-semibold tracking-wide uppercase underline-offset-2 hover:text-primary hover:underline"
+    ? "min-w-0 truncate text-[11px] text-foreground font-mono font-semibold tracking-wide uppercase underline-offset-2 hover:text-primary hover:underline"
     : "inline min-w-0 break-all text-sm font-mono font-semibold tracking-wide uppercase underline-offset-2 text-primary hover:underline";
 
   const spanClass = isFeed
-    ? "min-w-0 truncate text-[11px] text-white/90 font-mono font-semibold tracking-wide uppercase"
-    : "inline min-w-0 break-all text-sm font-mono font-semibold tracking-wide uppercase text-white/90";
+    ? "min-w-0 truncate text-[11px] text-foreground font-mono font-semibold tracking-wide uppercase"
+    : "inline min-w-0 break-all text-sm font-mono font-semibold tracking-wide uppercase text-foreground";
 
   return (
     <div className="flex min-w-0 items-center gap-1.5 group">

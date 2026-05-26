@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { GlobalWallet } from "@/components/global-wallet";
 import { EngineSubnetPicker } from "@/components/engine-subnet-picker";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { apiClient } from "@/lib/api-client";
 import { DaemonResultItem } from "@/lib/engine-daemon-types";
 import { DEFAULT_SELECTED_CATEGORIES, type DashboardCategoryId } from "@/lib/kraken-dashboard-filters";
@@ -91,7 +92,7 @@ function KrakenHeaderNav({ className }: { className?: string }) {
             className={cn(
               "flex shrink-0 items-center gap-2 whitespace-nowrap py-1 text-sm font-medium tracking-[-0.006em] transition-colors",
               "min-h-11 lg:min-h-0 lg:py-0",
-              item.active ? "text-white" : "text-muted-foreground hover:text-white",
+              item.active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
             )}
           >
             <Icon size={14} className={cn("shrink-0", item.active ? "text-primary" : "")} />
@@ -212,11 +213,12 @@ export default function KrakenDashboard() {
               </Link>
               <button
                 type="button"
-                className="relative inline-flex h-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/30 hover:text-white"
+                className="relative inline-flex h-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground"
               >
                 <Bell size={20} />
                 <span className="absolute right-2 top-2 h-2 w-2 rounded-full border-2 border-background bg-primary" />
               </button>
+              <ThemeToggle />
               <div className="flex min-h-[44px] min-w-0 flex-1 flex-wrap items-center gap-2">
                 {showGlobalWallet ? <GlobalWallet className="shrink-0" /> : null}
               </div>
@@ -261,11 +263,12 @@ export default function KrakenDashboard() {
                 </Link>
                 <button
                   type="button"
-                  className="relative inline-flex size-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/30 hover:text-white"
+                  className="relative inline-flex size-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground"
                 >
                   <Bell size={18} />
                   <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full border-2 border-background bg-primary" />
                 </button>
+                <ThemeToggle />
                 <div className="flex shrink-0 items-center">
                   {showGlobalWallet ? <GlobalWallet className="shrink-0" /> : null}
                 </div>
@@ -325,7 +328,7 @@ export default function KrakenDashboard() {
                     type="button"
                     disabled={feed.signals.length === 0}
                     onClick={() => downloadSignalsCsv(feed.signals)}
-                    className="h-9 px-3 rounded-lg bg-muted/60 border border-border/50 text-xs text-muted-foreground hover:text-white transition-colors disabled:opacity-40 disabled:pointer-events-none"
+                    className="h-9 px-3 rounded-lg bg-muted/60 border border-border/50 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40 disabled:pointer-events-none"
                   >
                     Export CSV
                   </button>
@@ -369,7 +372,7 @@ export default function KrakenDashboard() {
               <section className="flex flex-col gap-4">
                 <div className="flex items-center gap-2">
                   <div className="h-6 w-1.5 rounded-full bg-primary" />
-                  <h2 className="text-xl font-bold tracking-tight text-white">Engine subnets</h2>
+                  <h2 className="text-xl font-bold tracking-tight text-foreground">Engine subnets</h2>
                 </div>
                 <KrakenSkillCards
                   engineSubnets={engineSubnets}
@@ -382,7 +385,7 @@ export default function KrakenDashboard() {
               <section className="flex flex-col gap-4">
                 <div className="flex items-center gap-2">
                   <div className="w-1.5 h-6 bg-primary rounded-full" />
-                  <h2 className="text-xl font-bold text-white tracking-tight">Protocol Efficiency</h2>
+                  <h2 className="text-xl font-bold text-foreground tracking-tight">Protocol Efficiency</h2>
                 </div>
                 <KrakenAnalytics items={feed.signals} loading={feed.showTableSpinner} />
               </section>

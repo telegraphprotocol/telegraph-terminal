@@ -225,37 +225,37 @@ export const chatMarkdownComponents: Components = {
 export const signalMarkdownComponents: Components = {
   ...baseMarkdownComponents,
   h1: ({ children, ...props }) => (
-    <h1 className="mb-2 mt-0 text-base font-bold text-white" {...props}>
+    <h1 className="mb-2 mt-0 text-base font-bold text-foreground" {...props}>
       {children}
     </h1>
   ),
   h2: ({ children, ...props }) => (
-    <h2 className="mb-2 mt-3 text-sm font-bold text-white first:mt-0" {...props}>
+    <h2 className="mb-2 mt-3 text-sm font-bold text-foreground first:mt-0" {...props}>
       {children}
     </h2>
   ),
   h3: ({ children, ...props }) => (
-    <h3 className="mb-1.5 mt-2 text-sm font-semibold text-white/95" {...props}>
+    <h3 className="mb-1.5 mt-2 text-sm font-semibold text-foreground" {...props}>
       {children}
     </h3>
   ),
   p: ({ children, ...props }) => (
-    <p className="mb-2.5 text-sm leading-relaxed text-white/90 last:mb-0" {...props}>
+    <p className="mb-2.5 text-sm leading-relaxed text-foreground/90 last:mb-0" {...props}>
       {children}
     </p>
   ),
   ul: ({ children, ...props }) => (
-    <ul className="mb-2.5 ml-1 list-disc space-y-1 pl-4 text-sm leading-relaxed text-white/90" {...props}>
+    <ul className="mb-2.5 ml-1 list-disc space-y-1 pl-4 text-sm leading-relaxed text-foreground/90" {...props}>
       {children}
     </ul>
   ),
   ol: ({ children, ...props }) => (
-    <ol className="mb-2.5 ml-1 list-decimal space-y-1 pl-4 text-sm leading-relaxed text-white/90" {...props}>
+    <ol className="mb-2.5 ml-1 list-decimal space-y-1 pl-4 text-sm leading-relaxed text-foreground/90" {...props}>
       {children}
     </ol>
   ),
   strong: ({ children, ...props }) => (
-    <strong className="font-semibold text-white" {...props}>
+    <strong className="font-semibold text-foreground" {...props}>
       {children}
     </strong>
   ),

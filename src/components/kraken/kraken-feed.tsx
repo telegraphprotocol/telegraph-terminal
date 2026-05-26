@@ -59,7 +59,7 @@ function StatusBadge({ status }: { status: DaemonResultItem["status"] }) {
 
 function CostBadge({ log }: { log: DaemonResultItem }) {
   return (
-    <div className="inline-flex items-center justify-center px-2.5 py-1 rounded-full bg-primary text-white text-[11px] font-bold shadow-lg shadow-primary/20">
+    <div className="inline-flex items-center justify-center px-2.5 py-1 rounded-full bg-primary text-primary-foreground text-[11px] font-bold shadow-lg shadow-primary/20">
       ${Number(log.execution?.cost_usd ?? 0).toFixed(4)}
     </div>
   );
@@ -70,7 +70,7 @@ function ProofIcon({ log }: { log: DaemonResultItem }) {
     <span title={proofTitle(log)}>
       <ReceiptText
         size={16}
-        className="text-muted-foreground hover:text-white cursor-default transition-colors pointer-events-none"
+        className="text-muted-foreground hover:text-foreground cursor-default transition-colors pointer-events-none"
         aria-hidden
       />
     </span>
@@ -132,7 +132,7 @@ export function KrakenFeed({ items, loading, onRowSelect }: KrakenFeedProps) {
               className="space-y-3 p-4 transition-colors hover:bg-muted/10"
             >
               <div className="flex items-start justify-between gap-2">
-                <span className="text-xs font-medium text-white/70 tabular-nums shrink-0 pt-0.5">
+                <span className="text-xs font-medium text-muted-foreground tabular-nums shrink-0 pt-0.5">
                   {new Date(log.created_at).toLocaleTimeString()}
                 </span>
                 <div className="flex min-w-0 items-center justify-end gap-1">
@@ -144,12 +144,12 @@ export function KrakenFeed({ items, loading, onRowSelect }: KrakenFeedProps) {
                 </div>
               </div>
               <div
-                className="text-[12px] font-semibold text-white tracking-tight break-words"
+                className="text-[12px] font-semibold text-foreground tracking-tight break-words"
                 title={formatKrakenIntentCell(log)}
               >
                 {formatKrakenIntentCell(log)}
               </div>
-              <p className="text-[13px] font-bold text-white leading-snug break-words whitespace-pre-wrap">
+              <p className="text-[13px] font-bold text-foreground leading-snug break-words whitespace-pre-wrap">
                 {log.question.text || "No question text"}
               </p>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -187,14 +187,14 @@ export function KrakenFeed({ items, loading, onRowSelect }: KrakenFeedProps) {
                 GRID_COLS,
               )}
             >
-              <div className="text-xs font-medium text-white/70 tabular-nums pt-0.5">
+              <div className="text-xs font-medium text-muted-foreground tabular-nums pt-0.5">
                 {new Date(log.created_at).toLocaleTimeString()}
               </div>
-              <div className="text-[12px] font-semibold text-white tracking-tight truncate pt-0.5" title={formatKrakenIntentCell(log)}>
+              <div className="text-[12px] font-semibold text-foreground tracking-tight truncate pt-0.5" title={formatKrakenIntentCell(log)}>
                 {formatKrakenIntentCell(log)}
               </div>
               <div
-                className="min-w-0 text-sm font-bold text-white leading-snug break-words whitespace-pre-wrap"
+                className="min-w-0 text-sm font-bold text-foreground leading-snug break-words whitespace-pre-wrap"
                 title={log.question.text || undefined}
               >
                 {log.question.text || "No question text"}

@@ -19,7 +19,7 @@ function TextBlock({ title, body }: { title?: string; body: string }) {
       {title === "Answer" || title === "Reasoning" || looksLikeMarkdown(body) ? (
         <MarkdownContent variant="signal">{body}</MarkdownContent>
       ) : (
-        <p className="whitespace-pre-wrap text-sm leading-relaxed text-white/90">{body}</p>
+        <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{body}</p>
       )}
     </div>
   );
@@ -51,7 +51,7 @@ function ForecastTable({ location, rows }: { location?: string; rows: ForecastRo
 
   return (
     <div className="space-y-2">
-      {location ? <p className="text-sm text-white/80">{location}</p> : null}
+      {location ? <p className="text-sm text-foreground/90">{location}</p> : null}
       <div className="overflow-x-auto rounded-lg border border-border/40">
         <table className="w-full min-w-[320px] text-left text-xs">
           <thead>
@@ -66,16 +66,16 @@ function ForecastTable({ location, rows }: { location?: string; rows: ForecastRo
           <tbody>
             {rows.map((row, i) => (
               <tr key={`${row.time}-${i}`} className="border-b border-border/20 last:border-0">
-                <td className="px-3 py-2 font-mono text-white/80">{row.time}</td>
+                <td className="px-3 py-2 font-mono text-foreground/90">{row.time}</td>
                 {hasValue ? (
-                  <td className="px-3 py-2 tabular-nums text-white/90">
+                  <td className="px-3 py-2 tabular-nums text-foreground">
                     {row.value ?? "—"}
                     {row.variable ? (
                       <span className="ml-1 text-muted-foreground">({row.variable})</span>
                     ) : null}
                   </td>
                 ) : (
-                  <td className="px-3 py-2 tabular-nums text-white/90">{row.temperature_c ?? "—"}</td>
+                  <td className="px-3 py-2 tabular-nums text-foreground">{row.temperature_c ?? "—"}</td>
                 )}
                 {hasWind ? <td className="px-3 py-2 tabular-nums">{row.wind_kph ?? "—"}</td> : null}
                 {hasRain ? <td className="px-3 py-2 tabular-nums">{row.rain_mm ?? "—"}</td> : null}
@@ -97,7 +97,7 @@ function BadgesRow({ items }: { items: { label: string; value: string }[] }) {
           className="inline-flex items-center gap-2 rounded-lg border border-border/40 bg-muted/20 px-3 py-1.5"
         >
           <span className="text-[11px] font-semibold text-muted-foreground">{item.label}</span>
-          <span className="text-sm font-bold text-white">{item.value}</span>
+          <span className="text-sm font-bold text-foreground">{item.value}</span>
         </div>
       ))}
     </div>
@@ -114,7 +114,7 @@ function KeyValueRow({ label, value }: { label: string; value: string }) {
         {renderMarkdown ? (
           <MarkdownContent variant="signal">{value}</MarkdownContent>
         ) : (
-          <p className="whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed text-white/85">
+          <p className="whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed text-foreground/90">
             {value}
           </p>
         )}

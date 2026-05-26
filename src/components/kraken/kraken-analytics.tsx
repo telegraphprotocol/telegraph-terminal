@@ -44,7 +44,7 @@ export function KrakenAnalytics({ items, loading }: KrakenAnalyticsProps) {
     <div className="w-full bg-card rounded-3xl p-6 border border-border/50 shadow-sm">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
-          <h3 className="text-lg font-bold text-white mb-1">Cost Efficiency Comparison</h3>
+          <h3 className="text-lg font-bold text-foreground mb-1">Cost Efficiency Comparison</h3>
           <p className="text-sm text-muted-foreground">In-House Model Training vs. Kraken Signal API</p>
         </div>
         
@@ -54,14 +54,14 @@ export function KrakenAnalytics({ items, loading }: KrakenAnalyticsProps) {
               <div className="w-2 h-2 rounded-full bg-secondary" />
               <span className="text-sm text-muted-foreground">Total Internal AI Cost</span>
             </div>
-            <span className="text-sm font-medium text-white">${totalInternalCost.toFixed(2)}</span>
+            <span className="text-sm font-medium text-foreground">${totalInternalCost.toFixed(2)}</span>
           </div>
           <div className="flex items-center justify-between gap-12">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-primary" />
               <span className="text-sm text-muted-foreground">Total Kraken Signal API Cost</span>
             </div>
-            <span className="text-sm font-medium text-white">${totalDaemonCost.toFixed(2)}</span>
+            <span className="text-sm font-medium text-foreground">${totalDaemonCost.toFixed(2)}</span>
           </div>
         </div>
       </div>

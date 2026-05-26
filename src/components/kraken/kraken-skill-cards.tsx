@@ -43,7 +43,7 @@ export function KrakenSkillCards({
         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
           <ServerOff size={28} />
         </div>
-        <h3 className="mb-2 text-lg font-bold text-white">No live engine subnets</h3>
+        <h3 className="mb-2 text-lg font-bold text-foreground">No live engine subnets</h3>
         <p className="mx-auto max-w-lg text-sm leading-relaxed text-muted-foreground">
           {subnetsError ??
             "The dashboard only lists subnets returned by the engine at `/v1/subnets`. Start the engine or fix your API URL — placeholder protocol cards are not shown when data is unavailable."}
@@ -70,7 +70,7 @@ export function KrakenSkillCards({
           className="group rounded-xl border border-border/50 bg-card p-6 transition-all hover:border-primary/40"
         >
           <div className="mb-6 flex items-start justify-between">
-            <div className="rounded-xl bg-primary/10 p-3 text-primary transition-colors group-hover:bg-primary group-hover:text-white">
+            <div className="rounded-xl bg-primary/10 p-3 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
               <Link2 size={28} />
             </div>
             <span className="rounded-lg bg-muted/60 px-2 py-1 font-mono text-[11px] text-muted-foreground">
@@ -78,14 +78,14 @@ export function KrakenSkillCards({
             </span>
           </div>
 
-          <h3 className="mb-2 text-xl font-bold tracking-tight text-white">{subnet.label}</h3>
+          <h3 className="mb-2 text-xl font-bold tracking-tight text-foreground">{subnet.label}</h3>
           <p className="mb-6 text-[13px] leading-relaxed text-muted-foreground">
             Engine-registered subnet. Queries can be routed here from the Intelligence Terminal.
           </p>
 
           <Link
             href="/intelligence-terminal"
-            className="flex h-10 w-full items-center justify-center rounded-xl border border-border/50 bg-muted/50 text-sm font-medium text-white transition-colors hover:bg-muted"
+            className="flex h-10 w-full items-center justify-center rounded-xl border border-border/50 bg-muted/50 text-sm font-medium text-foreground transition-colors hover:bg-muted"
           >
             Open terminal
           </Link>

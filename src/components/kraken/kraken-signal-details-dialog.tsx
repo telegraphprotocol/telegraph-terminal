@@ -22,7 +22,7 @@ function DetailRow({ label, children, className }: { label: string; children: Re
   return (
     <div className={cn("grid gap-1.5 sm:grid-cols-[140px_1fr] sm:items-start sm:gap-3 text-sm", className)}>
       <div className="shrink-0 font-semibold text-muted-foreground">{label}</div>
-      <div className="min-w-0 break-words text-white/90">{children}</div>
+      <div className="min-w-0 break-words text-foreground">{children}</div>
     </div>
   );
 }
@@ -46,7 +46,7 @@ function CopyJsonButton({
       title={copied ? "Copied to clipboard" : copyLabel}
       aria-label={copied ? "Copied to clipboard" : `${copyLabel} to clipboard`}
       className={cn(
-        "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-border/50 bg-muted/30 px-3 text-xs font-semibold text-white/90 transition-colors hover:bg-muted/50 disabled:pointer-events-none disabled:opacity-40",
+        "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-border/50 bg-muted/30 px-3 text-xs font-semibold text-foreground transition-colors hover:bg-muted/50 disabled:pointer-events-none disabled:opacity-40",
         className,
       )}
       onClick={() => {
@@ -105,7 +105,7 @@ export function KrakenSignalDetailsDialog({ item, open, onOpenChange }: KrakenSi
       >
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border/50 px-5 py-4">
           <div className="min-w-0 flex-1">
-            <h2 id="kraken-signal-details-title" className="text-lg font-bold tracking-tight text-white">
+            <h2 id="kraken-signal-details-title" className="text-lg font-bold tracking-tight text-foreground">
               Signal details
             </h2>
             <p className="mt-1 truncate font-mono text-xs text-muted-foreground">{item.id}</p>
@@ -113,7 +113,7 @@ export function KrakenSignalDetailsDialog({ item, open, onOpenChange }: KrakenSi
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-white"
+            className="shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
             aria-label="Close"
           >
             <X size={18} />
@@ -186,7 +186,7 @@ export function KrakenSignalDetailsDialog({ item, open, onOpenChange }: KrakenSi
                 </p>
                 <CopyJsonButton text={fullSignalJson} />
               </div>
-              <pre className="max-h-[min(50vh,480px)] overflow-auto rounded-lg border border-border/40 bg-muted/20 p-3 font-mono text-[11px] leading-relaxed text-white/80">
+              <pre className="max-h-[min(50vh,480px)] overflow-auto rounded-lg border border-border/40 bg-muted/20 p-3 font-mono text-[11px] leading-relaxed text-foreground/80">
                 {fullSignalJson}
               </pre>
             </div>

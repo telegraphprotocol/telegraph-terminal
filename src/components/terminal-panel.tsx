@@ -33,7 +33,7 @@ function TimestampPill({ time }: { time: string }) {
   return (
     <motion.div
       layout
-      className="flex min-w-[4.25rem] shrink-0 flex-col items-center justify-center rounded-md border border-border/50 bg-[#1a1828]/90 px-2 py-1.5 shadow-inner"
+      className="flex min-w-[4.25rem] shrink-0 flex-col items-center justify-center rounded-md border border-border/50 bg-muted/40 px-2 py-1.5 shadow-inner"
     >
       <span className="text-[9px] font-mono tabular-nums leading-none text-muted-foreground/85">
         {main}
