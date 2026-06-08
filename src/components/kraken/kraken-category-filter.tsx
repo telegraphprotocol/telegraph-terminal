@@ -85,7 +85,7 @@ export function KrakenCategoryFilter({ selected, onChange, className }: KrakenCa
               <button
                 type="button"
                 onClick={selectAll}
-                className="text-[10px] font-semibold text-primary hover:underline"
+                className="text-[10px] font-semibold text-foreground/70 hover:text-foreground hover:underline"
               >
                 All
               </button>
@@ -107,7 +107,7 @@ export function KrakenCategoryFilter({ selected, onChange, className }: KrakenCa
                     className={cn(
                       "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors",
                       checked
-                        ? "bg-primary/15 text-foreground"
+                        ? "bg-foreground/8 text-foreground"
                         : "text-muted-foreground hover:bg-muted/40 hover:text-foreground",
                     )}
                   >
@@ -115,7 +115,7 @@ export function KrakenCategoryFilter({ selected, onChange, className }: KrakenCa
                       type="checkbox"
                       checked={checked}
                       onChange={() => toggle(category)}
-                      className="size-3.5 shrink-0 rounded border-border/60 accent-primary"
+                      className="size-3.5 shrink-0 border-border/60"
                     />
                     <span className="font-medium tracking-wide">{category}</span>
                   </label>

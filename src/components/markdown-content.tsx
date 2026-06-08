@@ -68,7 +68,7 @@ const baseMarkdownComponents: Components = {
     </em>
   ),
   blockquote: ({ children, ...props }) => (
-    <blockquote className="my-3 border-l-2 border-primary/35 pl-3 text-sm italic text-muted-foreground" {...props}>
+    <blockquote className="my-3 border-l-2 border-foreground/20 pl-3 text-sm italic text-muted-foreground" {...props}>
       {children}
     </blockquote>
   ),
@@ -76,7 +76,7 @@ const baseMarkdownComponents: Components = {
   a: ({ href, children, ...props }) => (
     <a
       href={href}
-      className="font-medium text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary"
+      className="font-medium text-foreground underline decoration-foreground/30 underline-offset-2 hover:decoration-foreground"
       target="_blank"
       rel="noopener noreferrer"
       {...props}

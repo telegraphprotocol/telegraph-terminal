@@ -22,12 +22,12 @@ export function KrakenSkillCards({
         {[0, 1, 2].map((i) => (
           <div
             key={i}
-            className="animate-pulse rounded-xl border border-border/50 bg-card p-6"
+            className="animate-pulse border border-border/50 bg-card p-6"
           >
-            <div className="mb-6 h-14 w-14 rounded-xl bg-muted/40" />
-            <div className="mb-2 h-6 w-[80%] max-w-[240px] rounded bg-muted/40" />
-            <div className="mb-4 h-20 rounded bg-muted/30" />
-            <div className="h-10 rounded-xl bg-muted/40" />
+            <div className="mb-6 h-14 w-14 bg-muted/40" />
+            <div className="mb-2 h-6 w-[80%] max-w-[240px] bg-muted/40" />
+            <div className="mb-4 h-20 bg-muted/30" />
+            <div className="h-10 bg-muted/40" />
           </div>
         ))}
       </div>
@@ -39,8 +39,8 @@ export function KrakenSkillCards({
 
   if (offline) {
     return (
-      <div className="w-full rounded-xl border border-border/50 bg-card p-8 text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+      <div className="w-full border border-border/50 bg-card p-8 text-center">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center bg-amber-500/10 text-amber-600 dark:text-amber-400">
           <ServerOff size={28} />
         </div>
         <h3 className="mb-2 text-lg font-bold text-foreground">No live engine subnets</h3>
@@ -50,7 +50,7 @@ export function KrakenSkillCards({
         </p>
         <p className="mt-4 text-xs text-muted-foreground/80">
           Use the subnet picker in the header once the engine is reachable, or open the{" "}
-          <Link href="/intelligence-terminal" className="font-semibold text-primary underline-offset-2 hover:underline">
+          <Link href="/intelligence-terminal" className="font-semibold text-foreground underline-offset-2 hover:underline">
             Intelligence Terminal
           </Link>{" "}
           to route queries.
@@ -67,13 +67,13 @@ export function KrakenSkillCards({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: Math.min(i * 0.05, 0.4) }}
-          className="group rounded-xl border border-border/50 bg-card p-6 transition-all hover:border-primary/40"
+          className="group border border-border/50 bg-card p-6 transition-all hover:border-foreground/20"
         >
           <div className="mb-6 flex items-start justify-between">
-            <div className="rounded-xl bg-primary/10 p-3 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+            <div className="border border-border/60 p-3 text-muted-foreground transition-colors group-hover:border-foreground/30 group-hover:text-foreground">
               <Link2 size={28} />
             </div>
-            <span className="rounded-lg bg-muted/60 px-2 py-1 font-mono text-[11px] text-muted-foreground">
+            <span className="bg-muted/60 px-2 py-1 font-mono text-[11px] text-muted-foreground border border-border/40">
               SN{subnet.id}
             </span>
           </div>
@@ -85,7 +85,7 @@ export function KrakenSkillCards({
 
           <Link
             href="/intelligence-terminal"
-            className="flex h-10 w-full items-center justify-center rounded-xl border border-border/50 bg-muted/50 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+            className="flex h-9 w-full items-center justify-center border border-border/50 bg-muted/50 text-[10px] font-bold uppercase tracking-[0.1em] text-foreground transition-colors hover:bg-muted hover:border-foreground/30"
           >
             Open terminal
           </Link>

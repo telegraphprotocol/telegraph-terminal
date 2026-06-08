@@ -74,7 +74,7 @@ function GlobalWalletPanel({
       role="dialog"
       aria-label="Wallet details"
       className={cn(
-        "absolute top-[calc(100%+8px)] right-0 z-50 min-w-[min(100vw-2rem,20rem)] max-w-[min(90vw,28rem)] rounded-2xl border border-border/50 bg-popover/95 p-3 text-xs shadow-2xl shadow-primary/10 backdrop-blur-xl",
+        "absolute top-[calc(100%+8px)] right-0 z-50 min-w-[min(100vw-2rem,20rem)] max-w-[min(90vw,28rem)] border border-border/60 bg-popover/95 p-3 text-xs shadow-2xl shadow-black/50 backdrop-blur-xl",
       )}
     >
       {loading && !data ? (
@@ -125,13 +125,13 @@ function GlobalWalletPanel({
         <button
           type="button"
           onClick={onRefresh}
-          className="text-[11px] text-primary underline-offset-2 hover:underline"
+          className="text-[11px] text-foreground/70 underline-offset-2 hover:underline hover:text-foreground"
         >
           Refresh
         </button>
         <button
           type="button"
-          className="text-[11px] text-primary underline-offset-2 hover:underline"
+          className="text-[11px] text-foreground/70 underline-offset-2 hover:underline hover:text-foreground"
         >
           Top up
         </button>

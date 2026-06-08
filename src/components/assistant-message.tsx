@@ -28,8 +28,8 @@ export function AssistantMessage({ message }: { message: ChatMessage }) {
 
   return (
     <div className="flex items-start gap-4 max-w-2xl">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-premium shadow-lg shadow-primary/20">
-        <Sparkles size={14} className="text-white" aria-hidden />
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center border border-border/60 bg-muted">
+        <Sparkles size={14} className="text-foreground/70" aria-hidden />
       </div>
       <div className="min-w-0 flex-1 pt-1">
         <div className="space-y-2">
@@ -38,7 +38,7 @@ export function AssistantMessage({ message }: { message: ChatMessage }) {
               {fullText.trim() ? (
                 <MarkdownContent variant="chat">{fullText}</MarkdownContent>
               ) : (
-                <span className="inline-block h-4 w-1 animate-pulse bg-primary" aria-hidden />
+                <span className="inline-block h-4 w-1 animate-pulse bg-foreground/60" aria-hidden />
               )}
             </div>
           ) : (
@@ -49,7 +49,7 @@ export function AssistantMessage({ message }: { message: ChatMessage }) {
               >
                 {c.text}
                 {!c.text && (
-                  <span className="ml-0.5 inline-block h-4 w-1 animate-pulse bg-primary" aria-hidden />
+                  <span className="ml-0.5 inline-block h-4 w-1 animate-pulse bg-foreground/60" aria-hidden />
                 )}
               </p>
             ))

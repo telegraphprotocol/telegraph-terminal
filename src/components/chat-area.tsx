@@ -157,7 +157,7 @@ export function ChatArea({
             >
               <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-2xl">
                 <Loader2
-                  className="size-4 text-primary animate-spin"
+                  className="size-4 text-muted-foreground animate-spin"
                   strokeWidth={2}
                   aria-hidden
                 />

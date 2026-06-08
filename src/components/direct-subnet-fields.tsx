@@ -65,7 +65,7 @@ export function DirectSubnetFields({
         className="group rounded-xl border border-border/45 bg-muted/15 px-3 py-2 sm:px-4 sm:py-3"
       >
         <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 py-1 text-left [&::-webkit-details-marker]:hidden">
-          <span className="min-w-0 text-[12px] font-semibold uppercase tracking-wide text-primary/80">
+          <span className="min-w-0 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
             Direct request
           </span>
           <ChevronDown

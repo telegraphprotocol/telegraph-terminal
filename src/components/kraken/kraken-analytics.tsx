@@ -41,11 +41,11 @@ export function KrakenAnalytics({ items, loading }: KrakenAnalyticsProps) {
   }, [items]);
 
   return (
-    <div className="w-full bg-card rounded-3xl p-6 border border-border/50 shadow-sm">
+    <div className="w-full bg-card p-6 border border-border/50">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
-          <h3 className="text-lg font-bold text-foreground mb-1">Cost Efficiency Comparison</h3>
-          <p className="text-sm text-muted-foreground">In-House Model Training vs. Kraken Signal API</p>
+          <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-foreground mb-1">Cost Efficiency Comparison</h3>
+          <p className="text-[11px] text-muted-foreground font-mono">In-House Model Training vs. Kraken Signal API</p>
         </div>
         
         <div className="flex flex-col gap-2">
@@ -58,7 +58,7 @@ export function KrakenAnalytics({ items, loading }: KrakenAnalyticsProps) {
           </div>
           <div className="flex items-center justify-between gap-12">
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-primary" />
+              <div className="w-2 h-2 rounded-full bg-foreground/50" />
               <span className="text-sm text-muted-foreground">Total Kraken Signal API Cost</span>
             </div>
             <span className="text-sm font-medium text-foreground">${totalDaemonCost.toFixed(2)}</span>
@@ -89,15 +89,17 @@ export function KrakenAnalytics({ items, loading }: KrakenAnalyticsProps) {
               dy={10}
             />
             <YAxis hide />
-            <Tooltip 
-              cursor={{ fill: "rgba(122, 46, 255, 0.05)" }}
-              contentStyle={{ 
-                backgroundColor: "var(--card)", 
+            <Tooltip
+              cursor={{ fill: "color-mix(in srgb, var(--foreground) 5%, transparent)" }}
+              contentStyle={{
+                backgroundColor: "var(--card)",
                 border: "1px solid var(--border)",
-                borderRadius: "12px",
+                borderRadius: "0",
                 fontSize: "12px",
-                color: "var(--card-foreground)",
+                color: "var(--foreground)",
               }}
+              labelStyle={{ color: "var(--foreground)" }}
+              itemStyle={{ color: "var(--muted-foreground)" }}
             />
             <Bar dataKey="internal" radius={[4, 4, 0, 0]} barSize={12}>
               {chartData.map((entry, index) => (
@@ -106,7 +108,7 @@ export function KrakenAnalytics({ items, loading }: KrakenAnalyticsProps) {
             </Bar>
             <Bar dataKey="kraken" radius={[4, 4, 0, 0]} barSize={12}>
               {chartData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill="var(--primary)" />
+                <Cell key={`cell-${index}`} fill="var(--foreground)" />
               ))}
             </Bar>
           </BarChart>

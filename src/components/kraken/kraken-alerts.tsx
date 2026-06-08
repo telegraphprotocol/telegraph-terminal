@@ -30,23 +30,23 @@ function buildDescription(alert: DaemonResultItem) {
 
 export function KrakenAlerts({ alerts, loading }: KrakenAlertsProps) {
   return (
-    <div className="flex flex-col gap-4 w-full rounded-3xl bg-card border border-border/50 p-4">
+    <div className="flex flex-col gap-4 w-full bg-card border border-border/60 p-4 max-h-[calc(100vh-8rem)] overflow-y-auto custom-scrollbar">
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
-          <h3 className="text-lg font-bold text-foreground tracking-tight">Live Alpha Alerts</h3>
-          <Info size={14} className="text-muted-foreground" />
+          <h3 className="text-[10px] font-bold text-muted-foreground tracking-[0.2em] uppercase">Live Alpha Alerts</h3>
+          <Info size={13} className="text-muted-foreground" />
         </div>
-        <button className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-muted/30 text-[11px] font-medium text-muted-foreground hover:bg-muted transition-colors border border-border/30">
-          Recent <ChevronDown size={12} />
+        <button className="flex items-center gap-1.5 px-2.5 py-1 bg-muted/30 text-[10px] font-medium text-muted-foreground hover:bg-muted transition-colors border border-border/40 uppercase tracking-wider">
+          Recent <ChevronDown size={11} />
         </button>
       </div>
 
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3">
         {loading && alerts.length === 0 && (
-          <div className="px-2 py-6 text-sm text-muted-foreground">Loading top alerts...</div>
+          <div className="px-2 py-6 text-sm text-muted-foreground font-mono">Loading top alerts...</div>
         )}
         {!loading && alerts.length === 0 && (
-          <div className="px-2 py-6 text-sm text-muted-foreground">No high-interest alerts found.</div>
+          <div className="px-2 py-6 text-sm text-muted-foreground font-mono">No high-interest alerts found.</div>
         )}
         {alerts.map((alert, i) => (
           <motion.div
@@ -54,42 +54,42 @@ export function KrakenAlerts({ alerts, loading }: KrakenAlertsProps) {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: i * 0.1 }}
-            className="rounded-xl bg-background/30 border border-border/50 overflow-hidden group hover:border-primary/30 transition-all"
+            className="bg-background/30 border border-border/40 overflow-hidden group hover:border-foreground/15 transition-all"
           >
-            <div className="p-5 flex flex-col gap-3">
+            <div className="p-4 flex flex-col gap-3">
               <div>
-                <h4 className="text-[15px] font-bold text-foreground mb-1 group-hover:text-primary transition-colors">
+                <h4 className="text-[13px] font-bold text-foreground mb-1 group-hover:text-foreground/90 transition-colors">
                   {alert.question.text || "Untitled signal"}
                 </h4>
                 <div className={cn(
-                  "text-[12px] font-semibold",
+                  "text-[11px] font-semibold uppercase tracking-wider",
                   alert.status === "error" ? "text-red-500" : "text-green-500"
                 )}>
                   {buildSubtitle(alert)}
                 </div>
               </div>
-              
-              <p className="text-[12px] text-muted-foreground leading-relaxed">
+
+              <p className="text-[12px] text-muted-foreground leading-relaxed font-mono">
                 {buildDescription(alert)}
               </p>
-              
-              <div className="flex flex-col gap-3 mt-1">
-                <button className="flex items-center justify-between px-4 h-9 rounded-xl bg-secondary text-secondary-foreground text-[12px] font-bold border border-primary/20 hover:bg-primary hover:text-primary-foreground transition-all">
+
+              <div className="flex flex-col gap-2 mt-1">
+                <button className="flex items-center justify-between px-3 h-8 bg-muted/40 text-foreground/70 text-[11px] font-bold border border-border/50 hover:bg-muted/60 hover:text-foreground transition-all uppercase tracking-wider">
                   <div className="flex items-center gap-2">
-                    <span className="text-primary group-hover:text-primary-foreground">✦</span>
+                    <span className="text-foreground/40">✦</span>
                     Action:
                   </div>
                   <span>{alert.question.category || "OTHER"}</span>
                 </button>
-                
+
                 <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
                   <KrakenSourceWithCopy item={alert} variant="feed" />
                   <div className="flex shrink-0 items-center gap-3">
                     <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                      <ShieldCheck size={12} className="text-primary shrink-0" />
+                      <ShieldCheck size={12} className="text-muted-foreground shrink-0" />
                       <span className="max-w-[180px] truncate">{alert.routing.subnet_name || "Engine subnet"}</span>
                     </div>
-                    <div className="text-[11px] font-bold text-primary-foreground bg-primary px-2 py-0.5 rounded-md whitespace-nowrap">
+                    <div className="text-[11px] font-bold text-foreground bg-muted px-2 py-0.5 whitespace-nowrap border border-border/50">
                       ${alert.execution.cost_usd.toFixed(4)}
                     </div>
                   </div>
@@ -102,4 +102,3 @@ export function KrakenAlerts({ alerts, loading }: KrakenAlertsProps) {
     </div>
   );
 }
-

@@ -34,7 +34,7 @@ function CitationsList({ links }: { links: string[] }) {
             href={href}
             target="_blank"
             rel="noopener noreferrer"
-            className="break-all text-sm text-primary underline-offset-2 hover:underline"
+            className="break-all text-sm text-foreground underline-offset-2 hover:underline"
           >
             {href}
           </a>
