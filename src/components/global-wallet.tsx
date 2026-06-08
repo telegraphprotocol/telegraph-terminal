@@ -2,15 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Copy, Check, RefreshCw, LogOut, Wallet, ArrowDownToLine, ChevronRight, X } from "lucide-react";
+import { Copy, Check, RefreshCw, LogOut, Wallet, ArrowDownToLine, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAccount, useReadContract } from "wagmi";
 import { baseSepolia } from "wagmi/chains";
 import { cn } from "@/lib/utils";
 import { authHeaders, clearToken } from "@/lib/auth";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
 import { DepositModal } from "@/components/auth/deposit-modal";
 
 const CHAIN_NAMES: Record<number, string> = {
@@ -65,21 +62,30 @@ function CopyButton({ text }: { text: string }) {
 
 function AddressRow({ label, address, badge }: { label: string; address: string; badge?: string }) {
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1.5">
       <div className="flex items-center gap-2">
-        <span className="text-[11px] text-muted-foreground">{label}</span>
+        <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">{label}</span>
         {badge && (
-          <Badge variant="secondary" className="h-4 px-1.5 text-[9px] leading-none">
+          <span className="border border-border/50 bg-muted px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-muted-foreground leading-none">
             {badge}
-          </Badge>
+          </span>
         )}
       </div>
-      <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-muted/30 px-2.5 py-1.5">
+      <div className="flex items-center justify-between gap-2 border border-border/50 bg-muted/30 px-2.5 py-2">
         <span className="font-mono text-[11px] text-foreground" title={address}>
           {truncateAddress(address)}
         </span>
         <CopyButton text={address} />
       </div>
+    </div>
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2">
+      <div className="h-2.5 w-px bg-foreground/40" />
+      <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground">{children}</p>
     </div>
   );
 }
@@ -111,46 +117,41 @@ function WalletModal({
   const isExternal = data?.walletMode === "external";
 
   const top = anchorRect.bottom + 8;
-  const right = window.innerWidth - anchorRect.right;
+  const right = Math.max(8, window.innerWidth - anchorRect.right);
 
   return createPortal(
     <motion.div
-      initial={{ opacity: 0, scale: 0.96, y: -6 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.96, y: -6 }}
+      initial={{ opacity: 0, y: -4 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -4 }}
       transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
       style={{ top, right }}
-      className="fixed z-[9999] w-[min(calc(100vw-2rem),22rem)] rounded-xl border border-border bg-card p-5 shadow-2xl shadow-black/20 flex flex-col gap-4"
+      className="fixed z-[9999] w-[min(calc(100vw-1rem),22rem)] border border-border/60 bg-card/95 backdrop-blur-[14px] shadow-2xl shadow-black/30 flex flex-col"
     >
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="flex size-7 items-center justify-center rounded-full bg-primary/10">
-              <Wallet className="size-3.5 text-primary" />
-            </div>
-            <h2 className="text-sm font-semibold text-foreground">Account</h2>
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
+        <div className="flex items-center gap-2.5">
+          <div className="flex size-6 shrink-0 items-center justify-center border border-border/60 bg-muted/40">
+            <Wallet className="size-3 text-foreground/70" />
           </div>
-          <button
-            onClick={onClose}
-            className="rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <X className="size-4" />
-          </button>
+          <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-foreground">Account</span>
         </div>
+        <button onClick={onClose} className="text-muted-foreground transition-colors hover:text-foreground">
+          <X className="size-4" />
+        </button>
+      </div>
 
-        <Separator />
+      <div className="flex flex-col gap-4 p-4">
 
         {/* Connected wallet */}
         {connectedAddress && (
           <div className="flex flex-col gap-2">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              Connected Wallet
-            </p>
-            <div className="rounded-lg border border-border bg-muted/20 p-3 flex flex-col gap-2">
+            <SectionLabel>Connected Wallet</SectionLabel>
+            <div className="border border-border/50 bg-muted/10 p-3 flex flex-col gap-3">
               <AddressRow label="Address" address={connectedAddress} badge="External" />
-              <div className="flex items-center justify-between pt-1 border-t border-border/50">
-                <span className="text-[10px] text-muted-foreground">USDC balance</span>
-                <span className="text-xs font-semibold tabular-nums text-foreground">
+              <div className="flex items-center justify-between border-t border-border/40 pt-2">
+                <span className="text-[10px] text-muted-foreground uppercase tracking-wider">USDC</span>
+                <span className="text-[12px] font-bold tabular-nums text-foreground">
                   {connectedUsdcBalance !== null ? formatUsd(connectedUsdcBalance) : "—"}
                 </span>
               </div>
@@ -160,39 +161,28 @@ function WalletModal({
 
         {/* Payment wallet */}
         {loading && !data ? (
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+          <div className="flex items-center gap-2 py-2 text-[11px] text-muted-foreground">
             <RefreshCw className="size-3 animate-spin" />
             Loading wallet…
           </div>
         ) : error && !data ? (
-          <p className="rounded-md bg-destructive/10 px-3 py-2 text-[11px] text-destructive">{error}</p>
+          <p className="border border-destructive/30 bg-destructive/10 px-3 py-2 text-[11px] text-destructive">{error}</p>
         ) : data ? (
-          <div className="flex flex-col gap-3">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              Payment Wallet
-            </p>
-
-            <div className="rounded-lg border border-border bg-muted/20 p-3 flex flex-col gap-2">
+          <div className="flex flex-col gap-2">
+            <SectionLabel>Payment Wallet</SectionLabel>
+            <div className="border border-border/50 bg-muted/10 p-3 flex flex-col gap-3">
               {isPrivy && (
-                <AddressRow
-                  label="Privy wallet address"
-                  address={data.address}
-                  badge="Privy"
-                />
+                <AddressRow label="Privy address" address={data.address} badge="Privy" />
               )}
-
               {isExternal && connectedAddress && (
-                <p className="text-[11px] text-muted-foreground">
-                  Using your connected wallet for payments.
-                </p>
+                <p className="text-[11px] text-muted-foreground font-mono">Using connected wallet for payments.</p>
               )}
-
-              <div className="flex items-center justify-between pt-1 border-t border-border/50">
+              <div className="flex items-center justify-between border-t border-border/40 pt-2">
                 <div className="flex flex-col gap-0.5">
-                  <span className="text-[10px] text-muted-foreground">
-                    USDC balance{data.chainId ? ` · ${chainLabel(data.chainId)}` : ""}
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                    USDC{data.chainId ? ` · ${chainLabel(data.chainId)}` : ""}
                   </span>
-                  <span className={cn("text-sm font-bold tabular-nums", loading ? "opacity-50 text-foreground" : "text-foreground")}>
+                  <span className={cn("text-[15px] font-bold tabular-nums text-foreground", loading && "opacity-50")}>
                     {formatUsd(data.usdcBalance)}
                   </span>
                 </div>
@@ -207,43 +197,37 @@ function WalletModal({
                 </button>
               </div>
             </div>
-
             {error && data && (
-              <p className="text-[11px] text-amber-500">Could not refresh: {error}</p>
+              <p className="text-[10px] text-amber-500 font-mono">Could not refresh: {error}</p>
             )}
           </div>
         ) : null}
 
-        <Separator />
-
         {/* Actions */}
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 border-t border-border/40 pt-3">
           {isPrivy && (
             <button
               type="button"
               onClick={onDeposit}
-              className="group flex w-full items-center gap-3 rounded-xl bg-primary px-4 py-3 text-left transition-all hover:bg-primary/90 active:scale-[0.98]"
+              className="group flex w-full items-center gap-3 border border-border/60 bg-foreground text-background px-3 py-2.5 text-left transition-all hover:bg-foreground/90 active:scale-[0.98]"
             >
-              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white/20">
-                <ArrowDownToLine className="size-4 text-white" />
-              </div>
+              <ArrowDownToLine className="size-4 text-background/80 shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-white leading-none">Deposit USDC</p>
-                <p className="text-[10px] text-white/70 mt-0.5">Fund your Privy wallet</p>
+                <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-background leading-none">Deposit USDC</p>
+                <p className="text-[10px] text-background/50 mt-0.5 font-mono">Fund your Privy wallet</p>
               </div>
-              <ChevronRight className="size-3.5 text-white/60 group-hover:text-white transition-colors" />
             </button>
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start gap-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
+          <button
+            type="button"
             onClick={onDisconnect}
+            className="flex w-full items-center gap-2 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.1em] text-destructive/70 hover:text-destructive transition-colors hover:bg-destructive/5 border border-transparent hover:border-destructive/20"
           >
             <LogOut className="size-3.5" />
             Disconnect
-          </Button>
+          </button>
         </div>
+      </div>
     </motion.div>,
     document.body,
   );
@@ -295,8 +279,6 @@ export function GlobalWallet({ className }: Readonly<{ className?: string }>) {
     }
   }, [open, load, refetchConnectedUsdc]);
 
-
-  // Close on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
@@ -334,13 +316,12 @@ export function GlobalWallet({ className }: Readonly<{ className?: string }>) {
           aria-haspopup="dialog"
           aria-label="Open wallet"
           className={cn(
-            "flex h-9 items-center gap-2 rounded-lg border border-border px-3 text-[13px] font-medium transition-colors",
-            "hover:bg-muted/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+            "flex h-8 items-center gap-2 border border-border/60 px-3 text-[11px] font-bold uppercase tracking-[0.08em] transition-colors",
+            "hover:border-foreground/30 hover:text-foreground focus:outline-none",
+            open && "border-foreground/30",
           )}
         >
-          <div className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/15">
-            <Wallet className="size-3 text-primary" />
-          </div>
+          <Wallet className="size-3 text-foreground/60 shrink-0" />
           <span className="tabular-nums text-foreground">{triggerLabel}</span>
           {loading && data && (
             <RefreshCw className="size-3 shrink-0 animate-spin text-muted-foreground" />

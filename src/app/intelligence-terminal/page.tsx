@@ -7,6 +7,7 @@ import { ChatArea } from "@/components/chat-area";
 import { ChatInput } from "@/components/chat-input";
 import { DirectSubnetFields } from "@/components/direct-subnet-fields";
 import { EmptyState } from "@/components/empty-state";
+import { HowItWorksButton } from "@/components/how-it-works-button";
 import { MobileTerminalCollapsible, TerminalPanel } from "@/components/terminal-panel";
 import { ConnectWalletModal } from "@/components/auth/connect-wallet-modal";
 import { WalletChoiceModal } from "@/components/auth/wallet-choice-modal";
@@ -228,6 +229,7 @@ export default function LiveChatPage() {
               loading: subnetsLoading,
               error: subnetsError,
             }}
+            extraActions={<HowItWorksButton />}
           />
 
           <div className="flex flex-1 overflow-hidden">

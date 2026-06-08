@@ -16,6 +16,7 @@ interface TopNavProps {
   onToggleSidebar: () => void;
   subnetPicker: TopNavSubnetPickerProps;
   backToDashboardHref?: string;
+  extraActions?: React.ReactNode;
 }
 
 function HamburgerButton({
@@ -31,7 +32,7 @@ function HamburgerButton({
       onClick={onClick}
       aria-label={open ? "Close sidebar" : "Open sidebar"}
       aria-expanded={open}
-      className="flex h-9 w-9 shrink-0 flex-col items-center justify-center gap-[5px] transition-all duration-200"
+      className="flex h-10 w-10 shrink-0 flex-col items-center justify-center gap-[5px] transition-all duration-200"
     >
       <span
         className={[
@@ -60,6 +61,7 @@ export function TopNav({
   onToggleSidebar,
   subnetPicker,
   backToDashboardHref,
+  extraActions,
 }: TopNavProps) {
   const showGlobalWallet =
     process.env.NEXT_PUBLIC_USE_TERMINAL_BACKEND_X402 === "true";
@@ -75,7 +77,7 @@ export function TopNav({
           {backToDashboardHref && (
             <Link
               href={backToDashboardHref}
-              className="flex h-7 items-center gap-1.5 border border-border/60 px-2.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+              className="flex h-9 min-w-[44px] items-center gap-1.5 border border-border/60 px-2.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
               title="Back to dashboard"
             >
               <ArrowLeft size={12} strokeWidth={2.5} />
@@ -92,6 +94,7 @@ export function TopNav({
             </span>
           </div>
 
+          {extraActions}
           <ThemeToggle />
         </div>
 
@@ -144,6 +147,7 @@ export function TopNav({
           <div className="min-w-0 max-w-[min(280px,calc(100vw-20rem))] shrink">
             <EngineSubnetPicker {...subnetPicker} menuAlign="end" />
           </div>
+          {extraActions}
           <ThemeToggle />
           {showGlobalWallet && <GlobalWallet className="shrink-0" />}
         </div>

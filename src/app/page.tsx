@@ -203,11 +203,12 @@ export default function KrakenDashboard() {
                 </div>
                 <Link
                   href="/intelligence-terminal"
-                  className="relative flex h-8 w-8 shrink-0 items-center justify-center border border-border/60 text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground min-h-[44px] min-w-[44px]"
+                  className="relative inline-flex items-center gap-1.5 border border-amber-600/70 bg-amber-500/10 px-2.5 min-h-[44px] text-[10px] font-bold uppercase tracking-[0.1em] text-amber-600 transition-all hover:border-amber-600 hover:bg-amber-500/15 hover:text-amber-700 dark:border-amber-500/80 dark:text-amber-400 dark:hover:border-amber-400 dark:hover:bg-amber-500/20 dark:hover:text-amber-300"
                   title="Open Intelligence Terminal"
                 >
-                  <MessageSquare size={16} />
-                  <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-foreground/60" />
+                  <MessageSquare size={14} aria-hidden />
+                  <span>Terminal</span>
+                  <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-amber-400" />
                 </Link>
                 <button
                   type="button"
@@ -274,15 +275,15 @@ export default function KrakenDashboard() {
 
                 <div className="h-4 w-px shrink-0 bg-border/40" />
 
-                {/* Terminal link — ghost button style */}
+                {/* Terminal link */}
                 <Link
                   href="/intelligence-terminal"
-                  className="relative flex h-8 items-center gap-1.5 border border-border/60 px-3 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground transition-all hover:border-foreground/30 hover:text-foreground"
+                  className="relative inline-flex items-center gap-1.5 whitespace-nowrap border border-amber-600/70 bg-amber-500/10 px-3 h-8 text-[10px] font-bold uppercase tracking-[0.1em] text-amber-600 transition-all hover:border-amber-600 hover:bg-amber-500/15 hover:text-amber-700 dark:border-amber-500/80 dark:text-amber-400 dark:hover:border-amber-400 dark:hover:bg-amber-500/20 dark:hover:text-amber-300"
                   title="Open Intelligence Terminal"
                 >
-                  <MessageSquare size={13} />
+                  <MessageSquare size={13} aria-hidden />
                   <span>Terminal</span>
-                  <span className="absolute -right-1 -top-1 h-1.5 w-1.5 rounded-full bg-foreground/60" />
+                  <span className="absolute -right-1 -top-1 h-1.5 w-1.5 rounded-full bg-amber-400" />
                 </Link>
 
                 <button
@@ -427,7 +428,7 @@ export default function KrakenDashboard() {
             </div>
 
             {/* Right Sidebar (Alerts) */}
-            <aside className="w-[420px] shrink-0 hidden xl:block self-start sticky top-0">
+            <aside className="w-[min(420px,30vw)] shrink-0 hidden xl:block self-start sticky top-0">
               <KrakenAlerts alerts={feed.topAlerts} loading={feed.showTableSpinner && feed.topAlerts.length === 0} />
             </aside>
           </div>

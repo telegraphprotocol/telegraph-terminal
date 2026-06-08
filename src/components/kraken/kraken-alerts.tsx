@@ -36,7 +36,7 @@ export function KrakenAlerts({ alerts, loading }: KrakenAlertsProps) {
           <h3 className="text-[10px] font-bold text-muted-foreground tracking-[0.2em] uppercase">Live Alpha Alerts</h3>
           <Info size={13} className="text-muted-foreground" />
         </div>
-        <button className="flex items-center gap-1.5 px-2.5 py-1 bg-muted/30 text-[10px] font-medium text-muted-foreground hover:bg-muted transition-colors border border-border/40 uppercase tracking-wider">
+        <button className="flex items-center gap-1.5 px-2.5 py-2 min-h-[36px] bg-muted/30 text-[10px] font-medium text-muted-foreground hover:bg-muted transition-colors border border-border/40 uppercase tracking-wider">
           Recent <ChevronDown size={11} />
         </button>
       </div>
