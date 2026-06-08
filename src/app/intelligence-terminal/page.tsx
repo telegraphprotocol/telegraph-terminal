@@ -284,7 +284,13 @@ export default function LiveChatPage() {
                 />
               ) : null}
               <ChatInput
-                onSend={handleSend}
+                onSend={(text) => {
+                  if (authState !== "ready") {
+                    setAuthState("unauthenticated");
+                    return;
+                  }
+                  handleSend(text);
+                }}
                 disabled={isLoading}
                 allowEmptySend={Boolean(
                   directSubnetPanel?.imageUrl.trim() ||
