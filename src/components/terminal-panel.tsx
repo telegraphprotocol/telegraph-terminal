@@ -16,6 +16,28 @@ import { LiveTerminalReceipt } from "@/lib/hooks/use-live-executor";
 
 type TerminalReceiptLike = LiveTerminalReceipt | TerminalReceipt;
 
+const URL_RE = /https?:\/\/\S+/g;
+
+function DetailWithLink({ detail }: { detail: string }) {
+  const parts: React.ReactNode[] = [];
+  let last = 0;
+  for (const m of detail.matchAll(URL_RE)) {
+    if (m.index! > last) parts.push(detail.slice(last, m.index));
+    const url = m[0];
+    parts.push(
+      <a key={m.index} href={url} target="_blank" rel="noopener noreferrer"
+        className="text-primary underline-offset-2 hover:underline"
+        onClick={(e) => e.stopPropagation()}
+      >
+        View on explorer
+      </a>
+    );
+    last = m.index! + url.length;
+  }
+  if (last < detail.length) parts.push(detail.slice(last));
+  return <>{parts}</>;
+}
+
 function isLiveReceipt(receipt: TerminalReceiptLike): receipt is LiveTerminalReceipt {
   return "subnet" in receipt;
 }
@@ -349,7 +371,7 @@ function TerminalFeed({
                       <div className="h-1 w-1 rounded-full bg-foreground/20" />
                     </div>
                     <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground transition-colors group-hover:text-foreground/80">
-                      {log.detail}
+                      <DetailWithLink detail={log.detail} />
                     </p>
                   </div>
                 </motion.div>

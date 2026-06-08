@@ -80,7 +80,7 @@ export function buildPreflightScript(ctx: TerminalScriptContext): ScriptEntry[] 
     entries.push({
       section: "Initial Routing",
       label: "WALLET",
-      detail: `Checking balance on custodial address (${truncateAddress(ctx.coreWallet.address)})${bal}`,
+      detail: `Checking balance on Privy wallet (${truncateAddress(ctx.coreWallet.address)})${bal}`,
     });
   }
 
@@ -88,7 +88,7 @@ export function buildPreflightScript(ctx: TerminalScriptContext): ScriptEntry[] 
     section: "Initial Routing",
     label: "STATUS",
     detail: ctx.useTerminalBackend
-      ? "Terminal Backend custodial x402 channel ready"
+      ? "Terminal Backend Privy x402 channel ready"
       : "Engine WebSocket channel ready",
   });
 

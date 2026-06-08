@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { useSignTypedData, useAccount } from "wagmi";
 import {
   ChatMessage,
   TerminalLogEntry,
@@ -26,6 +27,7 @@ import {
   scriptEntriesFromDisplayedLogs,
   type TerminalScriptContext,
 } from "@/lib/build-terminal-script";
+import { authHeaders } from "@/lib/auth";
 
 const LS_KEY = "telegraph-live-chat-sessions-v1";
 const LS_VERSION = 2 as const;
@@ -259,6 +261,8 @@ export function useLiveExecutor(opts?: {
   /** Bump whenever paid subnet / endpoint changes so we re-apply YAML default_model. */
   const directModelContextKeyRef = useRef<string | null>(null);
   const { isConnected: engineSocketConnected, lastError, sendMessage, subscribe } = useEngineWS();
+  const { address: connectedAddress } = useAccount();
+  const { signTypedDataAsync } = useSignTypedData();
 
   type CoreWalletPayload = {
     address: string;
@@ -282,7 +286,7 @@ export function useLiveExecutor(opts?: {
         await sleep(WALLET_RETRY_DELAY_MS);
       }
       try {
-        const res = await fetch("/api/core/wallet", { cache: "no-store" });
+        const res = await fetch("/api/core/wallet", { cache: "no-store", headers: authHeaders() });
         const text = await res.text();
         if (!res.ok) {
           lastError = text.slice(0, 400) || `HTTP ${res.status}`;
@@ -778,7 +782,7 @@ export function useLiveExecutor(opts?: {
       try {
         const res = await fetch("/api/core/chat/paid", {
           method: "POST",
-          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          headers: { "Content-Type": "application/json", Accept: "application/json", ...authHeaders() },
           body: JSON.stringify({
             model: X402_CHAT_MODEL,
             messages: openAiMessages,
@@ -810,6 +814,164 @@ export function useLiveExecutor(opts?: {
               ? rec.error
               : describeHttpError(res.status, res.statusText, rawText);
           fail(new Error(errMsg), serverLogs);
+          return;
+        }
+
+        // 2-phase external wallet payment
+        if (rec.status === "payment_required") {
+          const payReqs = rec.paymentRequirements as {
+            x402Version: number;
+            accepts: {
+              scheme: string;
+              network: string;
+              asset: string;
+              payTo: string;
+              maxAmountRequired: string;
+              maxTimeoutSeconds: number;
+              extra?: { name?: string; version?: string };
+            }[];
+          } | undefined;
+          const paySessId = rec.sessionId as string | undefined;
+
+          if (!payReqs?.accepts?.[0] || !paySessId) {
+            fail(new Error("Invalid payment_required response from backend"));
+            return;
+          }
+          if (!connectedAddress) {
+            fail(new Error("No wallet connected — cannot sign payment"));
+            return;
+          }
+
+          appendTerminalLogThrottled({
+            label: "PAYMENT",
+            detail: "Requesting wallet signature for x402 payment…",
+            section: "Payment",
+          });
+
+          const req = payReqs.accepts[0];
+          const chainId = req.network === "base-sepolia" ? 84532 : req.network === "base" ? 8453 : 84532;
+          const now = Math.floor(Date.now() / 1000);
+          const nonce = `0x${Array.from(crypto.getRandomValues(new Uint8Array(32))).map((b) => b.toString(16).padStart(2, "0")).join("")}` as `0x${string}`;
+
+          let signature: `0x${string}`;
+          try {
+            signature = await signTypedDataAsync({
+              domain: {
+                name: req.extra?.name ?? "USD Coin",
+                version: req.extra?.version ?? "2",
+                chainId,
+                verifyingContract: req.asset as `0x${string}`,
+              },
+              types: {
+                TransferWithAuthorization: [
+                  { name: "from", type: "address" },
+                  { name: "to", type: "address" },
+                  { name: "value", type: "uint256" },
+                  { name: "validAfter", type: "uint256" },
+                  { name: "validBefore", type: "uint256" },
+                  { name: "nonce", type: "bytes32" },
+                ],
+              },
+              primaryType: "TransferWithAuthorization",
+              message: {
+                from: connectedAddress,
+                to: req.payTo as `0x${string}`,
+                value: BigInt(req.maxAmountRequired),
+                validAfter: BigInt(now - 600),
+                validBefore: BigInt(now + req.maxTimeoutSeconds),
+                nonce,
+              },
+            });
+          } catch (err) {
+            fail(new Error(`Wallet signature rejected: ${err instanceof Error ? err.message : String(err)}`), serverLogs);
+            return;
+          }
+
+          const paymentPayload = {
+            x402Version: payReqs.x402Version,
+            scheme: req.scheme,
+            network: req.network,
+            payload: {
+              authorization: {
+                from: connectedAddress,
+                to: req.payTo,
+                value: req.maxAmountRequired,
+                validAfter: (now - 600).toString(),
+                validBefore: (now + req.maxTimeoutSeconds).toString(),
+                nonce,
+              },
+              signature,
+            },
+          };
+          const signedPayment = btoa(JSON.stringify(paymentPayload));
+
+          appendTerminalLogThrottled({
+            label: "PAYMENT",
+            detail: "Signature received — completing payment…",
+            section: "Payment",
+          });
+
+          const completeRes = await fetch("/api/core/chat/paid/complete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Accept: "application/json", ...authHeaders() },
+            body: JSON.stringify({ sessionId: paySessId, signedPayment }),
+          });
+          const completeText = await completeRes.text();
+          let completeData: unknown;
+          try {
+            completeData = JSON.parse(completeText) as unknown;
+          } catch {
+            fail(new Error(`Backend returned non-JSON after payment (HTTP ${completeRes.status})`));
+            return;
+          }
+          // Replace data/rec/res with completed response for the rest of the handler
+          data = completeData;
+          const completeRec = completeData as Record<string, unknown>;
+          const completeLogs = Array.isArray(completeRec.terminalLogs)
+            ? (completeRec.terminalLogs as { label: string; detail: string; section: string }[])
+            : serverLogs;
+
+          if (!completeRes.ok || completeRec.ok !== true) {
+            const errMsg = typeof completeRec.error === "string"
+              ? completeRec.error
+              : describeHttpError(completeRes.status, completeRes.statusText, completeText);
+            fail(new Error(errMsg), completeLogs);
+            return;
+          }
+
+          const assistantText =
+            typeof completeRec.assistantText === "string" ? completeRec.assistantText : extractAssistantText(completeData);
+          const tr = completeRec.terminalReceipt as LiveTerminalReceipt | undefined;
+
+          appendToSessionMessages(sessionId, (prev) =>
+            prev.map((m) =>
+              m.id === userMessageId && m.role === "user"
+                ? { ...m, sendState: "ok" as const, sendError: undefined }
+                : m,
+            ),
+          );
+          const already = scriptEntriesFromDisplayedLogs(displayedLogsRef.current);
+          const script = buildPostResponseScript(completeLogs, tr, scriptContext, already);
+          await new Promise<void>((resolve) => {
+            playTerminalScript(script, tr && typeof tr === "object" ? tr : undefined, {
+              mode: "append",
+              revealReceiptAfter: Boolean(tr && typeof tr === "object"),
+              onComplete: () => {
+                appendToSessionMessages(sessionId, (prev) => [
+                  ...prev,
+                  {
+                    id: `live-assistant-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+                    role: "assistant" as const,
+                    content: [{ kind: "text" as const, text: assistantText }],
+                  },
+                ]);
+                setX402Phase("settled");
+                setRuntimeError(null);
+                void fetchCoreWallet();
+                resolve();
+              },
+            });
+          });
           return;
         }
 
@@ -864,6 +1026,9 @@ export function useLiveExecutor(opts?: {
       fetchCoreWallet,
       scriptContext,
       playTerminalScript,
+      appendTerminalLogThrottled,
+      connectedAddress,
+      signTypedDataAsync,
     ],
   );
 
@@ -1167,22 +1332,13 @@ export function useLiveExecutor(opts?: {
     backendWalletStatus,
     useCorePaidChat: USE_TERMINAL_BACKEND_PAID_CHAT,
     useX402Chat: USE_TERMINAL_BACKEND_PAID_CHAT,
-    coreWalletFooter:
-      USE_TERMINAL_BACKEND_PAID_CHAT && coreWallet
-        ? {
-            label: `${coreWallet.address.slice(0, 6)}…${coreWallet.address.slice(-4)}`,
-            subtitle: `Chain ${coreWallet.chainId}${
-              coreWallet.usdcBalance != null
-                ? ` · ${Number(coreWallet.usdcBalance).toLocaleString("en-US", {
-                    style: "currency",
-                    currency: "USD",
-                    maximumFractionDigits: 6,
-                  })}`
-                : ""
-            }`,
-            initials: coreWallet.address.slice(2, 4).toUpperCase(),
-          }
-        : null,
+    coreWalletFooter: connectedAddress
+      ? {
+          label: `${connectedAddress.slice(0, 6)}…${connectedAddress.slice(-4)}`,
+          subtitle: "Base Sepolia",
+          initials: connectedAddress.slice(2, 4).toUpperCase(),
+        }
+      : null,
     handleSend,
     handleRetrySend,
     handleNewChat,

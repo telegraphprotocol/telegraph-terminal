@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useLayoutEffect } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback } from "react";
 import { Sidebar } from "@/components/sidebar";
 import { TopNav } from "@/components/top-nav";
 import { ChatArea } from "@/components/chat-area";
@@ -8,8 +8,12 @@ import { ChatInput } from "@/components/chat-input";
 import { DirectSubnetFields } from "@/components/direct-subnet-fields";
 import { EmptyState } from "@/components/empty-state";
 import { MobileTerminalCollapsible, TerminalPanel } from "@/components/terminal-panel";
+import { ConnectWalletModal } from "@/components/auth/connect-wallet-modal";
+import { WalletChoiceModal } from "@/components/auth/wallet-choice-modal";
+import { DepositModal } from "@/components/auth/deposit-modal";
 import { useLiveExecutor } from "@/lib/hooks/use-live-executor";
 import { apiClient } from "@/lib/api-client";
+import { getToken, authHeaders } from "@/lib/auth";
 import {
   normalizeEngineSubnets,
   fetchSyncedSubnetSlugSet,
@@ -18,12 +22,67 @@ import {
   type SubnetPickItem,
 } from "@/lib/subnet-catalog";
 
+type AuthState = "loading" | "unauthenticated" | "wallet-choice" | "deposit" | "ready";
+
 export default function LiveChatPage() {
   const [forcedSubnetId, setForcedSubnetId] = useState<string | null>(null);
   const [engineSubnets, setEngineSubnets] = useState<SubnetPickItem[]>([]);
   const [subnetsLoading, setSubnetsLoading] = useState(true);
   const [subnetsError, setSubnetsError] = useState<string | null>(null);
 
+  // Auth state machine
+  const [authState, setAuthState] = useState<AuthState>("loading");
+  const [depositWalletAddress, setDepositWalletAddress] = useState<string | null>(null);
+
+  // Check auth on mount
+  useEffect(() => {
+    const token = getToken();
+    if (!token) {
+      setAuthState("unauthenticated");
+      return;
+    }
+    // Verify token is still valid and check walletMode
+    fetch("/api/auth/me", { headers: authHeaders() })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((me) => {
+        if (!me) {
+          setAuthState("unauthenticated");
+          return;
+        }
+        if (!me.walletMode) {
+          setAuthState("wallet-choice");
+        } else {
+          setAuthState("ready");
+        }
+      })
+      .catch(() => setAuthState("unauthenticated"));
+  }, []);
+
+  const handleAuthenticated = useCallback(() => {
+    // After JWT obtained, check walletMode
+    fetch("/api/auth/me", { headers: authHeaders() })
+      .then((r) => r.json())
+      .then((me) => {
+        if (!me?.walletMode) setAuthState("wallet-choice");
+        else setAuthState("ready");
+      })
+      .catch(() => setAuthState("wallet-choice"));
+  }, []);
+
+  const handlePrivyCreated = useCallback((walletAddress: string) => {
+    setDepositWalletAddress(walletAddress);
+    setAuthState("deposit");
+  }, []);
+
+  const handleExternalChosen = useCallback(() => {
+    setAuthState("ready");
+  }, []);
+
+  const handleDepositClose = useCallback(() => {
+    setAuthState("ready");
+  }, []);
+
+  // Load engine subnets
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -32,9 +91,7 @@ export default function LiveChatPage() {
         if (cancelled) return;
         const normalized = normalizeEngineSubnets(data);
         let synced = await fetchSyncedSubnetSlugSet();
-        if (synced.size === 0) {
-          synced = await discoverSyncedSlugsByHead(normalized);
-        }
+        if (synced.size === 0) synced = await discoverSyncedSlugsByHead(normalized);
         const filtered = intersectSubnetsWithSyncedYaml(normalized, synced);
         setEngineSubnets(filtered);
         if (filtered.length === 0 && normalized.length > 0) {
@@ -53,9 +110,7 @@ export default function LiveChatPage() {
         if (!cancelled) setSubnetsLoading(false);
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -89,10 +144,6 @@ export default function LiveChatPage() {
     directSubnetPanel,
   } = useLiveExecutor({ forcedSubnetId, engineSubnets });
 
-  /**
-   * Until layout runs on the client, keep sidebar visually "closed" so SSR HTML matches the first
-   * client render (avoids overlay `<div>` vs `<aside>` order mismatch during hydration).
-   */
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarLayoutReady, setSidebarLayoutReady] = useState(false);
 
@@ -103,7 +154,6 @@ export default function LiveChatPage() {
   }, []);
 
   const effectiveSidebarOpen = sidebarLayoutReady ? sidebarOpen : false;
-
   const hasMessages = messages.length > 0;
   const showTerminal = hasMessages || isLoading;
 
@@ -111,7 +161,7 @@ export default function LiveChatPage() {
   if (useX402Chat) {
     chatLoadingHint =
       x402Phase === "paying"
-        ? "Processing x402 payment and paid chat on Terminal Backend…"
+        ? "Processing x402 payment…"
         : "Waiting for Terminal Backend and Telegraph…";
   }
 
@@ -123,121 +173,137 @@ export default function LiveChatPage() {
   const connectionBannerMessage =
     engineError ??
     (useX402Chat
-      ? "Terminal Backend wallet is not ready. Ensure Terminal Backend is running and Next has TERMINAL_BACKEND_API_KEY / TERMINAL_BACKEND_INTERNAL_URL set."
+      ? "Terminal Backend wallet is not ready. Ensure Terminal Backend is running and TERMINAL_BACKEND_INTERNAL_URL is set."
       : "Engine connection unavailable. Retrying...");
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background md:flex-row">
-      {effectiveSidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/60 md:hidden"
-          onClick={() => setSidebarOpen(false)}
+    <>
+      {/* Auth modals — rendered above everything */}
+      {authState === "unauthenticated" && (
+        <ConnectWalletModal onAuthenticated={handleAuthenticated} />
+      )}
+      {authState === "wallet-choice" && (
+        <WalletChoiceModal
+          onPrivyCreated={handlePrivyCreated}
+          onExternalChosen={handleExternalChosen}
         />
       )}
+      {authState === "deposit" && depositWalletAddress && (
+        <DepositModal walletAddress={depositWalletAddress} onClose={handleDepositClose} />
+      )}
 
-      <Sidebar
-        isOpen={effectiveSidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        onToggle={() => setSidebarOpen((v) => !v)}
-        historyGroups={chatHistoryGroups}
-        activeId={activeSessionId ?? undefined}
-        onSelect={handleSelectSession}
-        onNewChat={handleNewChat}
-        walletFooter={coreWalletFooter}
-        liveChatActions={{
-          onArchive: archiveSession,
-          onRestore: restoreSession,
-          onDelete: deleteSession,
-        }}
-      />
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background md:flex-row">
+        {effectiveSidebarOpen && (
+          <div
+            className="fixed inset-0 z-40 bg-black/60 md:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <TopNav
-          sidebarOpen={effectiveSidebarOpen}
-          onToggleSidebar={() => setSidebarOpen((v) => !v)}
-          backToDashboardHref="/"
-          subnetPicker={{
-            subnets: engineSubnets,
-            selectedSubnetId: forcedSubnetId,
-            onSubnetChange: setForcedSubnetId,
-            loading: subnetsLoading,
-            error: subnetsError,
+        <Sidebar
+          isOpen={effectiveSidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          onToggle={() => setSidebarOpen((v) => !v)}
+          historyGroups={chatHistoryGroups}
+          activeId={activeSessionId ?? undefined}
+          onSelect={handleSelectSession}
+          onNewChat={handleNewChat}
+          walletFooter={coreWalletFooter}
+          liveChatActions={{
+            onArchive: archiveSession,
+            onRestore: restoreSession,
+            onDelete: deleteSession,
           }}
         />
 
-        <div className="flex flex-1 overflow-hidden">
-          <div className="flex flex-col flex-1 overflow-hidden min-w-0">
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              {showConnectionBanner && (
-                <div className="mx-4 mb-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200 sm:mx-6">
-                  {connectionBannerMessage}
-                </div>
-              )}
-              {hasMessages ? (
-                <ChatArea
-                  messages={messages}
-                  isLoading={isLoading}
-                  loadingHint={chatLoadingHint}
-                  onRetrySend={handleRetrySend}
-                  mobileTerminal={
-                    showTerminal ? (
-                      <div className="md:hidden">
-                        <MobileTerminalCollapsible
-                          logs={terminalLogs}
-                          showReceipt={!!terminalReceipt}
-                          receipt={terminalReceipt}
-                          isLoading={isLoading}
-                          isRevealing={terminalIsRevealing}
-                        />
-                      </div>
-                    ) : null
-                  }
-                />
-              ) : (
-                <EmptyState onQuestionClick={handleSend} />
-              )}
-            </div>
-            {directSubnetPanel ? (
-              <DirectSubnetFields
-                spec={directSubnetPanel.spec}
-                loading={directSubnetPanel.loading}
-                error={directSubnetPanel.error}
-                endpointPath={directSubnetPanel.endpointPath}
-                onEndpointPath={(p) => directSubnetPanel.setEndpointPath(p)}
-                model={directSubnetPanel.model}
-                onModel={(v) => directSubnetPanel.setModel(v)}
-                modelPlaceholder={directSubnetPanel.modelPlaceholder}
-                imageUrl={directSubnetPanel.imageUrl}
-                onImageUrl={(v) => directSubnetPanel.setImageUrl(v)}
-                lat={directSubnetPanel.lat}
-                onLat={(v) => directSubnetPanel.setLat(v)}
-                lon={directSubnetPanel.lon}
-                onLon={(v) => directSubnetPanel.setLon(v)}
-                gateError={directSubnetPanel.gateError}
-              />
-            ) : null}
-            <ChatInput
-              onSend={handleSend}
-              disabled={isLoading}
-              allowEmptySend={Boolean(
-                directSubnetPanel?.imageUrl.trim() ||
-                  (directSubnetPanel?.lat.trim() && directSubnetPanel?.lon.trim()),
-              )}
-            />
-          </div>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <TopNav
+            sidebarOpen={effectiveSidebarOpen}
+            onToggleSidebar={() => setSidebarOpen((v) => !v)}
+            backToDashboardHref="/"
+            subnetPicker={{
+              subnets: engineSubnets,
+              selectedSubnetId: forcedSubnetId,
+              onSubnetChange: setForcedSubnetId,
+              loading: subnetsLoading,
+              error: subnetsError,
+            }}
+          />
 
-          {showTerminal && (
-            <div className="hidden md:flex">
-              <TerminalPanel
-                logs={terminalLogs}
-                showReceipt={!!terminalReceipt}
-                receipt={terminalReceipt}
-                isRevealing={terminalIsRevealing}
+          <div className="flex flex-1 overflow-hidden">
+            <div className="flex flex-col flex-1 overflow-hidden min-w-0">
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                {showConnectionBanner && (
+                  <div className="mx-4 mb-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200 sm:mx-6">
+                    {connectionBannerMessage}
+                  </div>
+                )}
+                {hasMessages ? (
+                  <ChatArea
+                    messages={messages}
+                    isLoading={isLoading}
+                    loadingHint={chatLoadingHint}
+                    onRetrySend={handleRetrySend}
+                    mobileTerminal={
+                      showTerminal ? (
+                        <div className="md:hidden">
+                          <MobileTerminalCollapsible
+                            logs={terminalLogs}
+                            showReceipt={!!terminalReceipt}
+                            receipt={terminalReceipt}
+                            isLoading={isLoading}
+                            isRevealing={terminalIsRevealing}
+                          />
+                        </div>
+                      ) : null
+                    }
+                  />
+                ) : (
+                  <EmptyState onQuestionClick={handleSend} />
+                )}
+              </div>
+              {directSubnetPanel ? (
+                <DirectSubnetFields
+                  spec={directSubnetPanel.spec}
+                  loading={directSubnetPanel.loading}
+                  error={directSubnetPanel.error}
+                  endpointPath={directSubnetPanel.endpointPath}
+                  onEndpointPath={(p) => directSubnetPanel.setEndpointPath(p)}
+                  model={directSubnetPanel.model}
+                  onModel={(v) => directSubnetPanel.setModel(v)}
+                  modelPlaceholder={directSubnetPanel.modelPlaceholder}
+                  imageUrl={directSubnetPanel.imageUrl}
+                  onImageUrl={(v) => directSubnetPanel.setImageUrl(v)}
+                  lat={directSubnetPanel.lat}
+                  onLat={(v) => directSubnetPanel.setLat(v)}
+                  lon={directSubnetPanel.lon}
+                  onLon={(v) => directSubnetPanel.setLon(v)}
+                  gateError={directSubnetPanel.gateError}
+                />
+              ) : null}
+              <ChatInput
+                onSend={handleSend}
+                disabled={isLoading}
+                allowEmptySend={Boolean(
+                  directSubnetPanel?.imageUrl.trim() ||
+                    (directSubnetPanel?.lat.trim() && directSubnetPanel?.lon.trim()),
+                )}
               />
             </div>
-          )}
+
+            {showTerminal && (
+              <div className="hidden md:flex">
+                <TerminalPanel
+                  logs={terminalLogs}
+                  showReceipt={!!terminalReceipt}
+                  receipt={terminalReceipt}
+                  isRevealing={terminalIsRevealing}
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
