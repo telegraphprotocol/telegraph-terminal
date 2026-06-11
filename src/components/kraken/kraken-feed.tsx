@@ -7,6 +7,7 @@ import { DaemonResultItem } from "@/lib/engine-daemon-types";
 import { KrakenSourceWithCopy } from "@/components/kraken/kraken-source-with-copy";
 import { formatKrakenIntentCell } from "@/lib/kraken-signal-format";
 import { summarizeExecutionResult } from "@/lib/kraken-signal-result";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface KrakenFeedProps {
   items: DaemonResultItem[];
@@ -102,7 +103,19 @@ function DetailsChevron({
 
 function EmptyOrLoading({ loading, empty }: { loading: boolean; empty: boolean }) {
   if (loading && empty) {
-    return <div className="px-4 py-6 text-sm text-muted-foreground">Loading signal feed...</div>;
+    return (
+      <div className="flex flex-col divide-y divide-border/40">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div key={i} className="flex items-center gap-4 px-4 py-3">
+            <Skeleton className="h-4 w-4 shrink-0 rounded-full" />
+            <Skeleton className="h-3 w-24 shrink-0" />
+            <Skeleton className="h-3 flex-1" />
+            <Skeleton className="h-3 w-16 shrink-0" />
+            <Skeleton className="h-3 w-10 shrink-0" />
+          </div>
+        ))}
+      </div>
+    );
   }
   if (!loading && empty) {
     return <div className="px-4 py-6 text-sm text-muted-foreground">No signal rows found for the selected filters.</div>;

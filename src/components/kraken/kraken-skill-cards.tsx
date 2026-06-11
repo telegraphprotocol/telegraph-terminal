@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Link2, ServerOff } from "lucide-react";
 import Link from "next/link";
 import type { SubnetPickItem } from "@/lib/subnet-catalog";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export type KrakenSkillCardsProps = {
   engineSubnets: SubnetPickItem[];
@@ -18,16 +19,17 @@ export function KrakenSkillCards({
 }: KrakenSkillCardsProps) {
   if (subnetsLoading) {
     return (
-      <div className="grid w-full grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid w-full grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {[0, 1, 2].map((i) => (
-          <div
-            key={i}
-            className="animate-pulse border border-border/50 bg-card p-6"
-          >
-            <div className="mb-6 h-14 w-14 bg-muted/40" />
-            <div className="mb-2 h-6 w-[80%] max-w-[240px] bg-muted/40" />
-            <div className="mb-4 h-20 bg-muted/30" />
-            <div className="h-10 bg-muted/40" />
+          <div key={i} className="flex flex-col border border-border/50 bg-card p-6">
+            <div className="mb-6 flex items-start justify-between">
+              <Skeleton className="h-14 w-14" />
+              <Skeleton className="h-6 w-10" />
+            </div>
+            <Skeleton className="mb-3 h-6 w-3/4" />
+            <Skeleton className="mb-2 h-4 w-full flex-1" />
+            <Skeleton className="mb-1 h-4 w-5/6" />
+            <Skeleton className="mt-6 h-9 w-full" />
           </div>
         ))}
       </div>
@@ -67,25 +69,25 @@ export function KrakenSkillCards({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: Math.min(i * 0.05, 0.4) }}
-          className="group border border-border/50 bg-card p-6 transition-all hover:border-foreground/20"
+          className="group flex flex-col border border-border/50 bg-card p-6 transition-all hover:border-foreground/20"
         >
           <div className="mb-6 flex items-start justify-between">
             <div className="border border-border/60 p-3 text-muted-foreground transition-colors group-hover:border-foreground/30 group-hover:text-foreground">
               <Link2 size={28} />
             </div>
             <span className="bg-muted/60 px-2 py-1 font-mono text-[11px] text-muted-foreground border border-border/40">
-              SN{subnet.id}
+              {subnet.id}
             </span>
           </div>
 
           <h3 className="mb-2 text-xl font-bold tracking-tight text-foreground">{subnet.label}</h3>
-          <p className="mb-6 text-[13px] leading-relaxed text-muted-foreground">
+          <p className="mb-6 flex-1 text-[13px] leading-relaxed text-muted-foreground">
             Engine-registered subnet. Queries can be routed here from the Intelligence Terminal.
           </p>
 
           <Link
             href="/intelligence-terminal"
-            className="flex h-9 w-full items-center justify-center border border-border/50 bg-muted/50 text-[10px] font-bold uppercase tracking-[0.1em] text-foreground transition-colors hover:bg-muted hover:border-foreground/30"
+            className="mt-auto flex h-9 w-full items-center justify-center border border-border/50 bg-muted/50 text-[10px] font-bold uppercase tracking-[0.1em] text-foreground transition-colors hover:bg-muted hover:border-foreground/30"
           >
             Open terminal
           </Link>

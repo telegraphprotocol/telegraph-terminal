@@ -53,7 +53,7 @@ export function ChatInput({ onSend, disabled, allowEmptySend = false }: ChatInpu
             isFocused ? "border-foreground/20" : "border-border/50",
           )}
         >
-          <button className="p-3 text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-all duration-200 shrink-0 mb-0.5">
+          <button disabled className="p-3 text-muted-foreground/30 cursor-not-allowed shrink-0 mb-0.5">
             <Paperclip size={20} />
           </button>
 

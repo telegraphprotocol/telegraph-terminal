@@ -193,7 +193,7 @@ export default function LiveChatPage() {
         <DepositModal walletAddress={depositWalletAddress} onClose={handleDepositClose} />
       )}
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background md:flex-row">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background bg-dot-grid md:flex-row">
         {effectiveSidebarOpen && (
           <div
             className="fixed inset-0 z-40 bg-black/60 md:hidden"

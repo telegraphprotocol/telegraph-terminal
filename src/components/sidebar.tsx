@@ -19,10 +19,10 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const SUPPORT_URL =
   process.env.NEXT_PUBLIC_SUPPORT_URL?.trim() ||
-  "https://telegraphprotocol.com/";
+  "https://telegraphprotocol.com/support";
 const DOCS_URL =
   process.env.NEXT_PUBLIC_DOCS_URL?.trim() ||
-  "https://telegraph-2.gitbook.io/telegraph";
+  "https://docs.telegraphprotocol.com";
 
 export type LiveChatSidebarActions = {
   onArchive: (id: string) => void;

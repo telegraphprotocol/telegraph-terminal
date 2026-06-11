@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { DaemonResultItem } from "@/lib/engine-daemon-types";
 import { KrakenSourceWithCopy } from "@/components/kraken/kraken-source-with-copy";
 import { summarizeExecutionResult } from "@/lib/kraken-signal-result";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface KrakenAlertsProps {
   alerts: DaemonResultItem[];
@@ -43,7 +44,19 @@ export function KrakenAlerts({ alerts, loading }: KrakenAlertsProps) {
 
       <div className="flex flex-col gap-3">
         {loading && alerts.length === 0 && (
-          <div className="px-2 py-6 text-sm text-muted-foreground font-mono">Loading top alerts...</div>
+          <div className="flex flex-col gap-3">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex flex-col gap-2 border border-border/40 p-3">
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-4 w-4 rounded-full shrink-0" />
+                  <Skeleton className="h-3 w-32" />
+                  <Skeleton className="ml-auto h-3 w-14" />
+                </div>
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-3 w-4/5" />
+              </div>
+            ))}
+          </div>
         )}
         {!loading && alerts.length === 0 && (
           <div className="px-2 py-6 text-sm text-muted-foreground font-mono">No high-interest alerts found.</div>

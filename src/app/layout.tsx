@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Roboto_Mono } from "next/font/google";
 import { Providers } from "@/app/providers";
+import { CursorGlow } from "@/components/cursor-glow";
 import "./globals.css";
 
 const robotoMono = Roboto_Mono({
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
   title: "Telegraph Intelligence Terminal",
   description: "AI-powered intelligence and settlement platform",
   icons: {
-    icon: "/favicon.svg",
+    icon: "/logo.png",
   },
 };
 
@@ -29,6 +30,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="flex h-dvh min-h-0 flex-col overflow-hidden bg-background text-foreground">
+        <CursorGlow />
         <Providers>
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             {children}

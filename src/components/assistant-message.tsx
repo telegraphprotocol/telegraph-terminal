@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { Check, Copy, Sparkles } from "lucide-react";
+import { Check, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ChatMessage } from "@/lib/mock-data";
 import { looksLikeMarkdown, MarkdownContent } from "@/components/markdown-content";
@@ -28,8 +28,8 @@ export function AssistantMessage({ message }: { message: ChatMessage }) {
 
   return (
     <div className="flex items-start gap-4 max-w-2xl">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center border border-border/60 bg-muted">
-        <Sparkles size={14} className="text-foreground/70" aria-hidden />
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center border border-border/60 bg-muted p-1">
+        <img src="/logo.png" alt="Telegraph" className="h-full w-full object-contain" aria-hidden />
       </div>
       <div className="min-w-0 flex-1 pt-1">
         <div className="space-y-2">
