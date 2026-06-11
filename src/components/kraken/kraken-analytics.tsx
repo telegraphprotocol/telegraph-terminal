@@ -1,16 +1,17 @@
 "use client";
 
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer, 
-  Cell 
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Cell
 } from "recharts";
 import { useMemo } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { DaemonResultItem } from "@/lib/engine-daemon-types";
 
 interface KrakenAnalyticsProps {
@@ -41,25 +42,25 @@ export function KrakenAnalytics({ items, loading }: KrakenAnalyticsProps) {
   }, [items]);
 
   return (
-    <div className="w-full bg-card rounded-3xl p-6 border border-border/50 shadow-sm">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+    <div className="w-full bg-card p-4 sm:p-6 border border-border/50">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
-          <h3 className="text-lg font-bold text-foreground mb-1">Cost Efficiency Comparison</h3>
-          <p className="text-sm text-muted-foreground">In-House Model Training vs. Kraken Signal API</p>
+          <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-foreground mb-1">Cost Efficiency Comparison</h3>
+          <p className="text-[11px] text-muted-foreground font-mono">In-House Model Training vs. Telegraph Signal API</p>
         </div>
-        
+
         <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between gap-12">
+          <div className="flex items-center justify-between gap-6 sm:gap-12">
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-secondary" />
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: "#666666" }} />
               <span className="text-sm text-muted-foreground">Total Internal AI Cost</span>
             </div>
             <span className="text-sm font-medium text-foreground">${totalInternalCost.toFixed(2)}</span>
           </div>
-          <div className="flex items-center justify-between gap-12">
+          <div className="flex items-center justify-between gap-6 sm:gap-12">
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-primary" />
-              <span className="text-sm text-muted-foreground">Total Kraken Signal API Cost</span>
+              <div className="w-2 h-2 rounded-full bg-foreground/50" />
+              <span className="text-sm text-muted-foreground">Total Telegraph Signal API Cost</span>
             </div>
             <span className="text-sm font-medium text-foreground">${totalDaemonCost.toFixed(2)}</span>
           </div>
@@ -71,11 +72,10 @@ export function KrakenAnalytics({ items, loading }: KrakenAnalyticsProps) {
         style={{ height: CHART_HEIGHT_PX }}
       >
         {loading && chartData.length === 0 ? (
-          <div
-            className="flex items-center justify-center text-sm text-muted-foreground"
-            style={{ height: CHART_HEIGHT_PX }}
-          >
-            Loading analytics...
+          <div className="flex items-end gap-2 px-2" style={{ height: CHART_HEIGHT_PX }}>
+            {[40, 70, 55, 90, 60, 75, 45, 85, 50, 65, 80, 35].map((h, i) => (
+              <Skeleton key={i} className="flex-1" style={{ height: `${h}%` }} />
+            ))}
           </div>
         ) : (
         <ResponsiveContainer width="100%" height={CHART_HEIGHT_PX} minWidth={0}>
@@ -89,24 +89,26 @@ export function KrakenAnalytics({ items, loading }: KrakenAnalyticsProps) {
               dy={10}
             />
             <YAxis hide />
-            <Tooltip 
-              cursor={{ fill: "rgba(122, 46, 255, 0.05)" }}
-              contentStyle={{ 
-                backgroundColor: "var(--card)", 
+            <Tooltip
+              cursor={{ fill: "color-mix(in srgb, var(--foreground) 8%, transparent)" }}
+              contentStyle={{
+                backgroundColor: "var(--card)",
                 border: "1px solid var(--border)",
-                borderRadius: "12px",
+                borderRadius: "0",
                 fontSize: "12px",
-                color: "var(--card-foreground)",
+                color: "var(--foreground)",
               }}
+              labelStyle={{ color: "var(--foreground)" }}
+              itemStyle={{ color: "var(--muted-foreground)" }}
             />
-            <Bar dataKey="internal" radius={[4, 4, 0, 0]} barSize={12}>
-              {chartData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill="var(--secondary)" />
+            <Bar dataKey="internal" radius={[4, 4, 0, 0]} barSize={12} isAnimationActive={false}>
+              {chartData.map((_, index) => (
+                <Cell key={`cell-internal-${index}`} fill="#666666" opacity={1} />
               ))}
             </Bar>
-            <Bar dataKey="kraken" radius={[4, 4, 0, 0]} barSize={12}>
-              {chartData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill="var(--primary)" />
+            <Bar dataKey="kraken" radius={[4, 4, 0, 0]} barSize={12} isAnimationActive={false}>
+              {chartData.map((_, index) => (
+                <Cell key={`cell-kraken-${index}`} fill="var(--foreground)" opacity={1} />
               ))}
             </Bar>
           </BarChart>

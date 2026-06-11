@@ -60,7 +60,7 @@ export function EngineSubnetPicker({
         className={cn(
           "flex h-9 w-full max-w-full items-center gap-2 rounded-lg border px-3 text-left transition-colors",
           "lg:w-auto lg:max-w-[min(260px,calc(100vw-14rem))]",
-          "hover:bg-muted/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+          "hover:bg-muted/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20",
           engineUnreachable ? "border-amber-500/40 bg-amber-500/5" : "border-border",
         )}
         aria-expanded={dropdownOpen}
@@ -81,7 +81,7 @@ export function EngineSubnetPicker({
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
             className={cn(
-              "absolute top-[calc(100%+8px)] z-50 min-w-[220px] max-w-[min(90vw,280px)] rounded-2xl border border-border/50 bg-popover/95 backdrop-blur-xl shadow-2xl shadow-primary/20 p-1.5 overflow-hidden",
+              "absolute top-[calc(100%+8px)] z-50 min-w-[220px] max-w-[min(90vw,280px)] border border-border/60 bg-popover/95 backdrop-blur-xl shadow-2xl shadow-black/50 p-1.5 overflow-hidden",
               menuPosition,
             )}
           >
@@ -97,13 +97,13 @@ export function EngineSubnetPicker({
               className={cn(
                 "w-full px-3 py-2.5 text-[13px] font-medium transition-all duration-200 text-left rounded-lg flex items-center justify-between group",
                 selectedSubnetId === null
-                  ? "bg-primary/10 text-primary"
+                  ? "bg-foreground/8 text-foreground"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground",
               )}
             >
               Auto routing
               {selectedSubnetId === null ? (
-                <div className="h-1 w-1 shrink-0 rounded-full bg-primary" />
+                <div className="h-1 w-1 shrink-0 rounded-full bg-foreground/50" />
               ) : null}
             </button>
             <div className="my-1 h-px bg-border/40" />
@@ -126,13 +126,13 @@ export function EngineSubnetPicker({
                   className={cn(
                     "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left text-[13px] font-medium transition-all duration-200 group",
                     selectedSubnetId === s.id
-                      ? "bg-primary/10 text-primary"
+                      ? "bg-foreground/8 text-foreground"
                       : "text-muted-foreground hover:bg-accent hover:text-foreground",
                   )}
                 >
                   <span className="truncate">{s.label}</span>
                   {selectedSubnetId === s.id ? (
-                    <div className="h-1 w-1 shrink-0 rounded-full bg-primary" />
+                    <div className="h-1 w-1 shrink-0 rounded-full bg-foreground/50" />
                   ) : null}
                 </button>
               ))

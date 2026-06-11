@@ -8,7 +8,6 @@ import { cn } from "@/lib/utils";
 interface ChatInputProps {
   onSend?: (message: string) => void;
   disabled?: boolean;
-  /** Allow firing send with an empty textarea (e.g. direct subnet flow with only image URL). */
   allowEmptySend?: boolean;
 }
 
@@ -43,20 +42,19 @@ export function ChatInput({ onSend, disabled, allowEmptySend = false }: ChatInpu
   };
 
   return (
-    <div className="bg-background/80 pb-[max(2rem,calc(2rem+env(safe-area-inset-bottom,0px)))] pt-4 backdrop-blur-md">
+    <div className="bg-background/90 pb-[max(2rem,calc(2rem+env(safe-area-inset-bottom,0px)))] pt-4 backdrop-blur-md">
       <div className="mx-auto w-full max-w-[720px] px-4 sm:px-6">
-        <motion.div 
-          animate={{ 
-            scale: isFocused ? 1.01 : 1,
-            boxShadow: isFocused ? "0 10px 30px -10px rgba(140,89,255,0.2)" : "0 4px 20px -5px rgba(0,0,0,0.1)"
+        <motion.div
+          animate={{
+            scale: isFocused ? 1.005 : 1,
           }}
           className={cn(
-            "relative flex items-end gap-2 rounded-[28px] bg-card border-2 p-2 transition-all duration-300",
-            isFocused ? "border-primary/40 bg-background shadow-2xl" : "border-border/40"
+            "relative flex items-end gap-2 bg-card border p-2 transition-all duration-300",
+            isFocused ? "border-foreground/20" : "border-border/50",
           )}
         >
-          <button className="p-3 rounded-2xl hover:bg-primary/10 text-muted-foreground hover:text-primary transition-all duration-300 shrink-0 mb-0.5 group">
-            <Paperclip size={20} className="group-hover:rotate-12 transition-transform" />
+          <button disabled className="p-3 text-muted-foreground/30 cursor-not-allowed shrink-0 mb-0.5">
+            <Paperclip size={20} />
           </button>
 
           <textarea
@@ -70,7 +68,7 @@ export function ChatInput({ onSend, disabled, allowEmptySend = false }: ChatInpu
             onInput={handleInput}
             placeholder="Query subnets or execute protocols..."
             disabled={disabled}
-            className="flex-1 max-h-40 min-h-[48px] resize-none overflow-y-auto bg-transparent px-1 py-2.5 text-[15px] font-medium leading-snug text-foreground outline-none placeholder:text-muted-foreground/50 custom-scrollbar sm:py-3"
+            className="flex-1 max-h-40 min-h-[48px] resize-none overflow-y-auto bg-transparent px-1 py-2.5 text-[14px] font-mono leading-snug text-foreground outline-none placeholder:text-muted-foreground/40 custom-scrollbar sm:py-3"
             style={{ height: "48px" }}
           />
 
@@ -83,27 +81,27 @@ export function ChatInput({ onSend, disabled, allowEmptySend = false }: ChatInpu
                 exit={{ scale: 0.8, opacity: 0 }}
                 onClick={handleSend}
                 disabled={disabled}
-                className="p-3 rounded-2xl bg-gradient-premium text-white shadow-lg shadow-primary/30 hover:scale-105 active:scale-95 disabled:opacity-50 transition-all shrink-0 mb-0.5"
+                className="p-3 bg-foreground text-background hover:bg-foreground/90 active:scale-95 disabled:opacity-40 transition-all shrink-0 mb-0.5"
               >
                 <ArrowUp size={20} strokeWidth={3} />
               </motion.button>
             ) : (
-               <motion.div
+              <motion.div
                 key="idle-icon"
                 initial={{ opacity: 0 }}
-                animate={{ opacity: 0.3 }}
-                className="p-3 rounded-2xl text-muted-foreground shrink-0 mb-0.5"
+                animate={{ opacity: 0.25 }}
+                className="p-3 text-muted-foreground shrink-0 mb-0.5"
               >
                 <Zap size={20} />
               </motion.div>
             )}
           </AnimatePresence>
         </motion.div>
-        
-        <motion.p 
+
+        <motion.p
           initial={{ opacity: 0 }}
-          animate={{ opacity: 0.4 }}
-          className="text-center text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em] mt-4"
+          animate={{ opacity: 0.3 }}
+          className="text-center text-[10px] font-mono text-muted-foreground uppercase tracking-[0.25em] mt-4"
         >
           Telegraph Intelligence Terminal
         </motion.p>

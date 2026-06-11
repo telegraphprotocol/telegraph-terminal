@@ -14,7 +14,7 @@ export const DEFAULT_SELECTED_CATEGORIES: DashboardCategoryId[] = [
 export const FETCH_WINDOW_H = 5;
 /** Auto catch-up mode total span when not using manual LAST 1H/6H/24H/72H. */
 export const WINDOW_START_H = FETCH_WINDOW_H;
-export const CATCHUP_LIMIT = 50;
+export const CATCHUP_LIMIT = 10;
 /** Max offset pages per time window before moving to an older window. */
 export const MAX_PAGES_PER_WINDOW = 30;
 /** Collector rows cached per category selection (server-filtered queries). */

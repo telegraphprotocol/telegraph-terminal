@@ -7,9 +7,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-inter);
-  --font-mono: var(--font-inter);
-  --font-heading: var(--font-sans);
+  --font-sans: var(--font-roboto-mono);
+  --font-mono: var(--font-roboto-mono);
+  --font-heading: var(--font-roboto-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -43,88 +43,101 @@
   --radius-xl: calc(var(--radius) * 1.4);
 }
 
-/* Light theme */
-:root {
-  --background: rgba(246, 245, 249, 1);
-  --foreground: rgba(5, 20, 5, 1);
-  --card: rgba(255, 255, 255, 1);
-  --card-foreground: rgba(5, 20, 5, 1);
-  --popover: rgba(255, 255, 255, 1);
-  --popover-foreground: rgba(16, 17, 20, 1);
-  --primary: rgba(140, 89, 255, 1);
-  --primary-foreground: rgba(246, 245, 249, 1);
-  --secondary: rgba(243, 243, 245, 1);
-  --secondary-foreground: rgba(73, 75, 97, 1);
-  --muted: rgba(237, 237, 240, 1);
-  --muted-foreground: rgba(105, 107, 132, 1);
-  --accent: rgba(255, 255, 255, 1);
-  --accent-foreground: rgba(16, 17, 20, 1);
-  --destructive: rgba(192, 37, 2, 1);
-  --border: rgba(223, 223, 232, 1);
-  --input: rgba(223, 223, 232, 1);
-  --ring: rgba(122, 46, 255, 1);
-  --success: rgba(16, 172, 107, 1);
-  --warning: rgba(240, 173, 78, 1);
-  --danger: rgba(217, 83, 79, 1);
-  --radius: 0.625rem;
-  --sidebar: rgba(255, 255, 255, 1);
-  --sidebar-foreground: rgba(5, 20, 5, 1);
-  --sidebar-primary: rgba(140, 89, 255, 1);
-  --sidebar-primary-foreground: rgba(246, 245, 249, 1);
-  --sidebar-accent: rgba(243, 243, 245, 1);
-  --sidebar-accent-foreground: rgba(16, 17, 20, 1);
-  --sidebar-border: rgba(223, 223, 232, 1);
-  --sidebar-ring: rgba(122, 46, 255, 1);
+/* RainbowKit injects a <div data-rk> wrapper when a theme is passed.
+   It has no height/flex styling and breaks the full-height flex chain. */
+[data-rk] {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
-/* Dark theme - Kraken Dashboard Optimized */
+/* Light theme */
+:root {
+  --background: #f2f1ee;
+  --foreground: #141210;
+  --dot-grid-color: rgba(0,0,0,0.09);
+  --card: #eae9e5;
+  --card-foreground: #141210;
+  --popover: #eae9e5;
+  --popover-foreground: #141210;
+  --primary: #141210;
+  --primary-foreground: #f2f1ee;
+  --secondary: #cecdca;
+  --secondary-foreground: #141210;
+  --muted: #d8d7d3;
+  --muted-foreground: #3e3c39;
+  --accent: #cecdca;
+  --accent-foreground: #141210;
+  --destructive: #b82000;
+  --border: #b8b7b2;
+  --input: #dddcd8;
+  --ring: #141210;
+  --success: rgba(0, 112, 64, 1);
+  --warning: rgba(160, 100, 0, 1);
+  --danger: rgba(160, 40, 36, 1);
+  --radius: 0.375rem;
+  --sidebar: #eae9e5;
+  --sidebar-foreground: #141210;
+  --sidebar-primary: #141210;
+  --sidebar-primary-foreground: #f2f1ee;
+  --sidebar-accent: #dddcd8;
+  --sidebar-accent-foreground: #141210;
+  --sidebar-border: #c8c7c2;
+  --sidebar-ring: #141210;
+}
+
+/* Dark theme — Telegraph Brand */
 .dark {
-  --background: #0C0612;
-  --foreground: rgba(255, 255, 255, 1);
-  --card: #171220;
-  --card-foreground: rgba(255, 255, 255, 1);
-  --popover: #181220;
-  --popover-foreground: rgba(255, 255, 255, 1);
-  --primary: #7A2EFF;
-  --primary-foreground: rgba(255, 255, 255, 1);
-  --secondary: #211338;
-  --secondary-foreground: rgba(255, 255, 255, 1);
-  --muted: #282636;
-  --muted-foreground: #9597AC;
-  --accent: #2c2738;
-  --accent-foreground: rgba(255, 255, 255, 1);
-  --destructive: #ec3532;
-  --border: #21222C;
-  --input: #21222C;
-  --ring: #7A2EFF;
-  --success: #10ac6b;
-  --warning: #f0ad4e;
-  --danger: #d9534f;
-  --sidebar: #0C0612;
-  --sidebar-foreground: rgba(255, 255, 255, 1);
-  --sidebar-primary: #7A2EFF;
-  --sidebar-primary-foreground: rgba(255, 255, 255, 1);
-  --sidebar-accent: #211338;
-  --sidebar-accent-foreground: rgba(255, 255, 255, 1);
-  --sidebar-border: #21222C;
-  --sidebar-ring: #7A2EFF;
+  --background: #000000;
+  --foreground: #ffffff;
+  --dot-grid-color: rgba(255,255,255,0.06);
+  --card: rgba(0,0,0,0.52);
+  --card-foreground: #ffffff;
+  --popover: #0e0e0e;
+  --popover-foreground: #ffffff;
+  --primary: #ffffff;
+  --primary-foreground: #000000;
+  --secondary: rgba(255,255,255,0.06);
+  --secondary-foreground: #ffffff;
+  --muted: rgba(255,255,255,0.04);
+  --muted-foreground: rgba(255,255,255,0.55);
+  --accent: rgba(255,255,255,0.06);
+  --accent-foreground: #ffffff;
+  --destructive: rgba(255,100,100,0.9);
+  --border: rgba(255,255,255,0.09);
+  --input: rgba(255,255,255,0.04);
+  --ring: rgba(255,255,255,0.35);
+  --success: rgba(120,255,160,0.9);
+  --warning: rgba(255,200,80,0.85);
+  --danger: rgba(255,100,100,0.85);
+  --sidebar: #000000;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #ffffff;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: rgba(255,255,255,0.06);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgba(255,255,255,0.09);
+  --sidebar-ring: rgba(255,255,255,0.35);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+
   html {
-    @apply font-sans;
+    @apply font-mono;
     overscroll-behavior: none;
   }
   body {
     @apply bg-background text-foreground;
     overscroll-behavior: none;
+    font-feature-settings: "liga" 0;
   }
 }
 
-/* Custom glassmorphism utilities */
+/* Glassmorphism utilities */
 @layer utilities {
   .glass {
     @apply bg-background/60 backdrop-blur-xl border-border/50;
@@ -133,17 +146,35 @@
     @apply bg-card/40 backdrop-blur-md border-border/40 shadow-xl;
   }
   .glass-sidebar {
-    @apply bg-sidebar/70 backdrop-blur-2xl border-sidebar-border/50;
-  }
-  
-  /* Premium Gradients */
-  .bg-gradient-premium {
-    background: linear-gradient(135deg, var(--primary) 0%, #a855f7 50%, #d946ef 100%);
+    @apply bg-sidebar/80 backdrop-blur-2xl border-sidebar-border/50;
   }
 
-  .text-gradient-premium {
-    @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(135deg, var(--primary) 0%, #a855f7 50%, #d946ef 100%);
+  /* Dot-grid background — adapts to theme */
+  .bg-dot-grid {
+    background-image: radial-gradient(circle, var(--dot-grid-color) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  /* ASCII corner bracket decoration */
+  .tg-corner-tl::before {
+    content: "┌";
+    position: absolute;
+    top: 0;
+    left: 0;
+    font-size: 10px;
+    color: var(--foreground);
+    opacity: 0.2;
+    line-height: 1;
+  }
+  .tg-corner-tr::after {
+    content: "┐";
+    position: absolute;
+    top: 0;
+    right: 0;
+    font-size: 10px;
+    color: var(--foreground);
+    opacity: 0.2;
+    line-height: 1;
   }
 }
 
@@ -179,7 +210,19 @@
   animation: logSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* Refined custom scrollbar */
+/* Blinking cursor — terminal aesthetic */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.cursor-blink::after {
+  content: "▋";
+  animation: blink 1s step-end infinite;
+  color: currentColor;
+}
+
+/* Monochrome scrollbar */
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -188,11 +231,10 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(140, 89, 255, 0.15);
-  border-radius: 10px;
+  background: color-mix(in srgb, var(--foreground) 12%, transparent);
+  border-radius: 2px;
   transition: background 0.2s ease;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(140, 89, 255, 0.4);
+  background: color-mix(in srgb, var(--foreground) 28%, transparent);
 }
-

@@ -23,8 +23,8 @@ export function KrakenSourceWithCopy({ item, variant = "feed" }: KrakenSourceWit
   const copyIconSize = isFeed ? 12 : 14;
 
   const linkClass = isFeed
-    ? "min-w-0 truncate text-[11px] text-foreground font-mono font-semibold tracking-wide uppercase underline-offset-2 hover:text-primary hover:underline"
-    : "inline min-w-0 break-all text-sm font-mono font-semibold tracking-wide uppercase underline-offset-2 text-primary hover:underline";
+    ? "min-w-0 truncate text-[11px] text-foreground font-mono font-semibold tracking-wide uppercase underline-offset-2 hover:text-foreground/80 hover:underline"
+    : "inline min-w-0 break-all text-sm font-mono font-semibold tracking-wide uppercase underline-offset-2 text-foreground hover:underline";
 
   const spanClass = isFeed
     ? "min-w-0 truncate text-[11px] text-foreground font-mono font-semibold tracking-wide uppercase"
@@ -50,7 +50,7 @@ export function KrakenSourceWithCopy({ item, variant = "feed" }: KrakenSourceWit
         type="button"
         title={copyLabel}
         aria-label={copyLabel}
-        className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="shrink-0 p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         onClick={(e) => {
           e.stopPropagation();
           void navigator.clipboard.writeText(copyText);

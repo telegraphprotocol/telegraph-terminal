@@ -10,7 +10,7 @@ export type SubnetPickItem = {
 /** Strip ecosystem marketing from subnet titles shown in the UI (engine often embeds it in `name`). */
 export function scrubSubnetDisplayName(raw: string): string {
   let s = raw.replace(/\bBittensor\b/gi, "").replace(/\s*\(\s*\)/g, "");
-  s = s.replace(/\s{2,}/g, " ").trim();
+  s = s.replace(/\s{2,}/g, " ").replace(/^\s+|\s+$/g, "");
   return s.length > 0 ? s : "Subnet";
 }
 
@@ -40,7 +40,9 @@ export function normalizeEngineSubnets(data: unknown): SubnetPickItem[] {
     const slug =
       typeof slugRaw === "string" && slugRaw.trim().length > 0 ? slugRaw.trim() : undefined;
     if (!id) continue;
-    items.push({ id, label: `${name} (SN${id})`, slug });
+    const cleanName = name.replace(/\s*\(\s*SN\d+\s*\)\s*$/i, "").trim();
+    const displayName = cleanName || `SN${id}`;
+    items.push({ id, label: displayName, slug });
   }
   return items;
 }

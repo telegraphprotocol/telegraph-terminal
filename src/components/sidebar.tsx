@@ -19,10 +19,10 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const SUPPORT_URL =
   process.env.NEXT_PUBLIC_SUPPORT_URL?.trim() ||
-  "https://telegraphprotocol.com/";
+  "https://telegraphprotocol.com/support";
 const DOCS_URL =
   process.env.NEXT_PUBLIC_DOCS_URL?.trim() ||
-  "https://telegraph-2.gitbook.io/telegraph";
+  "https://docs.telegraphprotocol.com";
 
 export type LiveChatSidebarActions = {
   onArchive: (id: string) => void;
@@ -110,7 +110,7 @@ export function Sidebar({
         <div className="flex items-center justify-between px-4 py-4 shrink-0">
           <button
             onClick={onToggle}
-            className="p-2 rounded-xl hover:bg-primary/10 text-muted-foreground hover:text-primary transition-all duration-300"
+            className="p-2 hover:bg-foreground/5 text-muted-foreground hover:text-foreground transition-all duration-200"
             aria-label="Close sidebar"
           >
             <PanelLeftClose size={18} />
@@ -118,14 +118,14 @@ export function Sidebar({
           
           <div className="flex items-center gap-1">
              <button
-              className="p-2 rounded-xl hover:bg-primary/10 text-muted-foreground hover:text-primary transition-all duration-300"
+              className="p-2 hover:bg-foreground/5 text-muted-foreground hover:text-foreground transition-all duration-200"
               aria-label="Search"
             >
               <Search size={18} />
             </button>
             <button
               onClick={onNewChat}
-              className="p-2 rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all duration-300 shadow-sm shadow-primary/20"
+              className="p-2 border border-border/60 text-foreground/70 hover:bg-foreground/5 hover:text-foreground transition-all duration-200"
               aria-label="New chat"
             >
               <PenSquare size={18} />
@@ -155,8 +155,8 @@ export function Sidebar({
                           className={cn(
                             "flex items-center gap-1 rounded-xl transition-all duration-300 group relative",
                             activeId === item.id
-                              ? "bg-primary/10 text-primary shadow-[inset_0_0_0_1px_rgba(140,89,255,0.2)]"
-                              : "text-foreground/70 hover:bg-accent/50 hover:text-foreground",
+                              ? "bg-foreground/5 text-foreground border-l border-foreground/30"
+                              : "text-foreground/60 hover:bg-foreground/5 hover:text-foreground",
                           )}
                         >
                           <button
@@ -171,7 +171,7 @@ export function Sidebar({
                             {activeId === item.id && (
                               <motion.div
                                 layoutId="active-pill"
-                                className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-primary rounded-r-full"
+                                className="absolute left-0 top-1/2 -translate-y-1/2 w-px h-4 bg-foreground/50"
                               />
                             )}
                           </button>
@@ -186,7 +186,7 @@ export function Sidebar({
                                 className={cn(
                                   "rounded-full border border-border/60 p-1 text-muted-foreground hover:bg-background/80 hover:text-foreground transition-colors",
                                   openChatMenu?.id === item.id &&
-                                    "bg-background/80 text-primary border-primary/30",
+                                    "bg-background/80 text-foreground border-border/60",
                                 )}
                                 onMouseDown={(e) => {
                                   e.preventDefault();
@@ -223,13 +223,13 @@ export function Sidebar({
         {/* Footer */}
         <div className="p-4 space-y-2 border-t border-border/40">
           <div className="flex items-center gap-2 p-2 rounded-xl hover:bg-accent/50 cursor-pointer transition-all group">
-            <div className="w-8 h-8 rounded-full bg-gradient-premium flex items-center justify-center shrink-0 shadow-lg shadow-primary/20">
-              <span className="text-[11px] text-white font-black">
+            <div className="w-8 h-8 border border-border/60 flex items-center justify-center shrink-0 bg-muted">
+              <span className="text-[11px] text-foreground font-black">
                 {walletInitials ?? "TM"}
               </span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-bold text-foreground/90 truncate group-hover:text-primary transition-colors">
+              <p className="text-[13px] font-bold text-foreground/90 truncate group-hover:text-foreground transition-colors">
                 {walletLabel ?? "Test User"}
               </p>
               <p className="text-[10px] text-muted-foreground/60 truncate uppercase tracking-widest font-medium">

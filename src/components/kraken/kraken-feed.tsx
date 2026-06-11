@@ -7,6 +7,7 @@ import { DaemonResultItem } from "@/lib/engine-daemon-types";
 import { KrakenSourceWithCopy } from "@/components/kraken/kraken-source-with-copy";
 import { formatKrakenIntentCell } from "@/lib/kraken-signal-format";
 import { summarizeExecutionResult } from "@/lib/kraken-signal-result";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface KrakenFeedProps {
   items: DaemonResultItem[];
@@ -41,7 +42,7 @@ function StatusBadge({ status }: { status: DaemonResultItem["status"] }) {
     return (
       <div
         className={cn(
-          "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold",
+          "inline-flex items-center gap-1.5 px-2.5 py-1 border text-[11px] font-semibold",
           cfg.color,
         )}
       >
@@ -51,7 +52,7 @@ function StatusBadge({ status }: { status: DaemonResultItem["status"] }) {
     );
   }
   return (
-    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border/50 text-[11px] font-semibold text-muted-foreground">
+    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 border border-border/50 text-[11px] font-semibold text-muted-foreground">
       Unknown
     </div>
   );
@@ -59,7 +60,7 @@ function StatusBadge({ status }: { status: DaemonResultItem["status"] }) {
 
 function CostBadge({ log }: { log: DaemonResultItem }) {
   return (
-    <div className="inline-flex items-center justify-center px-2.5 py-1 rounded-full bg-primary text-primary-foreground text-[11px] font-bold shadow-lg shadow-primary/20">
+    <div className="inline-flex items-center justify-center px-2.5 py-1 bg-muted text-foreground text-[11px] font-bold border border-border/50">
       ${Number(log.execution?.cost_usd ?? 0).toFixed(4)}
     </div>
   );
@@ -89,7 +90,7 @@ function DetailsChevron({
     <button
       type="button"
       aria-label="View signal details"
-      className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted/30 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="p-1 text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       onClick={(e) => {
         e.stopPropagation();
         onRowSelect(log);
@@ -102,7 +103,19 @@ function DetailsChevron({
 
 function EmptyOrLoading({ loading, empty }: { loading: boolean; empty: boolean }) {
   if (loading && empty) {
-    return <div className="px-4 py-6 text-sm text-muted-foreground">Loading signal feed...</div>;
+    return (
+      <div className="flex flex-col divide-y divide-border/40">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div key={i} className="flex items-center gap-4 px-4 py-3">
+            <Skeleton className="h-4 w-4 shrink-0 rounded-full" />
+            <Skeleton className="h-3 w-24 shrink-0" />
+            <Skeleton className="h-3 flex-1" />
+            <Skeleton className="h-3 w-16 shrink-0" />
+            <Skeleton className="h-3 w-10 shrink-0" />
+          </div>
+        ))}
+      </div>
+    );
   }
   if (!loading && empty) {
     return <div className="px-4 py-6 text-sm text-muted-foreground">No signal rows found for the selected filters.</div>;
@@ -115,7 +128,7 @@ export function KrakenFeed({ items, loading, onRowSelect }: KrakenFeedProps) {
   const emptySlot = <EmptyOrLoading loading={Boolean(loading)} empty={empty} />;
 
   return (
-    <div className="w-full min-w-0 bg-card rounded-3xl overflow-hidden border border-border/50">
+    <div className="w-full min-w-0 bg-card overflow-hidden border border-border/50">
       {/* Compact layout: below lg */}
       <div className="lg:hidden">
         <div className="border-b border-border/50 bg-muted/20 px-4 py-3">

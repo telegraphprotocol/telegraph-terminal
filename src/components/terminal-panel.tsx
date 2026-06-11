@@ -16,6 +16,28 @@ import { LiveTerminalReceipt } from "@/lib/hooks/use-live-executor";
 
 type TerminalReceiptLike = LiveTerminalReceipt | TerminalReceipt;
 
+const URL_RE = /https?:\/\/\S+/g;
+
+function DetailWithLink({ detail }: { detail: string }) {
+  const parts: React.ReactNode[] = [];
+  let last = 0;
+  for (const m of detail.matchAll(URL_RE)) {
+    if (m.index! > last) parts.push(detail.slice(last, m.index));
+    const url = m[0];
+    parts.push(
+      <a key={m.index} href={url} target="_blank" rel="noopener noreferrer"
+        className="text-primary underline-offset-2 hover:underline"
+        onClick={(e) => e.stopPropagation()}
+      >
+        View on explorer
+      </a>
+    );
+    last = m.index! + url.length;
+  }
+  if (last < detail.length) parts.push(detail.slice(last));
+  return <>{parts}</>;
+}
+
 function isLiveReceipt(receipt: TerminalReceiptLike): receipt is LiveTerminalReceipt {
   return "subnet" in receipt;
 }
@@ -39,7 +61,7 @@ function TimestampPill({ time }: { time: string }) {
         {main}
       </span>
       {frac ? (
-        <span className="mt-0.5 text-[8px] font-mono tabular-nums leading-none text-primary/45">
+        <span className="mt-0.5 text-[8px] font-mono tabular-nums leading-none text-muted-foreground/50">
           .{frac}
         </span>
       ) : null}
@@ -185,7 +207,7 @@ function ReceiptDetailBody({ receipt }: { receipt: TerminalReceiptLike }) {
                 href={receipt.x402ExplorerUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-block max-w-full min-w-0 break-all text-[13px] font-semibold text-primary underline-offset-2 hover:underline"
+                className="inline-block max-w-full min-w-0 break-all text-[13px] font-semibold text-foreground underline-offset-2 hover:underline"
               >
                 {receipt.x402TxHash
                   ? `${receipt.x402TxHash.slice(0, 10)}…${receipt.x402TxHash.slice(-6)}`
@@ -241,13 +263,13 @@ function CompactReceiptFooter({ receipt }: { receipt: TerminalReceiptLike }) {
         type="button"
         onClick={() => setExpanded((v) => !v)}
         aria-expanded={expanded}
-        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-primary/[0.04] lg:px-5"
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-foreground/[0.03] lg:px-5"
       >
         <motion.div layout className="min-w-0 flex-1">
           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
             Receipt Generated
           </p>
-          <p className="mt-1 truncate text-[13px] font-semibold text-primary">{provider}</p>
+          <p className="mt-1 truncate text-[13px] font-semibold text-foreground">{provider}</p>
           <p className="mt-0.5 truncate text-[10px] text-muted-foreground/80">
             {formatExecutionTime(receipt.timestamp)}
             {durationLabel ? ` · ${durationLabel}` : ""}
@@ -329,7 +351,7 @@ function TerminalFeed({
                   <div className={i > 0 ? "lg:mt-8 mt-6" : ""}>
                     <div className="flex items-center gap-3 py-2">
                       <div className="h-px flex-1 bg-border/40" />
-                      <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/70">
+                      <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">
                         {log.section}
                       </span>
                       <div className="h-px flex-1 bg-border/40" />
@@ -337,7 +359,7 @@ function TerminalFeed({
                   </div>
                 )}
 
-                <motion.div layout className="flex items-start gap-3 rounded-md px-2 py-3 -mx-2 transition-colors hover:bg-primary/5">
+                <motion.div layout className="flex items-start gap-3 rounded-md px-2 py-3 -mx-2 transition-colors hover:bg-foreground/5">
 
                   <TimestampPill time={log.time} />
 
@@ -346,10 +368,10 @@ function TerminalFeed({
                       <span className="text-[10px] font-black uppercase leading-none tracking-wider text-foreground/90">
                         {log.label}
                       </span>
-                      <div className="h-1 w-1 rounded-full bg-primary/30" />
+                      <div className="h-1 w-1 rounded-full bg-foreground/20" />
                     </div>
                     <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground transition-colors group-hover:text-foreground/80">
-                      {log.detail}
+                      <DetailWithLink detail={log.detail} />
                     </p>
                   </div>
                 </motion.div>
@@ -396,8 +418,8 @@ export function MobileTerminalCollapsible({
       >
         <div className="flex items-center gap-2">
             <div className="relative">
-                <Activity size={16} className="text-primary" />
-                <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-primary rounded-full animate-ping" />
+                <Activity size={16} className="text-foreground/70" />
+                <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-foreground/50 rounded-full animate-ping" />
             </div>
             <span className="text-sm font-semibold text-foreground tracking-tight">
               Live Settlement &amp; Logic Feed
@@ -446,12 +468,12 @@ export function TerminalPanel({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-bold uppercase tracking-[0.15em] text-foreground/80">Terminal</h2>
-            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-primary/10 text-primary border border-primary/20">
+            <div className="flex items-center gap-1 px-1.5 py-0.5 border border-border/60 text-foreground/60">
                 <span className="relative flex h-1.5 w-1.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary"></span>
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-foreground/40 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-foreground/70"></span>
                 </span>
-                <span className="text-[8px] font-black uppercase">Live</span>
+                <span className="text-[8px] font-black uppercase tracking-wider">Live</span>
             </div>
           </div>
           <TooltipProvider>
