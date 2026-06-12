@@ -8,7 +8,7 @@ import {
 const LOG_TAG = "daemon";
 
 function daemonBase(): string {
-  const raw = process.env.DAEMON_INTERNAL_URL ?? "http://127.0.0.1:8081";
+  const raw = process.env.DAEMON_INTERNAL_URL ?? "http://127.0.0.1:7044";
   return raw.replace(/\/$/, "");
 }
 
