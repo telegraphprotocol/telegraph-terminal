@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAccount, useSignMessage, useConnect, useDisconnect } from "wagmi";
+import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -11,11 +12,12 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 
 interface ConnectWalletModalProps {
   onAuthenticated: () => void;
+  onClose?: () => void;
 }
 
 type Step = "connect" | "sign" | "verifying" | "error";
 
-export function ConnectWalletModal({ onAuthenticated }: ConnectWalletModalProps) {
+export function ConnectWalletModal({ onAuthenticated, onClose }: ConnectWalletModalProps) {
   const { address, isConnected } = useAccount();
   const { signMessageAsync } = useSignMessage();
 
@@ -57,8 +59,33 @@ export function ConnectWalletModal({ onAuthenticated }: ConnectWalletModalProps)
     }
   }, [address, signMessageAsync, onAuthenticated]);
 
+  // Wallet may already be connected (extension auto-reconnect) — prompt the
+  // signature immediately so "connect" + "sign" feel like one continuous step.
+  const autoSignAttempted = useRef(false);
+  useEffect(() => {
+    if (isConnected && step === "connect" && !autoSignAttempted.current) {
+      autoSignAttempted.current = true;
+      void handleSign();
+    }
+    if (!isConnected) {
+      autoSignAttempted.current = false;
+    }
+  }, [isConnected, step, handleSign]);
+
+  useEffect(() => {
+    if (!onClose) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-background/80 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-background/80 backdrop-blur-sm"
+      onClick={(e) => { if (onClose && e.target === e.currentTarget) onClose(); }}
+    >
       <div
         className={cn(
           "w-full max-w-sm rounded-xl border border-border bg-card p-6 shadow-xl",
@@ -66,11 +93,23 @@ export function ConnectWalletModal({ onAuthenticated }: ConnectWalletModalProps)
         )}
       >
         {/* Header */}
-        <div className="flex flex-col gap-1">
-          <h2 className="text-base font-semibold text-foreground">Connect your wallet</h2>
-          <p className="text-xs text-muted-foreground">
-            Sign a message to authenticate. No gas fees, no blockchain transaction.
-          </p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-base font-semibold text-foreground">Connect your wallet</h2>
+            <p className="text-xs text-muted-foreground">
+              Sign a message to authenticate. No gas fees, no blockchain transaction.
+            </p>
+          </div>
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <X className="size-4" />
+            </button>
+          )}
         </div>
 
         <Separator />
@@ -79,11 +118,13 @@ export function ConnectWalletModal({ onAuthenticated }: ConnectWalletModalProps)
         {(!isConnected || step === "connect" || step === "error") && !isConnected && (
           <div className="flex flex-col gap-3">
             <p className="text-xs text-muted-foreground">Step 1 — Connect a wallet</p>
-            <ConnectButton
-              label="Connect Wallet"
-              showBalance={false}
-              chainStatus="none"
-            />
+            <ConnectButton.Custom>
+              {({ openConnectModal }) => (
+                <Button onClick={openConnectModal} className="w-full text-sm font-bold">
+                  Connect Wallet
+                </Button>
+              )}
+            </ConnectButton.Custom>
           </div>
         )}
 

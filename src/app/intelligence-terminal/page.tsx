@@ -34,6 +34,7 @@ export default function LiveChatPage() {
   // Auth state machine
   const [authState, setAuthState] = useState<AuthState>("loading");
   const [depositWalletAddress, setDepositWalletAddress] = useState<string | null>(null);
+  const [walletPromptOpen, setWalletPromptOpen] = useState(false);
 
   // Check auth on mount
   useEffect(() => {
@@ -60,6 +61,7 @@ export default function LiveChatPage() {
   }, []);
 
   const handleAuthenticated = useCallback(() => {
+    setWalletPromptOpen(false);
     // After JWT obtained, check walletMode
     fetch("/api/auth/me", { headers: authHeaders() })
       .then((r) => r.json())
@@ -131,6 +133,10 @@ export default function LiveChatPage() {
     engineSocketConnected,
     x402Phase,
     backendWalletStatus,
+    anonUsage,
+    anonExhausted,
+    anonAiUsage,
+    anonAiExhausted,
     useX402Chat,
     coreWalletFooter,
     handleSend,
@@ -155,6 +161,7 @@ export default function LiveChatPage() {
   }, []);
 
   const effectiveSidebarOpen = sidebarLayoutReady ? sidebarOpen : false;
+  const isSubnetMode = Boolean(forcedSubnetId);
   const hasMessages = messages.length > 0;
   const showTerminal = hasMessages || isLoading;
 
@@ -180,8 +187,8 @@ export default function LiveChatPage() {
   return (
     <>
       {/* Auth modals — rendered above everything */}
-      {authState === "unauthenticated" && (
-        <ConnectWalletModal onAuthenticated={handleAuthenticated} />
+      {authState === "unauthenticated" && walletPromptOpen && (
+        <ConnectWalletModal onAuthenticated={handleAuthenticated} onClose={() => setWalletPromptOpen(false)} />
       )}
       {authState === "wallet-choice" && (
         <WalletChoiceModal
@@ -215,6 +222,18 @@ export default function LiveChatPage() {
             onRestore: restoreSession,
             onDelete: deleteSession,
           }}
+          subnetPicker={{
+            subnets: engineSubnets,
+            selectedSubnetId: forcedSubnetId,
+            onSubnetChange: setForcedSubnetId,
+            loading: subnetsLoading,
+            error: subnetsError,
+          }}
+          anonAiExhausted={anonAiExhausted}
+          anonUsage={anonUsage}
+          anonExhausted={anonExhausted}
+          onConnectWallet={() => setWalletPromptOpen(true)}
+          showSubnetQuota={authState === "unauthenticated"}
         />
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
@@ -285,8 +304,11 @@ export default function LiveChatPage() {
               ) : null}
               <ChatInput
                 onSend={(text) => {
-                  if (authState !== "ready") {
-                    setAuthState("unauthenticated");
+                  const blocked =
+                    (!isSubnetMode && anonAiExhausted) ||
+                    (isSubnetMode && authState !== "ready" && (authState !== "unauthenticated" || anonExhausted));
+                  if (blocked) {
+                    setWalletPromptOpen(true);
                     return;
                   }
                   handleSend(text);

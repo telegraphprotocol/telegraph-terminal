@@ -40,6 +40,7 @@ export function EngineSubnetPicker({
   }, []);
 
   const engineUnreachable = Boolean(error) && subnets.length === 0 && !loading;
+  const isAutoRouting = !selectedSubnetId && !engineUnreachable;
 
   const primaryLabel = loading
     ? "Loading subnets…"
@@ -49,8 +50,7 @@ export function EngineSubnetPicker({
         ? "Engine offline"
         : "Auto routing";
 
-  const menuPosition =
-    menuAlign === "end" ? "right-0" : "left-0";
+  const menuPosition = menuAlign === "end" ? "right-0" : "left-0";
 
   return (
     <div className="relative flex min-w-0 flex-col gap-0.5" ref={dropdownRef}>
@@ -58,19 +58,30 @@ export function EngineSubnetPicker({
         type="button"
         onClick={() => setDropdownOpen((v) => !v)}
         className={cn(
-          "flex h-9 w-full max-w-full items-center gap-2 rounded-lg border px-3 text-left transition-colors",
+          "flex h-9 w-full max-w-full items-center gap-2 rounded-lg border px-3 text-left transition-all",
           "lg:w-auto lg:max-w-[min(260px,calc(100vw-14rem))]",
-          "hover:bg-muted/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20",
-          engineUnreachable ? "border-amber-500/40 bg-amber-500/5" : "border-border",
+          "focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/40",
+          engineUnreachable
+            ? "border-amber-500/40 bg-amber-500/5 hover:bg-amber-500/10"
+            : isAutoRouting
+              ? "border-orange-500 bg-orange-500/15 hover:bg-orange-500/20 shadow-[0_0_14px_rgba(249,115,22,0.18)]"
+              : "border-border hover:bg-muted/40",
         )}
         aria-expanded={dropdownOpen}
         aria-haspopup="listbox"
         aria-label={`Subnet routing: ${primaryLabel}`}
       >
-        <span className="truncate text-[14px] font-medium leading-tight text-foreground">
+        <span className={cn(
+          "truncate text-[14px] leading-tight",
+          isAutoRouting ? "font-semibold text-orange-400" : "font-medium text-foreground",
+        )}>
           {primaryLabel}
         </span>
-        <ChevronDown size={16} className="shrink-0 text-muted-foreground" aria-hidden />
+        <ChevronDown
+          size={16}
+          className={cn("ml-auto shrink-0 transition-colors", isAutoRouting ? "text-orange-400/70" : "text-muted-foreground")}
+          aria-hidden
+        />
       </button>
 
       <AnimatePresence>
@@ -81,7 +92,10 @@ export function EngineSubnetPicker({
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
             className={cn(
-              "absolute top-[calc(100%+8px)] z-50 min-w-[220px] max-w-[min(90vw,280px)] border border-border/60 bg-popover/95 backdrop-blur-xl shadow-2xl shadow-black/50 p-1.5 overflow-hidden",
+              "absolute top-[calc(100%+8px)] z-50 min-w-[220px] max-w-[min(90vw,280px)] border backdrop-blur-xl shadow-2xl p-1.5 overflow-hidden",
+              isAutoRouting
+                ? "border-orange-500/40 bg-popover/95 shadow-orange-500/10"
+                : "border-border/60 bg-popover/95 shadow-black/50",
               menuPosition,
             )}
           >
@@ -97,16 +111,16 @@ export function EngineSubnetPicker({
               className={cn(
                 "w-full px-3 py-2.5 text-[13px] font-medium transition-all duration-200 text-left rounded-lg flex items-center justify-between group",
                 selectedSubnetId === null
-                  ? "bg-foreground/8 text-foreground"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                  ? "bg-orange-500/15 text-orange-300"
+                  : "text-muted-foreground hover:bg-orange-500/8 hover:text-orange-300",
               )}
             >
               Auto routing
               {selectedSubnetId === null ? (
-                <div className="h-1 w-1 shrink-0 rounded-full bg-foreground/50" />
+                <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-orange-400" />
               ) : null}
             </button>
-            <div className="my-1 h-px bg-border/40" />
+            <div className="my-1 h-px bg-orange-500/15" />
             {loading ? (
               <div className="px-3 py-2 text-[12px] text-muted-foreground">Loading subnets…</div>
             ) : subnets.length === 0 ? (
@@ -126,13 +140,13 @@ export function EngineSubnetPicker({
                   className={cn(
                     "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left text-[13px] font-medium transition-all duration-200 group",
                     selectedSubnetId === s.id
-                      ? "bg-foreground/8 text-foreground"
-                      : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                      ? "bg-orange-500/15 text-orange-300"
+                      : "text-muted-foreground hover:bg-orange-500/8 hover:text-orange-300",
                   )}
                 >
                   <span className="truncate">{s.label}</span>
                   {selectedSubnetId === s.id ? (
-                    <div className="h-1 w-1 shrink-0 rounded-full bg-foreground/50" />
+                    <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-orange-400" />
                   ) : null}
                 </button>
               ))

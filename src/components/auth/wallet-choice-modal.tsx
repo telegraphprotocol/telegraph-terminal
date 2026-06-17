@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { authHeaders } from "@/lib/auth";
+import { INSTANT_WALLET_LABEL, CONNECTED_WALLET_LABEL } from "@/lib/wallet-labels";
 
 interface WalletChoiceModalProps {
   onPrivyCreated: (walletAddress: string) => void;
@@ -58,9 +59,9 @@ export function WalletChoiceModal({ onPrivyCreated, onExternalChosen }: WalletCh
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-background/80 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl flex flex-col gap-5">
         <div className="flex flex-col gap-1">
-          <h2 className="text-base font-semibold text-foreground">Choose payment mode</h2>
+          <h2 className="text-base font-semibold text-foreground">How do you want to pay?</h2>
           <p className="text-xs text-muted-foreground">
-            How would you like to pay for AI queries on Telegraph Terminal?
+            Pick once — you can switch later from the wallet panel.
           </p>
         </div>
 
@@ -71,54 +72,49 @@ export function WalletChoiceModal({ onPrivyCreated, onExternalChosen }: WalletCh
         )}
 
         <div className="flex flex-col gap-3">
-          {/* Privy custodial option */}
+          {/* Instant wallet (Privy custodial) — primary, visually dominant */}
           <button
             onClick={choosePrivy}
             disabled={loading !== null}
             className={cn(
-              "flex flex-col gap-2 rounded-lg border border-border bg-muted/30 p-4 text-left transition-colors",
-              "hover:border-primary/50 hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-60",
+              "flex flex-col gap-2 rounded-xl border-2 border-primary/40 bg-primary/5 p-5 text-left shadow-sm transition-colors",
+              "hover:border-primary/60 hover:bg-primary/10 disabled:pointer-events-none disabled:opacity-60",
             )}
           >
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-foreground">Privy wallet</span>
+              <span className="text-base font-semibold text-foreground">{INSTANT_WALLET_LABEL}</span>
               <Badge variant="secondary" className="text-[10px]">Recommended</Badge>
             </div>
             <p className="text-xs text-muted-foreground">
-              We create a secure server wallet for you. Deposit USDC once and every query is paid
-              automatically — no wallet popups.
+              We create a wallet for you instantly. Deposit once, then chat without signing every
+              message.
             </p>
             {loading === "privy" && (
               <p className="text-xs text-primary">Creating wallet…</p>
             )}
           </button>
 
-          {/* External wallet option */}
+          {/* External wallet — secondary, visually muted */}
           <button
             onClick={chooseExternal}
             disabled={loading !== null}
             className={cn(
-              "flex flex-col gap-2 rounded-lg border border-border bg-muted/30 p-4 text-left transition-colors",
-              "hover:border-border/80 hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-60",
+              "flex flex-col gap-1.5 rounded-lg border border-border/60 bg-muted/15 p-3.5 text-left opacity-80 transition-colors",
+              "hover:border-border hover:bg-muted/30 hover:opacity-100 disabled:pointer-events-none disabled:opacity-50",
             )}
           >
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-foreground">External wallet</span>
+              <span className="text-sm font-medium text-foreground">{CONNECTED_WALLET_LABEL}</span>
               <Badge variant="outline" className="text-[10px]">Manual</Badge>
             </div>
             <p className="text-xs text-muted-foreground">
-              Use your connected wallet to approve each payment individually. A signature is
-              required for every message you send.
+              Pay with your connected external wallet — approve a quick signature for each subnet call.
             </p>
             {loading === "external" && (
               <p className="text-xs text-muted-foreground">Saving preference…</p>
             )}
           </button>
         </div>
-
-        <p className="text-center text-[10px] text-muted-foreground">
-          You can change this later from the wallet panel.
-        </p>
       </div>
     </div>,
     document.body,

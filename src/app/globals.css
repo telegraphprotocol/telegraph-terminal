@@ -52,6 +52,85 @@
   min-height: 0;
 }
 
+/* Landing page theme tokens */
+:root {
+  --lp-card-bg:          rgba(0,0,0,0.03);
+  --lp-card-bg-hover:    rgba(0,0,0,0.06);
+  --lp-border:           rgba(0,0,0,0.14);
+  --lp-border-active:    rgba(0,0,0,0.55);
+  --lp-corner:           rgba(0,0,0,0.30);
+  --lp-corner-active:    rgba(0,0,0,0.75);
+  --lp-step:             rgba(0,0,0,0.38);
+  --lp-step-active:      rgba(0,0,0,0.75);
+  --lp-who:              rgba(0,0,0,0.55);
+  --lp-title:            rgba(0,0,0,0.82);
+  --lp-title-active:     rgba(0,0,0,0.97);
+  --lp-sub:              rgba(0,0,0,0.45);
+  --lp-sub-active:       rgba(0,0,0,0.65);
+  --lp-get:              rgba(0,0,0,0.72);
+  --lp-get-active:       rgba(0,0,0,0.92);
+  --lp-value:            rgba(0,0,0,0.56);
+  --lp-value-active:     rgba(0,0,0,0.80);
+  --lp-tag-bg:           rgba(0,0,0,0.05);
+  --lp-tag-border:       rgba(0,0,0,0.14);
+  --lp-tag-color:        rgba(0,0,0,0.50);
+  --lp-tag-active:       rgba(0,0,0,0.72);
+  --lp-cta-border:       rgba(0,0,0,0.12);
+  --lp-cta:              rgba(0,0,0,0.50);
+  --lp-cta-active:       rgba(0,0,0,0.95);
+  --lp-tagline:          rgba(0,0,0,0.65);
+  --lp-pip:              rgba(0,0,0,0.30);
+  --lp-footer:           rgba(0,0,0,0.40);
+  --lp-nav-btn-bg:       rgba(0,0,0,0.05);
+  --lp-nav-btn-border:   rgba(0,0,0,0.18);
+  --lp-nav-btn-color:    rgba(0,0,0,0.68);
+  --lp-nav-btn-hover-bg: rgba(0,0,0,0.09);
+  --lp-nav-btn-hover-border: rgba(0,0,0,0.35);
+  --lp-nav-btn-hover-color: rgba(0,0,0,0.95);
+  --lp-footer-border:    rgba(0,0,0,0.12);
+  --lp-glow-opacity:     0;
+  --lp-orb-opacity:      0.05;
+}
+
+.dark {
+  --lp-card-bg:          rgba(255,255,255,0.02);
+  --lp-card-bg-hover:    rgba(255,255,255,0.04);
+  --lp-border:           rgba(255,255,255,0.07);
+  --lp-border-active:    rgba(255,255,255,0.58);
+  --lp-corner:           rgba(255,255,255,0.20);
+  --lp-corner-active:    rgba(255,255,255,0.70);
+  --lp-step:             rgba(255,255,255,0.28);
+  --lp-step-active:      rgba(255,255,255,0.70);
+  --lp-who:              rgba(255,255,255,0.38);
+  --lp-title:            rgba(255,255,255,0.62);
+  --lp-title-active:     #ffffff;
+  --lp-sub:              rgba(255,255,255,0.28);
+  --lp-sub-active:       rgba(255,255,255,0.50);
+  --lp-get:              rgba(255,255,255,0.55);
+  --lp-get-active:       rgba(255,255,255,0.85);
+  --lp-value:            rgba(255,255,255,0.40);
+  --lp-value-active:     rgba(255,255,255,0.72);
+  --lp-tag-bg:           rgba(255,255,255,0.03);
+  --lp-tag-border:       rgba(255,255,255,0.07);
+  --lp-tag-color:        rgba(255,255,255,0.30);
+  --lp-tag-active:       rgba(255,255,255,0.60);
+  --lp-cta-border:       rgba(255,255,255,0.05);
+  --lp-cta:              rgba(255,255,255,0.35);
+  --lp-cta-active:       rgba(255,255,255,0.90);
+  --lp-tagline:          rgba(255,255,255,0.60);
+  --lp-pip:              rgba(255,255,255,0.20);
+  --lp-footer:           rgba(255,255,255,0.20);
+  --lp-nav-btn-bg:       rgba(255,255,255,0.03);
+  --lp-nav-btn-border:   rgba(255,255,255,0.10);
+  --lp-nav-btn-color:    rgba(255,255,255,0.60);
+  --lp-nav-btn-hover-bg: rgba(255,255,255,0.06);
+  --lp-nav-btn-hover-border: rgba(255,255,255,0.20);
+  --lp-nav-btn-hover-color: rgba(255,255,255,0.90);
+  --lp-footer-border:    rgba(255,255,255,0.06);
+  --lp-glow-opacity:     0;
+  --lp-orb-opacity:      0.13;
+}
+
 /* Light theme */
 :root {
   --background: #f2f1ee;
@@ -152,7 +231,7 @@
   /* Dot-grid background — adapts to theme */
   .bg-dot-grid {
     background-image: radial-gradient(circle, var(--dot-grid-color) 1px, transparent 1px);
-    background-size: 40px 40px;
+    background-size: 36px 36px;
   }
 
   /* ASCII corner bracket decoration */
@@ -221,6 +300,20 @@
   animation: blink 1s step-end infinite;
   color: currentColor;
 }
+
+/* Landing page orb animations */
+@keyframes orb-drift-1 {
+  0%,100% { transform: translate(0,0); }
+  33%      { transform: translate(70px, 50px); }
+  66%      { transform: translate(-40px, 80px); }
+}
+@keyframes orb-drift-2 {
+  0%,100% { transform: translate(0,0); }
+  33%      { transform: translate(-60px,-70px); }
+  66%      { transform: translate(50px,-30px); }
+}
+.lp-orb-1 { animation: orb-drift-1 20s ease-in-out infinite; }
+.lp-orb-2 { animation: orb-drift-2 26s ease-in-out infinite; }
 
 /* Monochrome scrollbar */
 ::-webkit-scrollbar {

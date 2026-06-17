@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { logApiProxyFetchError, logApiProxyUpstreamError } from "@/lib/api-proxy-log";
-import { backendBase, forwardAuth } from "@/lib/backend-proxy";
+import { backendBase, forwardAuth, forwardCookie, copySetCookies } from "@/lib/backend-proxy";
 
 const LOG_TAG = "core/chat/paid";
 
@@ -16,6 +16,7 @@ export async function POST(req: NextRequest) {
         "Content-Type": "application/json",
         Accept: "application/json",
         ...forwardAuth(req),
+        ...forwardCookie(req),
       },
       body: body || undefined,
     });
@@ -26,8 +27,10 @@ export async function POST(req: NextRequest) {
 
   const text = await upstream.text();
   logApiProxyUpstreamError(LOG_TAG, url, upstream.status, text);
-  return new NextResponse(text, {
+  const res = new NextResponse(text, {
     status: upstream.status,
     headers: { "Content-Type": upstream.headers.get("content-type") ?? "application/json" },
   });
+  copySetCookies(upstream, res);
+  return res;
 }

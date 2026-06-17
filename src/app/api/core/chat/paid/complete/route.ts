@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { backendBase, forwardAuth, proxyPost } from "@/lib/backend-proxy";
+import { backendBase, forwardAuth, forwardCookie, proxyPost } from "@/lib/backend-proxy";
 
 export async function POST(req: NextRequest) {
   const body = await req.text();
@@ -7,6 +7,6 @@ export async function POST(req: NextRequest) {
     "chat/paid/complete",
     `${backendBase()}/v1/chat/paid/complete`,
     body,
-    forwardAuth(req),
+    { ...forwardAuth(req), ...forwardCookie(req) },
   );
 }

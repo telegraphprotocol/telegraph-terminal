@@ -4,11 +4,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Copy, Check, RefreshCw, LogOut, Wallet, ArrowDownToLine, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useAccount, useReadContract } from "wagmi";
+import { useAccount, useDisconnect, useReadContract } from "wagmi";
 import { baseSepolia } from "wagmi/chains";
 import { cn } from "@/lib/utils";
 import { authHeaders, clearToken } from "@/lib/auth";
 import { DepositModal } from "@/components/auth/deposit-modal";
+import { ConnectWalletModal } from "@/components/auth/connect-wallet-modal";
+import { INSTANT_WALLET_LABEL, CONNECTED_WALLET_LABEL } from "@/lib/wallet-labels";
+import { ChevronDown } from "lucide-react";
 
 const CHAIN_NAMES: Record<number, string> = {
   84532: "Base Sepolia",
@@ -24,6 +27,8 @@ export type CoreWalletPayload = {
   usdcBalance?: string;
   usdcDecimals?: number;
   walletMode?: "privy" | "external" | null;
+  /** Which wallet is actually debited for payments. Falls back to walletMode if absent. */
+  activeForPayments?: "privy" | "external";
 };
 
 function truncateAddress(addr: string): string {
@@ -90,6 +95,44 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** Collapsed-by-default disclosure for the wallet that ISN'T used for payments. */
+function SecondaryWalletDisclosure({
+  label,
+  address,
+  usdcBalance,
+}: {
+  label: string;
+  address: string;
+  usdcBalance: string | null;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border border-border/40">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left transition-colors hover:bg-muted/20"
+      >
+        <span className="truncate font-mono text-[10px] text-muted-foreground">
+          {label}: {truncateAddress(address)} · not used for payments
+        </span>
+        <ChevronDown className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div className="flex flex-col gap-3 border-t border-border/30 p-3">
+          <AddressRow label={label} address={address} />
+          <div className="flex items-center justify-between border-t border-border/30 pt-2">
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">USDC</span>
+            <span className="text-[12px] font-bold tabular-nums text-foreground">
+              {usdcBalance !== null ? formatUsd(usdcBalance) : "—"}
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function WalletModal({
   data,
   loading,
@@ -113,8 +156,8 @@ function WalletModal({
   onDisconnect: () => void;
   onClose: () => void;
 }) {
-  const isPrivy = data?.walletMode === "privy";
-  const isExternal = data?.walletMode === "external";
+  const activeMode = data?.activeForPayments ?? (data?.walletMode === "privy" ? "privy" : "external");
+  const isPrivy = activeMode === "privy";
 
   const top = anchorRect.bottom + 8;
   const right = Math.max(8, window.innerWidth - anchorRect.right);
@@ -143,23 +186,7 @@ function WalletModal({
 
       <div className="flex flex-col gap-4 p-4">
 
-        {/* Connected wallet */}
-        {connectedAddress && (
-          <div className="flex flex-col gap-2">
-            <SectionLabel>Connected Wallet</SectionLabel>
-            <div className="border border-border/50 bg-muted/10 p-3 flex flex-col gap-3">
-              <AddressRow label="Address" address={connectedAddress} badge="External" />
-              <div className="flex items-center justify-between border-t border-border/40 pt-2">
-                <span className="text-[10px] text-muted-foreground uppercase tracking-wider">USDC</span>
-                <span className="text-[12px] font-bold tabular-nums text-foreground">
-                  {connectedUsdcBalance !== null ? formatUsd(connectedUsdcBalance) : "—"}
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Payment wallet */}
+        {/* Primary wallet — whichever one is actually debited for payments */}
         {loading && !data ? (
           <div className="flex items-center gap-2 py-2 text-[11px] text-muted-foreground">
             <RefreshCw className="size-3 animate-spin" />
@@ -169,21 +196,20 @@ function WalletModal({
           <p className="border border-destructive/30 bg-destructive/10 px-3 py-2 text-[11px] text-destructive">{error}</p>
         ) : data ? (
           <div className="flex flex-col gap-2">
-            <SectionLabel>Payment Wallet</SectionLabel>
-            <div className="border border-border/50 bg-muted/10 p-3 flex flex-col gap-3">
-              {isPrivy && (
-                <AddressRow label="Privy address" address={data.address} badge="Privy" />
-              )}
-              {isExternal && connectedAddress && (
-                <p className="text-[11px] text-muted-foreground font-mono">Using connected wallet for payments.</p>
-              )}
-              <div className="flex items-center justify-between border-t border-border/40 pt-2">
+            <SectionLabel>{isPrivy ? INSTANT_WALLET_LABEL : CONNECTED_WALLET_LABEL} · used for payments</SectionLabel>
+            <div className="border-2 border-primary/30 bg-primary/5 p-3 flex flex-col gap-3">
+              <AddressRow
+                label="Address"
+                address={isPrivy ? data.address : connectedAddress ?? data.address}
+                badge={isPrivy ? "Instant" : "Connected"}
+              />
+              <div className="flex items-center justify-between border-t border-primary/20 pt-2">
                 <div className="flex flex-col gap-0.5">
                   <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
                     USDC{data.chainId ? ` · ${chainLabel(data.chainId)}` : ""}
                   </span>
                   <span className={cn("text-[15px] font-bold tabular-nums text-foreground", loading && "opacity-50")}>
-                    {formatUsd(data.usdcBalance)}
+                    {formatUsd(isPrivy ? data.usdcBalance : connectedAddress ? connectedUsdcBalance ?? undefined : data.usdcBalance)}
                   </span>
                 </div>
                 <button
@@ -203,18 +229,27 @@ function WalletModal({
           </div>
         ) : null}
 
+        {/* Secondary wallet — connected-but-unused, collapsed by default */}
+        {isPrivy && connectedAddress && (
+          <SecondaryWalletDisclosure
+            label={CONNECTED_WALLET_LABEL}
+            address={connectedAddress}
+            usdcBalance={connectedUsdcBalance}
+          />
+        )}
+
         {/* Actions */}
         <div className="flex flex-col gap-2 border-t border-border/40 pt-3">
           {isPrivy && (
             <button
               type="button"
               onClick={onDeposit}
-              className="group flex w-full items-center gap-3 border border-border/60 bg-foreground text-background px-3 py-2.5 text-left transition-all hover:bg-foreground/90 active:scale-[0.98]"
+              className="group flex w-full items-center gap-3 border border-border/60 bg-muted/30 px-3 py-2.5 text-left transition-all hover:bg-muted/60 hover:border-foreground/30 active:scale-[0.98]"
             >
-              <ArrowDownToLine className="size-4 text-background/80 shrink-0" />
+              <ArrowDownToLine className="size-4 text-foreground/60 shrink-0 group-hover:text-foreground transition-colors" />
               <div className="flex-1 min-w-0">
-                <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-background leading-none">Deposit USDC</p>
-                <p className="text-[10px] text-background/50 mt-0.5 font-mono">Fund your Privy wallet</p>
+                <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-foreground leading-none">Deposit USDC</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5 font-mono">Fund your {INSTANT_WALLET_LABEL}</p>
               </div>
             </button>
           )}
@@ -239,8 +274,11 @@ export function GlobalWallet({ className }: Readonly<{ className?: string }>) {
   const [data, setData] = useState<CoreWalletPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [depositOpen, setDepositOpen] = useState(false);
+  const [connectOpen, setConnectOpen] = useState(false);
   const { address: connectedAddress } = useAccount();
+  const { disconnect } = useDisconnect();
 
   const { data: connectedUsdcRaw, refetch: refetchConnectedUsdc } = useReadContract({
     address: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
@@ -268,6 +306,7 @@ export function GlobalWallet({ className }: Readonly<{ className?: string }>) {
       setError(e instanceof Error ? e.message : "Wallet load failed");
     } finally {
       setLoading(false);
+      setHasLoaded(true);
     }
   }, []);
 
@@ -287,7 +326,17 @@ export function GlobalWallet({ className }: Readonly<{ className?: string }>) {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [open]);
+
   const onDisconnect = () => {
+    disconnect();
     clearToken();
     setData(null);
     setOpen(false);
@@ -301,6 +350,32 @@ export function GlobalWallet({ className }: Readonly<{ className?: string }>) {
       : connectedAddress
         ? truncateAddress(connectedAddress)
         : "Wallet";
+
+  // Not yet signed in — show a connect button
+  if (hasLoaded && !data) {
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => setConnectOpen(true)}
+          className={cn(
+            "flex h-8 items-center gap-2 border border-border/60 px-3 text-[11px] font-bold uppercase tracking-[0.08em] transition-colors",
+            "hover:border-foreground/30 hover:text-foreground focus:outline-none",
+            className,
+          )}
+        >
+          <Wallet className="size-3 text-foreground/60 shrink-0" />
+          <span className="text-foreground">Connect Wallet</span>
+        </button>
+        {connectOpen && (
+          <ConnectWalletModal
+            onAuthenticated={() => { setConnectOpen(false); void load(); }}
+            onClose={() => setConnectOpen(false)}
+          />
+        )}
+      </>
+    );
+  }
 
   return (
     <>

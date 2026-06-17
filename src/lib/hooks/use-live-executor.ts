@@ -123,6 +123,86 @@ function toLog(frame: EngineWsFrame): TerminalLogEntry {
   };
 }
 
+function formatWeatherResult(record: Record<string, unknown>): string | null {
+  const hourly = record.hourly as Record<string, unknown> | undefined;
+  if (!hourly) return null;
+  const temps = hourly["2t"] as number[] | undefined;
+  const times = hourly["time"] as string[] | undefined;
+  if (!Array.isArray(temps) || !Array.isArray(times) || temps.length === 0) return null;
+
+  const toC = (k: number) => +(k - 273.15).toFixed(1);
+  const toF = (c: number) => +(c * 9 / 5 + 32).toFixed(1);
+
+  const lat = typeof record.latitude === "number" ? record.latitude : null;
+  const lon = typeof record.longitude === "number" ? record.longitude : null;
+  const model = typeof record.model === "string" ? record.model.toUpperCase() : "Unknown";
+  const ingestedAt = typeof record.ingested_at === "string" ? record.ingested_at : null;
+
+  const latStr = lat !== null ? `${Math.abs(lat).toFixed(2)}°${lat >= 0 ? "N" : "S"}` : "";
+  const lonStr = lon !== null ? `${Math.abs(lon).toFixed(2)}°${lon >= 0 ? "E" : "W"}` : "";
+  const locationStr = latStr && lonStr ? `${latStr}, ${lonStr}` : "";
+
+  const updatedStr = ingestedAt
+    ? new Date(ingestedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", timeZone: "UTC", hour12: false }) + " UTC"
+    : "";
+
+  const celsiusTemps = temps.map(toC);
+  const maxC = Math.max(...celsiusTemps);
+  const minC = Math.min(...celsiusTemps);
+  const maxIdx = celsiusTemps.indexOf(maxC);
+  const minIdx = celsiusTemps.indexOf(minC);
+
+  const fmtTime = (iso: string) =>
+    new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", timeZone: "UTC", hour12: false });
+  const fmtDate = (iso: string) =>
+    new Date(iso).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+
+  const headerParts = [`**Weather Forecast**`];
+  if (locationStr) headerParts.push(locationStr);
+  const subParts: string[] = [];
+  if (model) subParts.push(`Model: ${model}`);
+  if (updatedStr) subParts.push(`Updated ${updatedStr}`);
+
+  const codeLines: string[] = [];
+  let lastDate = "";
+  for (let i = 0; i < times.length; i++) {
+    const iso = times[i];
+    const date = fmtDate(iso);
+    if (date !== lastDate) {
+      if (lastDate !== "") codeLines.push("");
+      codeLines.push(`── ${date} ──`);
+      lastDate = date;
+    }
+    const c = celsiusTemps[i];
+    const f = toF(c);
+    const barLen = Math.max(1, Math.round(((c - minC) / Math.max(maxC - minC, 1)) * 10));
+    const bar = "█".repeat(barLen).padEnd(10);
+    codeLines.push(`${fmtTime(iso)}  ${bar}  ${c > 0 ? "+" : ""}${c}°C  (${f}°F)`);
+  }
+
+  const provenance = record.hourly_provenance as Record<string, unknown> | undefined;
+  const source = provenance?.["2t"] as string | undefined;
+
+  const out: string[] = [
+    headerParts.join(" — "),
+    subParts.join(" · "),
+    "",
+    `**Today's Range:** ${minC}°C (${toF(minC)}°F) → ${maxC}°C (${toF(maxC)}°F)`,
+    `**Peak:** ${maxC}°C at ${fmtTime(times[maxIdx])} UTC  ·  **Low:** ${minC}°C at ${fmtTime(times[minIdx])} UTC`,
+    "",
+    "**Hourly Breakdown:**",
+    "```",
+    ...codeLines,
+    "```",
+  ];
+
+  if (source) {
+    out.push("", `_Source: ${source}_`);
+  }
+
+  return out.join("\n");
+}
+
 function extractAssistantText(result: unknown): string {
   if (!result) return "No result returned.";
   if (typeof result === "string") return result;
@@ -149,6 +229,8 @@ function extractAssistantText(result: unknown): string {
         return `Forecast for requested location starts at ${String(first.time ?? "n/a")} with ${String(first.temperature_c ?? "n/a")}°C and rain ${String(first.rain_mm ?? "n/a")}mm.`;
       }
     }
+    const weatherFormatted = formatWeatherResult(record);
+    if (weatherFormatted) return weatherFormatted;
     return JSON.stringify(result, null, 2);
   }
   return "Unsupported result format.";
@@ -276,6 +358,29 @@ export function useLiveExecutor(opts?: {
   const [backendWalletStatus, setBackendWalletStatus] = useState<BackendWalletStatus>(
     USE_TERMINAL_BACKEND_PAID_CHAT ? "checking" : "idle",
   );
+
+  /** Free-trial subnet quota for anonymous visitors. */
+  const [anonUsage, setAnonUsage] = useState<{ remaining: number; limit: number } | null>(null);
+  /** Daily free AI chat quota. */
+  const [anonAiUsage, setAnonAiUsage] = useState<{ remaining: number; limit: number } | null>(null);
+
+  const refreshAnonUsage = useCallback(async () => {
+    try {
+      const res = await fetch("/api/anon/usage", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = (await res.json()) as { remaining?: number; limit?: number };
+      if (typeof data.remaining === "number" && typeof data.limit === "number") {
+        setAnonUsage({ remaining: data.remaining, limit: data.limit });
+      }
+    } catch {
+      // Best-effort — the in-band anonUsage on each chat response is the
+      // source of truth once the user has sent at least one message.
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshAnonUsage();
+  }, [refreshAnonUsage]);
 
   const fetchCoreWallet = useCallback(async () => {
     if (!USE_TERMINAL_BACKEND_PAID_CHAT) return;
@@ -809,6 +914,26 @@ export function useLiveExecutor(opts?: {
           : [];
 
         if (!res.ok) {
+          if (res.status === 403 && rec.error === "free_quota_exhausted") {
+            const limit = typeof rec.limit === "number" ? rec.limit : anonUsage?.limit ?? 5;
+            setAnonUsage({ remaining: 0, limit });
+            const msg =
+              typeof rec.message === "string"
+                ? rec.message
+                : "Free message quota used up — connect a wallet to continue.";
+            fail(new Error(msg), serverLogs);
+            return;
+          }
+          if (res.status === 403 && rec.error === "free_ai_quota_exhausted") {
+            const limit = typeof rec.limit === "number" ? rec.limit : anonAiUsage?.limit ?? 20;
+            setAnonAiUsage({ remaining: 0, limit });
+            const msg =
+              typeof rec.message === "string"
+                ? rec.message
+                : "Daily free AI chat limit reached — try again tomorrow.";
+            fail(new Error(msg), serverLogs);
+            return;
+          }
           const errMsg =
             typeof rec.error === "string"
               ? rec.error
@@ -984,6 +1109,19 @@ export function useLiveExecutor(opts?: {
         const assistantText =
           typeof rec.assistantText === "string" ? rec.assistantText : extractAssistantText(data);
         const tr = rec.terminalReceipt as LiveTerminalReceipt | undefined;
+
+        if (rec.anonUsage && typeof rec.anonUsage === "object") {
+          const au = rec.anonUsage as { remaining?: unknown; limit?: unknown };
+          if (typeof au.remaining === "number" && typeof au.limit === "number") {
+            setAnonUsage({ remaining: au.remaining, limit: au.limit });
+          }
+        }
+        if (rec.anonAiUsage && typeof rec.anonAiUsage === "object") {
+          const au = rec.anonAiUsage as { remaining?: unknown; limit?: unknown };
+          if (typeof au.remaining === "number" && typeof au.limit === "number") {
+            setAnonAiUsage({ remaining: au.remaining, limit: au.limit });
+          }
+        }
 
         appendToSessionMessages(sessionId, (prev) =>
           prev.map((m) =>
@@ -1330,6 +1468,10 @@ export function useLiveExecutor(opts?: {
     engineSocketConnected,
     x402Phase,
     backendWalletStatus,
+    anonUsage,
+    anonExhausted: anonUsage !== null && anonUsage.remaining <= 0,
+    anonAiUsage,
+    anonAiExhausted: anonAiUsage !== null && anonAiUsage.remaining <= 0,
     useCorePaidChat: USE_TERMINAL_BACKEND_PAID_CHAT,
     useX402Chat: USE_TERMINAL_BACKEND_PAID_CHAT,
     coreWalletFooter: connectedAddress

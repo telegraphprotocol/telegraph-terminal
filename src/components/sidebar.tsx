@@ -16,6 +16,9 @@ import {
 import { conversationHistory, type ConversationGroup } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import type { EngineSubnetPickerProps } from "@/components/engine-subnet-picker";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Info } from "lucide-react";
 
 const SUPPORT_URL =
   process.env.NEXT_PUBLIC_SUPPORT_URL?.trim() ||
@@ -49,6 +52,15 @@ interface SidebarProps {
   liveChatActions?: LiveChatSidebarActions;
   /** When set (e.g. Terminal Backend custodial wallet), replaces default footer identity */
   walletFooter?: SidebarWalletFooter | null;
+  /** Subnet picker props — when provided, renders info box above wallet footer */
+  subnetPicker?: EngineSubnetPickerProps | null;
+  /** When true, renders the daily AI quota exhausted state in the info box */
+  anonAiExhausted?: boolean;
+  /** Subnet free-trial quota — shown in sidebar when subnet mode is active */
+  anonUsage?: { remaining: number; limit: number } | null;
+  anonExhausted?: boolean;
+  showSubnetQuota?: boolean;
+  onConnectWallet?: () => void;
 }
 
 export function Sidebar({
@@ -60,6 +72,12 @@ export function Sidebar({
   historyGroups,
   liveChatActions,
   walletFooter,
+  subnetPicker,
+  anonAiExhausted = false,
+  anonUsage,
+  anonExhausted = false,
+  showSubnetQuota = false,
+  onConnectWallet,
   showHistory = true,
 }: SidebarProps & { showHistory?: boolean }) {
   const walletLabel = walletFooter?.label ?? "Test User";
@@ -218,6 +236,66 @@ export function Sidebar({
               ))}
             </AnimatePresence>
           </nav>
+        )}
+
+        {/* Subnet free-trial quota */}
+        {subnetPicker && showSubnetQuota && (
+          <div className="px-3 pb-3 shrink-0 border-t border-border/30 pt-3">
+            {anonExhausted ? (
+              <div className="flex items-start justify-between gap-2 rounded-md border border-amber-500/25 bg-amber-500/8 px-2.5 py-2">
+                <p className="text-[10px] leading-snug text-amber-400/90">
+                  <span className="font-semibold text-amber-400">All {anonUsage?.limit ?? 5} free subnet calls used.</span>{" "}
+                  Connect a wallet to continue.
+                </p>
+                {onConnectWallet && (
+                  <button
+                    type="button"
+                    onClick={onConnectWallet}
+                    className="shrink-0 text-[9px] font-bold uppercase tracking-wider text-amber-400 hover:text-amber-300 transition-colors whitespace-nowrap"
+                  >
+                    Connect
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-2 rounded-md border border-sky-500/30 bg-sky-500/8 px-2.5 py-2">
+                <p className="text-[10px] leading-snug text-sky-400/80">
+                  <span className="font-semibold text-sky-400">{anonUsage?.remaining ?? 5}</span> of {anonUsage?.limit ?? 5} free subnet calls left
+                </p>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <Info size={11} className="shrink-0 text-sky-400/50 hover:text-sky-400 transition-colors cursor-default" />
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="max-w-[200px] text-[11px] leading-relaxed border border-border/60 bg-card text-foreground shadow-xl backdrop-blur-md">
+                      You get {anonUsage?.limit ?? 5} free subnet calls without a wallet. Connect a wallet to unlock unlimited subnet access via x402 payments. AI chat (auto routing) is always free and doesn't count toward this limit.
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Free AI chat info */}
+        {subnetPicker && !subnetPicker.selectedSubnetId && (
+          <div className="px-3 pb-3 shrink-0 border-t border-border/30 pt-3">
+            {anonAiExhausted ? (
+              <div className="flex items-start gap-2 rounded-md border border-red-500/25 bg-red-500/8 px-2.5 py-2">
+                <span className="mt-px shrink-0 text-[10px] text-red-400">✦</span>
+                <p className="text-[10px] leading-snug text-red-400/80">
+                  <span className="font-semibold text-red-400">Today's AI quota exceeded.</span> Come back tomorrow.
+                </p>
+              </div>
+            ) : (
+              <div className="flex items-start gap-2 rounded-md border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-2">
+                <span className="mt-px shrink-0 text-[10px] text-emerald-500">✦</span>
+                <p className="text-[10px] leading-snug text-emerald-400/80">
+                  AI chat is <span className="font-semibold text-emerald-400">free</span> — no wallet needed. Select a subnet to use paid intelligence.
+                </p>
+              </div>
+            )}
+          </div>
         )}
 
         {/* Footer */}

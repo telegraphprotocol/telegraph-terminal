@@ -15,6 +15,24 @@ export function forwardAuth(req: NextRequest): HeadersInit {
   return auth ? { Authorization: auth } : {};
 }
 
+/** Forward the caller's cookies (e.g. the anon free-trial cookie) to the backend. */
+export function forwardCookie(req: NextRequest): HeadersInit {
+  const cookie = req.headers.get("cookie");
+  return cookie ? { Cookie: cookie } : {};
+}
+
+/** Copy any Set-Cookie header(s) from the backend's response onto the Next.js response. */
+export function copySetCookies(upstream: Response, res: NextResponse): void {
+  const getSetCookie = (upstream.headers as Headers & { getSetCookie?: () => string[] }).getSetCookie;
+  const values = getSetCookie ? getSetCookie.call(upstream.headers) : [];
+  if (values.length > 0) {
+    for (const v of values) res.headers.append("Set-Cookie", v);
+  } else {
+    const single = upstream.headers.get("set-cookie");
+    if (single) res.headers.append("Set-Cookie", single);
+  }
+}
+
 export async function proxyGet(
   tag: string,
   url: string,
@@ -29,10 +47,12 @@ export async function proxyGet(
   }
   const text = await upstream.text();
   logApiProxyUpstreamError(tag, url, upstream.status, text);
-  return new NextResponse(text, {
+  const res = new NextResponse(text, {
     status: upstream.status,
     headers: { "Content-Type": upstream.headers.get("content-type") ?? "application/json" },
   });
+  copySetCookies(upstream, res);
+  return res;
 }
 
 export async function proxyPost(
@@ -54,8 +74,10 @@ export async function proxyPost(
   }
   const text = await upstream.text();
   logApiProxyUpstreamError(tag, url, upstream.status, text);
-  return new NextResponse(text, {
+  const res = new NextResponse(text, {
     status: upstream.status,
     headers: { "Content-Type": upstream.headers.get("content-type") ?? "application/json" },
   });
+  copySetCookies(upstream, res);
+  return res;
 }

@@ -8,6 +8,7 @@ import { authHeaders } from "@/lib/auth";
 import { Check, Copy, RefreshCw, X, ArrowDownToLine, ExternalLink, ArrowRight, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { baseSepolia } from "wagmi/chains";
+import { INSTANT_WALLET_LABEL } from "@/lib/wallet-labels";
 
 const USDC_ADDRESS = "0x036CbD53842c5426634e7929541eC2318f3dCF7e" as const;
 const USDC_DECIMALS = 6;
@@ -60,6 +61,14 @@ export function DepositModal({ walletAddress, onClose }: DepositModalProps) {
   }, []);
 
   useEffect(() => { void fetchPrivyBalance(); }, [fetchPrivyBalance]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
 
   useEffect(() => {
     if (isConfirmed) {
@@ -135,7 +144,9 @@ export function DepositModal({ walletAddress, onClose }: DepositModalProps) {
               </div>
               <div>
                 <h2 className="text-[11px] font-bold uppercase tracking-[0.12em] text-foreground">Deposit USDC</h2>
-                <p className="text-[10px] text-muted-foreground font-mono mt-0.5">Base Sepolia testnet</p>
+                <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
+                  Base Sepolia testnet · funds your {INSTANT_WALLET_LABEL}
+                </p>
               </div>
             </div>
             <button
@@ -148,20 +159,11 @@ export function DepositModal({ walletAddress, onClose }: DepositModalProps) {
 
           <div className="flex flex-col gap-4 p-5">
 
-            {/* Balance comparison */}
+            {/* Balance comparison — Instant Wallet (pays for messages) is primary */}
             <div className="grid grid-cols-2 xs:grid-cols-2 gap-2">
-              <div className="border border-border/50 bg-muted/10 p-3 flex flex-col gap-1.5">
-                <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Connected</p>
-                <p className="text-[15px] font-bold tabular-nums text-foreground">
-                  {connectedBalanceNum !== null
-                    ? `$${connectedBalanceNum.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                    : "—"}
-                </p>
-                <p className="text-[10px] text-muted-foreground font-mono">USDC</p>
-              </div>
-              <div className="border border-border/50 bg-muted/10 p-3 flex flex-col gap-1.5">
+              <div className="border-2 border-primary/40 bg-primary/5 p-3 flex flex-col gap-1.5">
                 <div className="flex items-center justify-between">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Privy Wallet</p>
+                  <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-foreground/70">{INSTANT_WALLET_LABEL}</p>
                   <button
                     onClick={fetchPrivyBalance}
                     disabled={refreshingPrivy}
@@ -175,7 +177,16 @@ export function DepositModal({ walletAddress, onClose }: DepositModalProps) {
                     ? `$${Number(privyBalance).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                     : "—"}
                 </p>
-                <p className="text-[10px] text-muted-foreground font-mono">USDC</p>
+                <p className="text-[10px] text-muted-foreground font-mono">USDC · pays for messages</p>
+              </div>
+              <div className="border border-border/40 bg-muted/10 p-3 flex flex-col gap-1.5 opacity-80">
+                <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Your Wallet</p>
+                <p className="text-[15px] font-bold tabular-nums text-foreground">
+                  {connectedBalanceNum !== null
+                    ? `$${connectedBalanceNum.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                    : "—"}
+                </p>
+                <p className="text-[10px] text-muted-foreground font-mono">USDC · source for transfer</p>
               </div>
             </div>
 
@@ -222,10 +233,10 @@ export function DepositModal({ walletAddress, onClose }: DepositModalProps) {
               onClick={handleTransfer}
               disabled={!amountValid || isBusy || isConfirmed}
               className={cn(
-                "flex w-full items-center justify-center gap-2 py-3 text-[11px] font-bold uppercase tracking-[0.1em] transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed",
+                "flex w-full items-center justify-center gap-2 border py-3 text-[11px] font-bold uppercase tracking-[0.1em] transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed",
                 isConfirmed
-                  ? "border border-green-500/30 bg-green-500/10 text-green-500"
-                  : "bg-foreground text-background hover:bg-foreground/90",
+                  ? "border-green-500/30 bg-green-500/10 text-green-500"
+                  : "border-border/60 bg-muted/30 text-foreground hover:bg-muted/60 hover:border-foreground/30",
               )}
             >
               {isConfirmed ? (
@@ -236,7 +247,7 @@ export function DepositModal({ walletAddress, onClose }: DepositModalProps) {
                 <><Loader2 className="size-4 animate-spin" />Confirming…</>
               ) : (
                 <>
-                  <span>Transfer to Privy Wallet</span>
+                  <span>Transfer to {INSTANT_WALLET_LABEL}</span>
                   <ArrowRight className="size-3.5" />
                 </>
               )}
@@ -267,7 +278,7 @@ export function DepositModal({ walletAddress, onClose }: DepositModalProps) {
 
             {/* Privy address */}
             <div className="flex flex-col gap-2">
-              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">Your Privy wallet address</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">Your {INSTANT_WALLET_LABEL} address</p>
               <button
                 type="button"
                 onClick={copyAddress}
