@@ -10,8 +10,6 @@ import { Search, Info, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { GlobalWallet } from "@/components/global-wallet";
-import { EngineSubnetPicker } from "@/components/engine-subnet-picker";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { HowItWorksButton, type HowItWorksStep } from "@/components/how-it-works-button";
 import { Radio, Zap, Cpu, DollarSign } from "lucide-react";
@@ -215,12 +213,10 @@ const krakenMainSurfaceClassName =
 
 
 export default function KrakenDashboard() {
-  const showGlobalWallet =
-    process.env.NEXT_PUBLIC_USE_TERMINAL_BACKEND_X402 === "true";
   const [selectedCategories, setSelectedCategories] = useState<DashboardCategoryId[]>([
     ...DEFAULT_SELECTED_CATEGORIES,
   ]);
-  const [infoOpen, setInfoOpen] = useState(true);
+  const [infoOpen, setInfoOpen] = useState(false);
   useEffect(() => {
     setInfoOpen(localStorage.getItem(DASHBOARD_INFO_DISMISSED_KEY) !== "1");
   }, []);
@@ -242,7 +238,6 @@ export default function KrakenDashboard() {
   const [engineSubnets, setEngineSubnets] = useState<SubnetPickItem[]>([]);
   const [engineSubnetsLoading, setEngineSubnetsLoading] = useState(true);
   const [engineSubnetsError, setEngineSubnetsError] = useState<string | null>(null);
-  const [dashboardSubnetId, setDashboardSubnetId] = useState<string | null>(null);
   const [detailsItem, setDetailsItem] = useState<DaemonResultItem | null>(null);
 
   useEffect(() => {
@@ -307,16 +302,6 @@ export default function KrakenDashboard() {
 
               {/* Action cluster */}
               <div className="flex shrink-0 items-center gap-1.5">
-                <div className="shrink-0">
-                  <EngineSubnetPicker
-                    subnets={engineSubnets}
-                    selectedSubnetId={dashboardSubnetId}
-                    onSubnetChange={setDashboardSubnetId}
-                    loading={engineSubnetsLoading}
-                    error={engineSubnetsError}
-                    menuAlign="end"
-                  />
-                </div>
                 <HowItWorksButton
                   title="How the Signal Dashboard Works"
                   intro="The Signal Dashboard is the live network explorer for Telegraph — it shows real-time questions being asked across the network, how they're routed, and how the answers are verified."
@@ -325,7 +310,6 @@ export default function KrakenDashboard() {
                   className="min-h-[44px]"
                 />
                 <ThemeToggle />
-                {showGlobalWallet && <GlobalWallet className="shrink-0" />}
               </div>
             </div>
 
@@ -367,28 +351,13 @@ export default function KrakenDashboard() {
 
               {/* Actions */}
               <div className="flex shrink-0 items-center gap-2">
-                <div className="min-w-0 max-w-[200px] shrink lg:max-w-[240px] xl:max-w-[280px]">
-                  <EngineSubnetPicker
-                    subnets={engineSubnets}
-                    selectedSubnetId={dashboardSubnetId}
-                    onSubnetChange={setDashboardSubnetId}
-                    loading={engineSubnetsLoading}
-                    error={engineSubnetsError}
-                    menuAlign="end"
-                  />
-                </div>
-
-                <div className="h-4 w-px shrink-0 bg-border/40" />
-
                 <HowItWorksButton
                   title="How the Signal Dashboard Works"
                   intro="The Signal Dashboard is the live network explorer for Telegraph — it shows real-time questions being asked across the network, how they're routed, and how the answers are verified."
                   steps={DASHBOARD_HOW_IT_WORKS_STEPS}
                   footer="Most live activity comes from Telegraph's own Autonomous Engine continuously testing miners — external trading bots and AI agents add the rest."
                 />
-
                 <ThemeToggle />
-                {showGlobalWallet && <GlobalWallet className="shrink-0" />}
               </div>
             </div>
 
