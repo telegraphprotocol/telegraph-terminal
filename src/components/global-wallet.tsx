@@ -119,7 +119,7 @@ function SecondaryWalletBox({
 }) {
   return (
     <div className="flex flex-col gap-2">
-      <SectionLabel tooltip="This is your external wallet (e.g. MetaMask). It is not used for payments directly. Use it to deposit USDC into your Telegraph Instant Wallet to fund subnet calls.">
+      <SectionLabel tooltip="This is your external wallet (e.g. MetaMask). It is not used for payments directly. Use it to deposit USDC into your Telegraph Instant Wallet to fund miner calls.">
         {label}
       </SectionLabel>
       <div className="border-2 border-amber-500/30 bg-amber-500/5 p-3 flex flex-col gap-3">
@@ -202,8 +202,8 @@ function WalletModal({
           <div className="flex flex-col gap-2">
             <SectionLabel
               tooltip={isPrivy
-                ? "This is your Telegraph Instant Wallet, powered by Privy. All subnet payments are deducted from here. Deposit USDC into this wallet from your connected external wallet."
-                : "Your connected external wallet is used directly for payments. Each subnet call requires a signature approval from this wallet."}
+                ? "This is your Telegraph Instant Wallet, powered by Privy. All miner payments are deducted from here. Deposit USDC into this wallet from your connected external wallet."
+                : "Your connected external wallet is used directly for payments. Each miner call requires a signature approval from this wallet."}
             >
               {isPrivy ? INSTANT_WALLET_LABEL : CONNECTED_WALLET_LABEL}
             </SectionLabel>
