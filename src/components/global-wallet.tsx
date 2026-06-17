@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Copy, Check, RefreshCw, LogOut, Wallet, ArrowDownToLine, X } from "lucide-react";
+import { Copy, Check, RefreshCw, LogOut, Wallet, ArrowDownToLine, X, ExternalLink, Info } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAccount, useDisconnect, useReadContract } from "wagmi";
 import { baseSepolia } from "wagmi/chains";
@@ -11,7 +11,7 @@ import { authHeaders, clearToken } from "@/lib/auth";
 import { DepositModal } from "@/components/auth/deposit-modal";
 import { ConnectWalletModal } from "@/components/auth/connect-wallet-modal";
 import { INSTANT_WALLET_LABEL, CONNECTED_WALLET_LABEL } from "@/lib/wallet-labels";
-import { ChevronDown } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const CHAIN_NAMES: Record<number, string> = {
   84532: "Base Sepolia",
@@ -86,17 +86,29 @@ function AddressRow({ label, address, badge }: { label: string; address: string;
   );
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+function SectionLabel({ children, tooltip }: { children: React.ReactNode; tooltip?: string }) {
   return (
     <div className="flex items-center gap-2">
       <div className="h-2.5 w-px bg-foreground/40" />
       <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground">{children}</p>
+      {tooltip && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger>
+              <Info size={14} className="text-muted-foreground/60 hover:text-foreground transition-colors cursor-pointer" />
+            </TooltipTrigger>
+            <TooltipContent side="right" className="max-w-[220px] text-[11px] leading-relaxed border border-border/60 bg-card text-foreground shadow-xl backdrop-blur-md">
+              {tooltip}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
     </div>
   );
 }
 
-/** Collapsed-by-default disclosure for the wallet that ISN'T used for payments. */
-function SecondaryWalletDisclosure({
+/** Secondary wallet box — amber toned to distinguish from the primary payment wallet. */
+function SecondaryWalletBox({
   label,
   address,
   usdcBalance,
@@ -105,30 +117,22 @@ function SecondaryWalletDisclosure({
   address: string;
   usdcBalance: string | null;
 }) {
-  const [open, setOpen] = useState(false);
   return (
-    <div className="border border-border/40">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left transition-colors hover:bg-muted/20"
-      >
-        <span className="truncate font-mono text-[10px] text-muted-foreground">
-          {label}: {truncateAddress(address)} · not used for payments
-        </span>
-        <ChevronDown className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
-      </button>
-      {open && (
-        <div className="flex flex-col gap-3 border-t border-border/30 p-3">
-          <AddressRow label={label} address={address} />
-          <div className="flex items-center justify-between border-t border-border/30 pt-2">
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">USDC</span>
-            <span className="text-[12px] font-bold tabular-nums text-foreground">
+    <div className="flex flex-col gap-2">
+      <SectionLabel tooltip="This is your external wallet (e.g. MetaMask). It is not used for payments directly. Use it to deposit USDC into your Telegraph Instant Wallet to fund subnet calls.">
+        {label}
+      </SectionLabel>
+      <div className="border-2 border-amber-500/30 bg-amber-500/5 p-3 flex flex-col gap-3">
+        <AddressRow label="Address" address={address} badge="Connected" />
+        <div className="flex items-center justify-between border-t border-amber-500/20 pt-2">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">USDC · Base Sepolia</span>
+            <span className="text-[15px] font-bold tabular-nums text-foreground">
               {usdcBalance !== null ? formatUsd(usdcBalance) : "—"}
             </span>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -196,7 +200,13 @@ function WalletModal({
           <p className="border border-destructive/30 bg-destructive/10 px-3 py-2 text-[11px] text-destructive">{error}</p>
         ) : data ? (
           <div className="flex flex-col gap-2">
-            <SectionLabel>{isPrivy ? INSTANT_WALLET_LABEL : CONNECTED_WALLET_LABEL} · used for payments</SectionLabel>
+            <SectionLabel
+              tooltip={isPrivy
+                ? "This is your Telegraph Instant Wallet, powered by Privy. All subnet payments are deducted from here. Deposit USDC into this wallet from your connected external wallet."
+                : "Your connected external wallet is used directly for payments. Each subnet call requires a signature approval from this wallet."}
+            >
+              {isPrivy ? INSTANT_WALLET_LABEL : CONNECTED_WALLET_LABEL}
+            </SectionLabel>
             <div className="border-2 border-primary/30 bg-primary/5 p-3 flex flex-col gap-3">
               <AddressRow
                 label="Address"
@@ -229,9 +239,9 @@ function WalletModal({
           </div>
         ) : null}
 
-        {/* Secondary wallet — connected-but-unused, collapsed by default */}
+        {/* Secondary wallet — connected-but-unused */}
         {isPrivy && connectedAddress && (
-          <SecondaryWalletDisclosure
+          <SecondaryWalletBox
             label={CONNECTED_WALLET_LABEL}
             address={connectedAddress}
             usdcBalance={connectedUsdcBalance}
@@ -253,6 +263,18 @@ function WalletModal({
               </div>
             </button>
           )}
+          <a
+            href="https://faucet.circle.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group flex w-full items-center gap-3 border-2 border-sky-500/40 bg-sky-500/8 px-3 py-2.5 text-left transition-all hover:border-sky-500/70 hover:bg-sky-500/15 active:scale-[0.98]"
+          >
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-sky-400 leading-none group-hover:text-sky-300">Get Free Test USDC</p>
+              <p className="text-[10px] text-sky-400/50 mt-0.5">Circle Faucet · Base Sepolia</p>
+            </div>
+            <ExternalLink className="size-3.5 shrink-0 text-sky-400/50 group-hover:text-sky-300 transition-colors" />
+          </a>
           <button
             type="button"
             onClick={onDisconnect}
