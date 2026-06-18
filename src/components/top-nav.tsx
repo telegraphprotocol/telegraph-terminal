@@ -85,14 +85,19 @@ export function TopNav({
             </Link>
           )}
 
-          <div className="flex min-w-0 flex-1 flex-col">
+          <Link
+            href="https://telegraphprotocol.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex min-w-0 flex-1 flex-col"
+          >
             <span className="truncate text-[13px] font-bold uppercase tracking-[0.12em] text-foreground leading-none">
               Telegraph
             </span>
             <span className="truncate text-[9px] uppercase tracking-[0.1em] text-muted-foreground/60 leading-none mt-1">
               Intelligence Terminal
             </span>
-          </div>
+          </Link>
 
           {extraActions}
           <ThemeToggle />
@@ -129,14 +134,19 @@ export function TopNav({
           )}
 
           {/* Wordmark */}
-          <div className="flex items-baseline gap-2">
+          <Link
+            href="https://telegraphprotocol.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-baseline gap-2"
+          >
             <span className="text-[13px] font-bold uppercase tracking-[0.14em] text-foreground">
               Telegraph
             </span>
             <span className="hidden text-[9px] uppercase tracking-[0.12em] text-muted-foreground/50 lg:block">
               Intelligence Terminal
             </span>
-          </div>
+          </Link>
         </div>
 
         {/* Divider */}
