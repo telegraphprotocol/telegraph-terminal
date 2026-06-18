@@ -127,7 +127,7 @@ function routingFromReceipt(receipt: TerminalScriptReceipt): ScriptEntry[] {
 
 function serverLogsToEntries(serverLogs: ServerLogLine[]): ScriptEntry[] {
   return serverLogs.map((l) => ({
-    section: l.section?.trim() || "Payment & Rail",
+    section: l.section?.trim() || "Payment and Rail",
     label: l.label,
     detail: l.detail,
   }));
@@ -164,7 +164,7 @@ export function buildErrorScript(
       ? serverLogsToEntries(serverLogs)
       : [
           {
-            section: "Payment & Rail",
+            section: "Payment and Rail",
             label: "ERROR",
             detail: errorMessage,
           },

@@ -6,7 +6,7 @@ import { KrakenSignalDetailsDialog } from "@/components/kraken/kraken-signal-det
 import { KrakenSkillCards } from "@/components/kraken/kraken-skill-cards";
 import { KrakenAnalytics } from "@/components/kraken/kraken-analytics";
 import { KrakenAlerts } from "@/components/kraken/kraken-alerts";
-import { Search, Info, X } from "lucide-react";
+import { Search, Info, X, ArrowLeft } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -241,7 +241,7 @@ export default function KrakenDashboard() {
   const [detailsItem, setDetailsItem] = useState<DaemonResultItem | null>(null);
 
   useEffect(() => {
-    document.title = "Kraken Intelligence Dashboard";
+    document.title = "Telegraph's Dashboard";
   }, []);
 
   useEffect(() => {
@@ -297,6 +297,14 @@ export default function KrakenDashboard() {
             <div className="flex h-14 items-center gap-3 px-4 sm:px-5">
               <KrakenLogoMark className="h-[18px] w-auto shrink-0 text-foreground" />
 
+              <Link
+                href="/"
+                className="flex h-9 min-w-[44px] items-center gap-1.5 border border-border/60 px-2.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+              >
+                <ArrowLeft size={12} strokeWidth={2.5} />
+                <span>Go Back</span>
+              </Link>
+
               {/* Spacer */}
               <div className="flex-1" />
 
@@ -336,6 +344,14 @@ export default function KrakenDashboard() {
 
               {/* Divider */}
               <div className="h-4 w-px shrink-0 bg-border/60" />
+
+              <Link
+                href="/"
+                className="flex h-7 items-center gap-1.5 border border-border/60 px-2.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+              >
+                <ArrowLeft size={12} strokeWidth={2.5} />
+                <span>Go Back</span>
+              </Link>
 
               {/* Search */}
               <div className="flex min-w-0 flex-1 items-center">
@@ -434,7 +450,7 @@ export default function KrakenDashboard() {
                 />
                 <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
                   <span>
-                    Showing {feed.signals.length} of {feed.filteredTotal} feed
+                    Showing {feed.signals.length} of {feed.filteredTotal} signals
                     {feed.cacheSize > 0 ? ` · ${feed.cacheSize} cached` : ""}
                     {feed.footerStats ? ` · ${feed.footerStats}` : ""}
                     {feed.footerExtra}

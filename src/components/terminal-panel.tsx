@@ -422,7 +422,7 @@ export function MobileTerminalCollapsible({
                 <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-foreground/50 rounded-full animate-ping" />
             </div>
             <span className="text-sm font-semibold text-foreground tracking-tight">
-              Live Settlement &amp; Logic Feed
+              Live Settlement and Logic Feed
             </span>
         </div>
         <ChevronDown
@@ -491,7 +491,7 @@ export function TerminalPanel({
           </TooltipProvider>
         </div>
         <p className="mt-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-widest opacity-60">
-          Live Settlement &amp; Logic Feed
+          Live Settlement and Logic Feed
         </p>
       </div>
 

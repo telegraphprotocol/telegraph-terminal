@@ -81,7 +81,7 @@ export function TopNav({
               title="Back to dashboard"
             >
               <ArrowLeft size={12} strokeWidth={2.5} />
-              <span>Dashboard</span>
+              <span>Go Back</span>
             </Link>
           )}
 
@@ -124,7 +124,7 @@ export function TopNav({
               title="Back to dashboard"
             >
               <ArrowLeft size={12} strokeWidth={2.5} />
-              <span>Dashboard</span>
+              <span>Go Back</span>
             </Link>
           )}
 
