@@ -169,7 +169,7 @@ function ReceiptDetailBody({ receipt }: { receipt: TerminalReceiptLike }) {
           {(isLiveReceipt(receipt)
             ? [
                 {
-                  label: "Subnet Provider",
+                  label: "Miner Provider",
                   value: `${receipt.subnet} (SN${receipt.subnetId})`,
                   icon: Activity,
                 },
@@ -178,7 +178,7 @@ function ReceiptDetailBody({ receipt }: { receipt: TerminalReceiptLike }) {
                 { label: "Duration", value: `${receipt.durationMs}ms`, icon: Activity },
               ]
             : [
-                { label: "Subnet Provider", value: receipt.provider, icon: Activity },
+                { label: "Miner Provider", value: receipt.provider, icon: Activity },
                 { label: "Confidence Score", value: receipt.confidence, icon: ShieldCheck },
                 { label: "Network Fee", value: receipt.settlementCost, icon: Zap },
                 {

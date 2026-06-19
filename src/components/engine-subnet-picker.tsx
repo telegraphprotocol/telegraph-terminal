@@ -43,7 +43,7 @@ export function EngineSubnetPicker({
   const isAutoRouting = !selectedSubnetId && !engineUnreachable;
 
   const primaryLabel = loading
-    ? "Loading subnets…"
+    ? "Loading miners…"
     : selectedSubnetId
       ? subnets.find((s) => s.id === selectedSubnetId)?.label ?? `SN${selectedSubnetId}`
       : engineUnreachable
@@ -69,7 +69,7 @@ export function EngineSubnetPicker({
         )}
         aria-expanded={dropdownOpen}
         aria-haspopup="listbox"
-        aria-label={`Subnet routing: ${primaryLabel}`}
+        aria-label={`Miner routing: ${primaryLabel}`}
       >
         <span className={cn(
           "truncate text-[14px] leading-tight",
@@ -122,10 +122,10 @@ export function EngineSubnetPicker({
             </button>
             <div className="my-1 h-px bg-orange-500/15" />
             {loading ? (
-              <div className="px-3 py-2 text-[12px] text-muted-foreground">Loading subnets…</div>
+              <div className="px-3 py-2 text-[12px] text-muted-foreground">Loading miners…</div>
             ) : subnets.length === 0 ? (
               <div className="px-3 py-2 text-[12px] text-muted-foreground">
-                No subnets from engine. Start the service behind{" "}
+                No miners from engine. Start the service behind{" "}
                 <code className="text-[11px]">/v1/subnets</code>.
               </div>
             ) : (

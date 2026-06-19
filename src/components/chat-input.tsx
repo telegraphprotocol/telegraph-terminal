@@ -66,7 +66,7 @@ export function ChatInput({ onSend, disabled, allowEmptySend = false }: ChatInpu
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={handleKeyDown}
             onInput={handleInput}
-            placeholder="Query subnets or execute protocols..."
+            placeholder="Query miners or execute protocols..."
             disabled={disabled}
             className="flex-1 max-h-40 min-h-[48px] resize-none overflow-y-auto bg-transparent px-1 py-2.5 text-[14px] font-mono leading-snug text-foreground outline-none placeholder:text-muted-foreground/40 custom-scrollbar sm:py-3"
             style={{ height: "48px" }}

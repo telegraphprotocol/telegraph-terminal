@@ -244,7 +244,7 @@ export function Sidebar({
             {anonExhausted ? (
               <div className="flex items-start justify-between gap-2 rounded-md border border-amber-500/25 bg-amber-500/8 px-2.5 py-2">
                 <p className="text-[10px] leading-snug text-amber-400/90">
-                  <span className="font-semibold text-amber-400">All {anonUsage?.limit ?? 5} free subnet calls used.</span>{" "}
+                  <span className="font-semibold text-amber-400">All {anonUsage?.limit ?? 5} free miner calls used.</span>{" "}
                   Connect a wallet to continue.
                 </p>
                 {onConnectWallet && (
@@ -260,7 +260,7 @@ export function Sidebar({
             ) : (
               <div className="flex items-center justify-between gap-2 rounded-md border border-sky-500/30 bg-sky-500/8 px-2.5 py-2">
                 <p className="text-[10px] leading-snug text-sky-400/80">
-                  <span className="font-semibold text-sky-400">{anonUsage?.remaining ?? 5}</span> of {anonUsage?.limit ?? 5} free subnet calls left
+                  <span className="font-semibold text-sky-400">{anonUsage?.remaining ?? 5}</span> of {anonUsage?.limit ?? 5} free miner calls left
                 </p>
                 <TooltipProvider>
                   <Tooltip>
@@ -268,7 +268,7 @@ export function Sidebar({
                       <Info size={11} className="shrink-0 text-sky-400/50 hover:text-sky-400 transition-colors cursor-default" />
                     </TooltipTrigger>
                     <TooltipContent side="right" className="max-w-[200px] text-[11px] leading-relaxed border border-border/60 bg-card text-foreground shadow-xl backdrop-blur-md">
-                      You get {anonUsage?.limit ?? 5} free subnet calls without a wallet. Connect a wallet to unlock unlimited subnet access via x402 payments. AI chat (auto routing) is always free and doesn't count toward this limit.
+                      You get {anonUsage?.limit ?? 5} free miner calls without a wallet. Connect a wallet to unlock unlimited miner access via x402 payments. AI chat (auto routing) is always free and doesn't count toward this limit.
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -291,7 +291,7 @@ export function Sidebar({
               <div className="flex items-start gap-2 rounded-md border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-2">
                 <span className="mt-px shrink-0 text-[10px] text-emerald-500">✦</span>
                 <p className="text-[10px] leading-snug text-emerald-400/80">
-                  AI chat is <span className="font-semibold text-emerald-400">free</span> — no wallet needed. Select a subnet to use paid intelligence.
+                  AI chat is <span className="font-semibold text-emerald-400">free</span> — no wallet needed. Select a miner to use paid intelligence.
                 </p>
               </div>
             )}

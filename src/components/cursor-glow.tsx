@@ -8,6 +8,7 @@ export function CursorGlow() {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    el.style.transform = `translate(${window.innerWidth / 2 - 300}px, ${window.innerHeight - 400}px)`;
     const onMove = (e: MouseEvent) => {
       el.style.transform = `translate(${e.clientX - 300}px, ${e.clientY - 300}px)`;
     };

@@ -76,7 +76,7 @@ export function DirectSubnetFields({
         </summary>
         <div className="mt-2 space-y-3 pb-1">
           {loading ? (
-            <p className="text-[12px] text-muted-foreground">Loading subnet YAML…</p>
+            <p className="text-[12px] text-muted-foreground">Loading miner YAML…</p>
           ) : null}
           {error ? (
             <p className="break-words text-[12px] text-amber-600 dark:text-amber-400">{error}</p>
