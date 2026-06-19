@@ -13,8 +13,30 @@ const robotoMono = Roboto_Mono({
 export const metadata: Metadata = {
   title: "Telegraph Intelligence Terminal",
   description: "AI-powered intelligence and settlement platform",
+  metadataBase: new URL("https://terminal.telegraphprotocol.com"),
   icons: {
     icon: "/logo.png",
+  },
+  openGraph: {
+    title: "Telegraph Intelligence Terminal",
+    description: "AI-powered intelligence and settlement platform",
+    url: "https://terminal.telegraphprotocol.com",
+    siteName: "Telegraph Intelligence Terminal",
+    images: [
+      {
+        url: "/telegraph-social-card.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Telegraph Protocol",
+      },
+    ],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Telegraph Intelligence Terminal",
+    description: "AI-powered intelligence and settlement platform",
+    images: ["/telegraph-social-card.jpg"],
   },
 };
 
