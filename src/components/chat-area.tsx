@@ -76,7 +76,7 @@ export function ChatArea({
           <div
             className={
               failed
-                ? "max-w-[440px] w-fit rounded-2xl border border-red-500/45 bg-red-950/35 px-4 py-[15px] sm:max-w-[min(440px,85%)]"
+                ? "max-w-[440px] w-fit rounded-2xl border border-red-500/50 bg-red-50 dark:bg-red-950/35 dark:border-red-500/45 px-4 py-[15px] sm:max-w-[min(440px,85%)]"
                 : "max-w-[440px] w-fit rounded-2xl bg-secondary px-4 py-[15px] sm:max-w-[min(440px,85%)]"
             }
           >
@@ -85,7 +85,7 @@ export function ChatArea({
                 key={i}
                 className={
                   failed
-                    ? "text-[14px] font-normal leading-[150%] text-red-100"
+                    ? "text-[14px] font-normal leading-[150%] text-red-800 dark:text-red-100"
                     : "text-[14px] font-normal leading-[150%] text-secondary-foreground"
                 }
               >
@@ -93,7 +93,7 @@ export function ChatArea({
               </p>
             ))}
             {failed && message.sendError ? (
-              <p className="mt-2 line-clamp-3 text-[12px] leading-snug text-red-300/90">
+              <p className="mt-2 line-clamp-3 text-[12px] leading-snug text-red-700 dark:text-red-300/90">
                 {message.sendError}
               </p>
             ) : null}
@@ -103,7 +103,7 @@ export function ChatArea({
               type="button"
               onClick={() => onRetrySend(message.id)}
               disabled={isLoading}
-              className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-red-300/90 transition-colors hover:bg-red-500/15 hover:text-red-200 disabled:pointer-events-none disabled:opacity-40"
+              className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-red-700 dark:text-red-300/90 transition-colors hover:bg-red-500/15 hover:text-red-800 dark:hover:text-red-200 disabled:pointer-events-none disabled:opacity-40"
               aria-label="Retry send"
             >
               <RefreshCw size={14} strokeWidth={2.25} aria-hidden />

@@ -381,13 +381,13 @@ export function GlobalWallet({ className }: Readonly<{ className?: string }>) {
           type="button"
           onClick={() => setConnectOpen(true)}
           className={cn(
-            "flex h-8 items-center gap-2 border border-border/60 px-3 text-[11px] font-bold uppercase tracking-[0.08em] transition-colors",
-            "hover:border-foreground/30 hover:text-foreground focus:outline-none",
+            "inline-flex h-8 items-center gap-1.5 border border-foreground/50 bg-foreground/10 px-2.5 sm:px-3 text-[10px] font-bold uppercase tracking-[0.1em] text-foreground transition-colors",
+            "hover:border-foreground/80 hover:bg-foreground/20 focus:outline-none",
             className,
           )}
         >
-          <Wallet className="size-3 text-foreground/60 shrink-0" />
-          <span className="text-foreground">Connect Wallet</span>
+          <Wallet className="size-3 shrink-0" />
+          <span>Connect Wallet</span>
         </button>
         {connectOpen && (
           <ConnectWalletModal

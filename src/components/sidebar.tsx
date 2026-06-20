@@ -157,7 +157,7 @@ export function Sidebar({
             <AnimatePresence mode="popLayout">
               {groups.map((group) => (
                 <div key={group.label} className="mt-4">
-                  <p className="px-3 mb-2 text-[10px] font-bold text-muted-foreground/60 uppercase tracking-[0.2em]">
+                  <p className="px-3 mb-2 text-[10px] font-bold text-muted-foreground/80 dark:text-muted-foreground/60 uppercase tracking-[0.2em]">
                     {group.label}
                   </p>
                   <ul className="space-y-1">
@@ -174,7 +174,7 @@ export function Sidebar({
                             "flex items-center gap-1 rounded-xl transition-all duration-300 group relative",
                             activeId === item.id
                               ? "bg-foreground/5 text-foreground border-l border-foreground/30"
-                              : "text-foreground/60 hover:bg-foreground/5 hover:text-foreground",
+                              : "text-foreground/75 dark:text-foreground/60 hover:bg-foreground/5 hover:text-foreground",
                           )}
                         >
                           <button
@@ -242,30 +242,30 @@ export function Sidebar({
         {subnetPicker && showSubnetQuota && (
           <div className="px-3 pb-3 shrink-0 border-t border-border/30 pt-3">
             {anonExhausted ? (
-              <div className="flex items-start justify-between gap-2 rounded-md border border-amber-500/25 bg-amber-500/8 px-2.5 py-2">
-                <p className="text-[10px] leading-snug text-amber-400/90">
-                  <span className="font-semibold text-amber-400">All {anonUsage?.limit ?? 5} free miner calls used.</span>{" "}
+              <div className="flex items-start justify-between gap-2 rounded-md border border-amber-600/40 bg-amber-500/8 px-2.5 py-2 dark:border-amber-500/25">
+                <p className="text-[10px] leading-snug text-amber-700 dark:text-amber-400/90">
+                  <span className="font-semibold text-amber-700 dark:text-amber-400">All {anonUsage?.limit ?? 5} free miner calls used.</span>{" "}
                   Connect a wallet to continue.
                 </p>
                 {onConnectWallet && (
                   <button
                     type="button"
                     onClick={onConnectWallet}
-                    className="shrink-0 text-[9px] font-bold uppercase tracking-wider text-amber-400 hover:text-amber-300 transition-colors whitespace-nowrap"
+                    className="shrink-0 border border-foreground/50 bg-foreground/10 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-foreground transition-colors hover:border-foreground/80 hover:bg-foreground/20 whitespace-nowrap"
                   >
                     Connect
                   </button>
                 )}
               </div>
             ) : (
-              <div className="flex items-center justify-between gap-2 rounded-md border border-sky-500/30 bg-sky-500/8 px-2.5 py-2">
-                <p className="text-[10px] leading-snug text-sky-400/80">
-                  <span className="font-semibold text-sky-400">{anonUsage?.remaining ?? 5}</span> of {anonUsage?.limit ?? 5} free miner calls left
+              <div className="flex items-center justify-between gap-2 rounded-md border border-sky-600/40 bg-sky-500/8 px-2.5 py-2 dark:border-sky-500/30">
+                <p className="text-[10px] leading-snug text-sky-700 dark:text-sky-400/80">
+                  <span className="font-semibold text-sky-700 dark:text-sky-400">{anonUsage?.remaining ?? 5}</span> of {anonUsage?.limit ?? 5} free miner calls left
                 </p>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger>
-                      <Info size={11} className="shrink-0 text-sky-400/50 hover:text-sky-400 transition-colors cursor-default" />
+                      <Info size={11} className="shrink-0 text-sky-600/60 hover:text-sky-700 dark:text-sky-400/50 dark:hover:text-sky-400 transition-colors cursor-default" />
                     </TooltipTrigger>
                     <TooltipContent side="right" className="max-w-[200px] text-[11px] leading-relaxed border border-border/60 bg-card text-foreground shadow-xl backdrop-blur-md">
                       You get {anonUsage?.limit ?? 5} free miner calls without a wallet. Connect a wallet to unlock unlimited miner access via x402 payments. AI chat (auto routing) is always free and doesn't count toward this limit.
@@ -281,17 +281,17 @@ export function Sidebar({
         {subnetPicker && !subnetPicker.selectedSubnetId && (
           <div className="px-3 pb-3 shrink-0 border-t border-border/30 pt-3">
             {anonAiExhausted ? (
-              <div className="flex items-start gap-2 rounded-md border border-red-500/25 bg-red-500/8 px-2.5 py-2">
-                <span className="mt-px shrink-0 text-[10px] text-red-400">✦</span>
-                <p className="text-[10px] leading-snug text-red-400/80">
-                  <span className="font-semibold text-red-400">Today's AI quota exceeded.</span> Come back tomorrow.
+              <div className="flex items-start gap-2 rounded-md border border-red-600/40 bg-red-500/8 px-2.5 py-2 dark:border-red-500/25">
+                <span className="mt-px shrink-0 text-[10px] text-red-600 dark:text-red-400">✦</span>
+                <p className="text-[10px] leading-snug text-red-700 dark:text-red-400/80">
+                  <span className="font-semibold text-red-700 dark:text-red-400">Today's AI quota exceeded.</span> Come back tomorrow.
                 </p>
               </div>
             ) : (
-              <div className="flex items-start gap-2 rounded-md border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-2">
-                <span className="mt-px shrink-0 text-[10px] text-emerald-500">✦</span>
-                <p className="text-[10px] leading-snug text-emerald-400/80">
-                  AI chat is <span className="font-semibold text-emerald-400">free</span> — no wallet needed. Select a miner to use paid intelligence.
+              <div className="flex items-start gap-2 rounded-md border border-emerald-600/35 bg-emerald-500/5 px-2.5 py-2 dark:border-emerald-500/20">
+                <span className="mt-px shrink-0 text-[10px] text-emerald-600 dark:text-emerald-500">✦</span>
+                <p className="text-[10px] leading-snug text-emerald-700 dark:text-emerald-400/80">
+                  AI chat is <span className="font-semibold text-emerald-700 dark:text-emerald-400">free</span> — no wallet needed. Select a miner to use paid intelligence.
                 </p>
               </div>
             )}
@@ -310,11 +310,11 @@ export function Sidebar({
               <p className="text-[13px] font-bold text-foreground/90 truncate group-hover:text-foreground transition-colors">
                 {walletLabel ?? "Test User"}
               </p>
-              <p className="text-[10px] text-muted-foreground/60 truncate uppercase tracking-widest font-medium">
+              <p className="text-[10px] text-muted-foreground/80 dark:text-muted-foreground/60 truncate uppercase tracking-widest font-medium">
                 {footerLine2}
               </p>
             </div>
-            <Settings size={14} className="text-muted-foreground/40 group-hover:text-foreground transition-colors" />
+            <Settings size={14} className="text-muted-foreground/60 dark:text-muted-foreground/40 group-hover:text-foreground transition-colors" />
           </div>
           
           <div className="flex items-center justify-center gap-4 pt-2">
@@ -322,7 +322,7 @@ export function Sidebar({
               href={SUPPORT_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[10px] font-bold text-muted-foreground/40 hover:text-foreground uppercase tracking-widest transition-colors inline-flex items-center gap-1"
+              className="text-[10px] font-bold text-muted-foreground/70 dark:text-muted-foreground/40 hover:text-foreground uppercase tracking-widest transition-colors inline-flex items-center gap-1"
             >
               <HelpCircle size={12} />
               Support
@@ -332,7 +332,7 @@ export function Sidebar({
               href={DOCS_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[10px] font-bold text-muted-foreground/40 hover:text-foreground uppercase tracking-widest transition-colors"
+              className="text-[10px] font-bold text-muted-foreground/70 dark:text-muted-foreground/40 hover:text-foreground uppercase tracking-widest transition-colors"
             >
               Docs
             </a>

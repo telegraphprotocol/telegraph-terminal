@@ -2,6 +2,10 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useSignTypedData, useAccount } from "wagmi";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { Connection, PublicKey, Transaction, clusterApiUrl } from "@solana/web3.js";
+import { createTransferInstruction, getAssociatedTokenAddressSync } from "@solana/spl-token";
+import { usePaymentNetwork } from "@/lib/network-context";
 import {
   ChatMessage,
   TerminalLogEntry,
@@ -345,6 +349,8 @@ export function useLiveExecutor(opts?: {
   const { isConnected: engineSocketConnected, lastError, sendMessage, subscribe } = useEngineWS();
   const { address: connectedAddress } = useAccount();
   const { signTypedDataAsync } = useSignTypedData();
+  const { publicKey: solanaPubkey, signTransaction: signSolanaTransaction } = useWallet();
+  const { network: selectedNetwork } = usePaymentNetwork();
 
   type CoreWalletPayload = {
     address: string;
@@ -891,6 +897,7 @@ export function useLiveExecutor(opts?: {
           body: JSON.stringify({
             model: X402_CHAT_MODEL,
             messages: openAiMessages,
+            network: selectedNetwork,
             ...(paidDirect
               ? {
                   subnetId: paidDirect.subnetId,
@@ -944,7 +951,10 @@ export function useLiveExecutor(opts?: {
 
         // 2-phase external wallet payment
         if (rec.status === "payment_required") {
-          const payReqs = rec.paymentRequirements as {
+          const payReqsRaw = rec.paymentRequirements;
+          const payReqs = (
+            typeof payReqsRaw === "string" ? JSON.parse(payReqsRaw) : payReqsRaw
+          ) as {
             x402Version: number;
             accepts: {
               scheme: string;
@@ -962,10 +972,6 @@ export function useLiveExecutor(opts?: {
             fail(new Error("Invalid payment_required response from backend"));
             return;
           }
-          if (!connectedAddress) {
-            fail(new Error("No wallet connected — cannot sign payment"));
-            return;
-          }
 
           appendTerminalLogThrottled({
             label: "PAYMENT",
@@ -973,62 +979,116 @@ export function useLiveExecutor(opts?: {
             section: "Payment",
           });
 
-          const req = payReqs.accepts[0];
-          const chainId = req.network === "base-sepolia" ? 84532 : req.network === "base" ? 8453 : 84532;
-          const now = Math.floor(Date.now() / 1000);
-          const nonce = `0x${Array.from(crypto.getRandomValues(new Uint8Array(32))).map((b) => b.toString(16).padStart(2, "0")).join("")}` as `0x${string}`;
+          // Pick the accept entry matching the selected network, falling back to first
+          const solanaReq = payReqs.accepts.find((a) => a.network?.startsWith("solana:"));
+          const evmReq = payReqs.accepts.find((a) => a.network?.startsWith("eip155:") || a.network?.includes("base") || a.network?.includes("sepolia"));
+          const useSolana = selectedNetwork === "solana" && Boolean(solanaReq);
+          const req = useSolana ? solanaReq! : (evmReq ?? payReqs.accepts[0]);
 
-          let signature: `0x${string}`;
-          try {
-            signature = await signTypedDataAsync({
-              domain: {
-                name: req.extra?.name ?? "USD Coin",
-                version: req.extra?.version ?? "2",
-                chainId,
-                verifyingContract: req.asset as `0x${string}`,
-              },
-              types: {
-                TransferWithAuthorization: [
-                  { name: "from", type: "address" },
-                  { name: "to", type: "address" },
-                  { name: "value", type: "uint256" },
-                  { name: "validAfter", type: "uint256" },
-                  { name: "validBefore", type: "uint256" },
-                  { name: "nonce", type: "bytes32" },
-                ],
-              },
-              primaryType: "TransferWithAuthorization",
-              message: {
-                from: connectedAddress,
-                to: req.payTo as `0x${string}`,
-                value: BigInt(req.maxAmountRequired),
-                validAfter: BigInt(now - 600),
-                validBefore: BigInt(now + req.maxTimeoutSeconds),
-                nonce,
-              },
-            });
-          } catch (err) {
-            fail(new Error(`Wallet signature rejected: ${err instanceof Error ? err.message : String(err)}`), serverLogs);
-            return;
-          }
+          let signedPayment: string;
 
-          const paymentPayload = {
-            x402Version: payReqs.x402Version,
-            scheme: req.scheme,
-            network: req.network,
-            payload: {
-              authorization: {
-                from: connectedAddress,
-                to: req.payTo,
-                value: req.maxAmountRequired,
-                validAfter: (now - 600).toString(),
-                validBefore: (now + req.maxTimeoutSeconds).toString(),
-                nonce,
+          if (useSolana) {
+            // ── Solana signing path ──────────────────────────────────────────
+            if (!solanaPubkey || !signSolanaTransaction) {
+              fail(new Error("No Solana wallet connected — connect Phantom or Solflare to pay on Solana"), serverLogs);
+              return;
+            }
+            try {
+              const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
+              const mint = new PublicKey(req.asset);
+              const payTo = new PublicKey(req.payTo);
+              const senderAta = getAssociatedTokenAddressSync(mint, solanaPubkey);
+
+              const tx = new Transaction();
+              tx.add(
+                createTransferInstruction(
+                  senderAta,
+                  payTo,
+                  solanaPubkey,
+                  BigInt(req.maxAmountRequired),
+                ),
+              );
+              const { blockhash } = await connection.getLatestBlockhash("confirmed");
+              tx.recentBlockhash = blockhash;
+              tx.feePayer = solanaPubkey;
+
+              const signedTx = await signSolanaTransaction(tx);
+              const serialized = signedTx.serialize({ requireAllSignatures: false });
+              const txBase64 = Buffer.from(serialized).toString("base64");
+
+              const paymentPayload = {
+                x402Version: payReqs.x402Version,
+                scheme: req.scheme,
+                network: req.network,
+                payload: { transaction: txBase64 },
+              };
+              signedPayment = btoa(JSON.stringify(paymentPayload));
+            } catch (err) {
+              fail(new Error(`Solana wallet signing failed: ${err instanceof Error ? err.message : String(err)}`), serverLogs);
+              return;
+            }
+          } else {
+            // ── EVM signing path ─────────────────────────────────────────────
+            if (!connectedAddress) {
+              fail(new Error("No EVM wallet connected — cannot sign payment"), serverLogs);
+              return;
+            }
+            const chainId = req.network === "base-sepolia" ? 84532 : req.network === "base" ? 8453 : 84532;
+            const now = Math.floor(Date.now() / 1000);
+            const nonce = `0x${Array.from(crypto.getRandomValues(new Uint8Array(32))).map((b) => b.toString(16).padStart(2, "0")).join("")}` as `0x${string}`;
+
+            let signature: `0x${string}`;
+            try {
+              signature = await signTypedDataAsync({
+                domain: {
+                  name: req.extra?.name ?? "USD Coin",
+                  version: req.extra?.version ?? "2",
+                  chainId,
+                  verifyingContract: req.asset as `0x${string}`,
+                },
+                types: {
+                  TransferWithAuthorization: [
+                    { name: "from", type: "address" },
+                    { name: "to", type: "address" },
+                    { name: "value", type: "uint256" },
+                    { name: "validAfter", type: "uint256" },
+                    { name: "validBefore", type: "uint256" },
+                    { name: "nonce", type: "bytes32" },
+                  ],
+                },
+                primaryType: "TransferWithAuthorization",
+                message: {
+                  from: connectedAddress,
+                  to: req.payTo as `0x${string}`,
+                  value: BigInt(req.maxAmountRequired),
+                  validAfter: BigInt(now - 600),
+                  validBefore: BigInt(now + req.maxTimeoutSeconds),
+                  nonce,
+                },
+              });
+            } catch (err) {
+              fail(new Error(`Wallet signature rejected: ${err instanceof Error ? err.message : String(err)}`), serverLogs);
+              return;
+            }
+
+            const paymentPayload = {
+              x402Version: payReqs.x402Version,
+              scheme: req.scheme,
+              network: req.network,
+              payload: {
+                authorization: {
+                  from: connectedAddress,
+                  to: req.payTo,
+                  value: req.maxAmountRequired,
+                  validAfter: (now - 600).toString(),
+                  validBefore: (now + req.maxTimeoutSeconds).toString(),
+                  nonce,
+                },
+                signature,
               },
-              signature,
-            },
-          };
-          const signedPayment = btoa(JSON.stringify(paymentPayload));
+            };
+            signedPayment = btoa(JSON.stringify(paymentPayload));
+          } // end else (EVM path)
 
           appendTerminalLogThrottled({
             label: "PAYMENT",
@@ -1167,6 +1227,9 @@ export function useLiveExecutor(opts?: {
       appendTerminalLogThrottled,
       connectedAddress,
       signTypedDataAsync,
+      solanaPubkey,
+      signSolanaTransaction,
+      selectedNetwork,
     ],
   );
 
@@ -1204,14 +1267,9 @@ export function useLiveExecutor(opts?: {
       if (!isConnected) {
         setRuntimeError(
           USE_TERMINAL_BACKEND_PAID_CHAT
-            ? "Terminal Backend wallet is not ready. Check Terminal Backend and Next `TERMINAL_BACKEND_API_KEY` / proxy configuration."
+            ? "Payment service is temporarily unavailable. Please try again in a moment."
             : "Engine WebSocket not connected",
         );
-        return;
-      }
-
-      if (USE_TERMINAL_BACKEND_PAID_CHAT && process.env.NEXT_PUBLIC_DEFAULT_NETWORK === "solana") {
-        setRuntimeError("Terminal Backend paid chat via Solana is not wired in this build.");
         return;
       }
 
@@ -1304,14 +1362,9 @@ export function useLiveExecutor(opts?: {
       if (!isConnected) {
         setRuntimeError(
           USE_TERMINAL_BACKEND_PAID_CHAT
-            ? "Terminal Backend wallet is not ready. Check Terminal Backend and Next `TERMINAL_BACKEND_API_KEY` / proxy configuration."
+            ? "Payment service is temporarily unavailable. Please try again in a moment."
             : "Engine WebSocket not connected",
         );
-        return;
-      }
-
-      if (USE_TERMINAL_BACKEND_PAID_CHAT && process.env.NEXT_PUBLIC_DEFAULT_NETWORK === "solana") {
-        setRuntimeError("Terminal Backend paid chat via Solana is not wired in this build.");
         return;
       }
 

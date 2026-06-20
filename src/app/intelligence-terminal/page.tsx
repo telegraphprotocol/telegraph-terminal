@@ -8,6 +8,7 @@ import { ChatInput } from "@/components/chat-input";
 import { DirectSubnetFields } from "@/components/direct-subnet-fields";
 import { EmptyState } from "@/components/empty-state";
 import { HowItWorksButton } from "@/components/how-it-works-button";
+import { NetworkSelector } from "@/components/network-selector";
 import { MobileTerminalCollapsible, TerminalPanel } from "@/components/terminal-panel";
 import { ConnectWalletModal } from "@/components/auth/connect-wallet-modal";
 import { WalletChoiceModal } from "@/components/auth/wallet-choice-modal";
@@ -181,7 +182,7 @@ export default function LiveChatPage() {
   const connectionBannerMessage =
     engineError ??
     (useX402Chat
-      ? "Terminal Backend wallet is not ready. Ensure Terminal Backend is running and TERMINAL_BACKEND_INTERNAL_URL is set."
+      ? "Payment service is temporarily unavailable. Please try again in a moment."
       : "Engine connection unavailable. Retrying...");
 
   return (
@@ -248,7 +249,12 @@ export default function LiveChatPage() {
               loading: subnetsLoading,
               error: subnetsError,
             }}
-            extraActions={<HowItWorksButton />}
+            extraActions={
+              <>
+                {process.env.NEXT_PUBLIC_USE_TERMINAL_BACKEND_X402 === "true" && <NetworkSelector />}
+                <HowItWorksButton />
+              </>
+            }
           />
 
           <div className="flex flex-1 overflow-hidden">

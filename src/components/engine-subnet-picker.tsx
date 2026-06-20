@@ -58,13 +58,13 @@ export function EngineSubnetPicker({
         type="button"
         onClick={() => setDropdownOpen((v) => !v)}
         className={cn(
-          "flex h-9 w-full max-w-full items-center gap-2 rounded-lg border px-3 text-left transition-all",
+          "inline-flex h-8 w-full max-w-full items-center gap-1.5 border px-2.5 sm:px-3 text-left transition-all whitespace-nowrap",
           "lg:w-auto lg:max-w-[min(260px,calc(100vw-14rem))]",
           "focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/40",
           engineUnreachable
-            ? "border-amber-500/40 bg-amber-500/5 hover:bg-amber-500/10"
+            ? "border-amber-600/50 bg-amber-500/5 hover:bg-amber-500/10 dark:border-amber-500/40"
             : isAutoRouting
-              ? "border-orange-500 bg-orange-500/15 hover:bg-orange-500/20 shadow-[0_0_14px_rgba(249,115,22,0.18)]"
+              ? "border-orange-600 bg-orange-500/15 hover:bg-orange-500/20 dark:border-orange-500 shadow-[0_0_14px_rgba(249,115,22,0.18)]"
               : "border-border hover:bg-muted/40",
         )}
         aria-expanded={dropdownOpen}
@@ -72,14 +72,14 @@ export function EngineSubnetPicker({
         aria-label={`Miner routing: ${primaryLabel}`}
       >
         <span className={cn(
-          "truncate text-[14px] leading-tight",
-          isAutoRouting ? "font-semibold text-orange-400" : "font-medium text-foreground",
+          "hidden sm:inline truncate text-[10px] font-bold uppercase tracking-[0.1em] leading-tight",
+          isAutoRouting ? "text-orange-700 dark:text-orange-400" : "text-foreground",
         )}>
           {primaryLabel}
         </span>
         <ChevronDown
-          size={16}
-          className={cn("ml-auto shrink-0 transition-colors", isAutoRouting ? "text-orange-400/70" : "text-muted-foreground")}
+          size={12}
+          className={cn("shrink-0 transition-colors", isAutoRouting ? "text-orange-700/70 dark:text-orange-400/70" : "text-muted-foreground")}
           aria-hidden
         />
       </button>
@@ -111,8 +111,8 @@ export function EngineSubnetPicker({
               className={cn(
                 "w-full px-3 py-2.5 text-[13px] font-medium transition-all duration-200 text-left rounded-lg flex items-center justify-between group",
                 selectedSubnetId === null
-                  ? "bg-orange-500/15 text-orange-300"
-                  : "text-muted-foreground hover:bg-orange-500/8 hover:text-orange-300",
+                  ? "bg-orange-500/15 text-orange-700 dark:text-orange-300"
+                  : "text-muted-foreground hover:bg-orange-500/8 hover:text-orange-700 dark:hover:text-orange-300",
               )}
             >
               Auto routing
@@ -140,8 +140,8 @@ export function EngineSubnetPicker({
                   className={cn(
                     "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left text-[13px] font-medium transition-all duration-200 group",
                     selectedSubnetId === s.id
-                      ? "bg-orange-500/15 text-orange-300"
-                      : "text-muted-foreground hover:bg-orange-500/8 hover:text-orange-300",
+                      ? "bg-orange-500/15 text-orange-700 dark:text-orange-300"
+                      : "text-muted-foreground hover:bg-orange-500/8 hover:text-orange-700 dark:hover:text-orange-300",
                   )}
                 >
                   <span className="truncate">{s.label}</span>

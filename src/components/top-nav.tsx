@@ -77,7 +77,7 @@ export function TopNav({
           {backToDashboardHref && (
             <Link
               href={backToDashboardHref}
-              className="flex h-9 min-w-[44px] items-center gap-1.5 border border-border/60 px-2.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+              className="flex h-9 min-w-[44px] items-center gap-1.5 border border-foreground/50 bg-foreground/10 px-2.5 text-[10px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors hover:border-foreground/80 hover:bg-foreground/20"
               title="Back to dashboard"
             >
               <ArrowLeft size={12} strokeWidth={2.5} />
@@ -125,7 +125,7 @@ export function TopNav({
           {backToDashboardHref && (
             <Link
               href={backToDashboardHref}
-              className="flex h-7 items-center gap-1.5 border border-border/60 px-2.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+              className="flex h-7 items-center gap-1.5 border border-foreground/50 bg-foreground/10 px-2.5 text-[10px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors hover:border-foreground/80 hover:bg-foreground/20"
               title="Back to dashboard"
             >
               <ArrowLeft size={12} strokeWidth={2.5} />
