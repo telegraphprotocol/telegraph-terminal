@@ -47,7 +47,7 @@ export const apiClient = {
   },
 
   async listSubnets(): Promise<EngineListSubnetsResponse> {
-    const response = await fetch(`${ENGINE_PROXY_PREFIX}/v1/subnets`);
+    const response = await fetch(`${ENGINE_PROXY_PREFIX}/engine/v1/miners`);
     if (!response.ok) throw new Error("Engine API error");
     return response.json();
   },

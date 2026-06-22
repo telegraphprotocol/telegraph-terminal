@@ -1,7 +1,7 @@
 "use client";
 
-import { Fragment, useEffect, useRef, type ReactNode } from "react";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
+import { Check, Copy, Loader2, RefreshCw } from "lucide-react";
 import { ChatMessage } from "@/lib/mock-data";
 import { AssistantMessage } from "@/components/assistant-message";
 import { motion, AnimatePresence } from "framer-motion";
@@ -14,6 +14,84 @@ interface ChatAreaProps {
   mobileTerminal?: ReactNode;
   /** Retry a user message that failed to send (x402 / engine). */
   onRetrySend?: (messageId: string) => void;
+}
+
+function UserMessage({
+  message,
+  failed,
+  isLoading,
+  onRetrySend,
+}: {
+  message: ChatMessage;
+  failed: boolean;
+  isLoading?: boolean;
+  onRetrySend?: (id: string) => void;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const text = message.content.map((c) => c.text).join("\n").trim();
+
+  function handleCopy() {
+    if (!text) return;
+    void navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }
+
+  return (
+    <div className="group flex flex-col items-end gap-1.5">
+      <div
+        className={
+          failed
+            ? "max-w-[440px] w-fit rounded-2xl border border-red-500/50 bg-red-50 dark:bg-red-950/35 dark:border-red-500/45 px-4 py-[15px] sm:max-w-[min(440px,85%)]"
+            : "max-w-[440px] w-fit rounded-2xl bg-secondary px-4 py-[15px] sm:max-w-[min(440px,85%)]"
+        }
+      >
+        {message.content.map((c, i) => (
+          <p
+            key={i}
+            className={
+              failed
+                ? "text-[14px] font-normal leading-[150%] text-red-800 dark:text-red-100"
+                : "text-[14px] font-normal leading-[150%] text-secondary-foreground"
+            }
+          >
+            {c.text}
+          </p>
+        ))}
+        {failed && message.sendError ? (
+          <p className="mt-2 line-clamp-3 text-[12px] leading-snug text-red-700 dark:text-red-300/90">
+            {message.sendError}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          aria-label="Copy message"
+        >
+          {copied ? <Check size={12} strokeWidth={2.5} aria-hidden /> : <Copy size={12} strokeWidth={2} aria-hidden />}
+          <span>{copied ? "Copied" : "Copy"}</span>
+        </button>
+        {failed && onRetrySend ? (
+          <button
+            type="button"
+            onClick={() => onRetrySend(message.id)}
+            disabled={isLoading}
+            className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-red-700 dark:text-red-300/90 transition-colors hover:bg-red-500/15 hover:text-red-800 dark:hover:text-red-200 disabled:pointer-events-none disabled:opacity-40"
+            aria-label="Retry send"
+          >
+            <RefreshCw size={12} strokeWidth={2.25} aria-hidden />
+            <span>Retry</span>
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
 }
 
 /** True while waiting for an assistant message after the latest user turn. */
@@ -65,52 +143,19 @@ export function ChatArea({
   const renderMessage = (message: ChatMessage) => {
     const failed = message.role === "user" && message.sendState === "failed";
     return (
-    <motion.div 
+    <motion.div
       key={message.id}
       initial={{ opacity: 0, y: 10, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
     >
       {message.role === "user" ? (
-        <div className="flex flex-col items-end gap-1.5">
-          <div
-            className={
-              failed
-                ? "max-w-[440px] w-fit rounded-2xl border border-red-500/50 bg-red-50 dark:bg-red-950/35 dark:border-red-500/45 px-4 py-[15px] sm:max-w-[min(440px,85%)]"
-                : "max-w-[440px] w-fit rounded-2xl bg-secondary px-4 py-[15px] sm:max-w-[min(440px,85%)]"
-            }
-          >
-            {message.content.map((c, i) => (
-              <p
-                key={i}
-                className={
-                  failed
-                    ? "text-[14px] font-normal leading-[150%] text-red-800 dark:text-red-100"
-                    : "text-[14px] font-normal leading-[150%] text-secondary-foreground"
-                }
-              >
-                {c.text}
-              </p>
-            ))}
-            {failed && message.sendError ? (
-              <p className="mt-2 line-clamp-3 text-[12px] leading-snug text-red-700 dark:text-red-300/90">
-                {message.sendError}
-              </p>
-            ) : null}
-          </div>
-          {failed && onRetrySend ? (
-            <button
-              type="button"
-              onClick={() => onRetrySend(message.id)}
-              disabled={isLoading}
-              className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-red-700 dark:text-red-300/90 transition-colors hover:bg-red-500/15 hover:text-red-800 dark:hover:text-red-200 disabled:pointer-events-none disabled:opacity-40"
-              aria-label="Retry send"
-            >
-              <RefreshCw size={14} strokeWidth={2.25} aria-hidden />
-              <span>Retry</span>
-            </button>
-          ) : null}
-        </div>
+        <UserMessage
+          message={message}
+          failed={failed}
+          isLoading={isLoading}
+          onRetrySend={onRetrySend}
+        />
       ) : (
         <AssistantMessage message={message} />
       )}

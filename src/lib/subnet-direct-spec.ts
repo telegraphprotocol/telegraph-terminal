@@ -1,4 +1,3 @@
-import yaml from "yaml";
 
 export type SubnetEndpointSpec = {
   path: string;
@@ -94,16 +93,57 @@ export function parseSubnetYamlDocument(raw: unknown): ParsedSubnetYaml | null {
   return { id, slug, name, endpoints: finalEndpoints };
 }
 
-export async function fetchSubnetYamlBySlug(slug: string): Promise<ParsedSubnetYaml | null> {
-  const safe = encodeURIComponent(slug);
-  const res = await fetch(`/engine-subnets/${safe}.yaml`, { cache: "no-store" });
-  if (!res.ok) return null;
-  const text = await res.text();
+type IntegrationEndpoint = {
+  path: string;
+  method?: string;
+  description?: string;
+};
+
+type IntegrationRecord = {
+  id: string;
+  slug: string;
+  name: string;
+  endpoints?: IntegrationEndpoint[];
+  input_schema?: {
+    required?: string[];
+    properties?: Record<string, { description?: string; default?: unknown }>;
+  };
+};
+
+let _integrationsCache: IntegrationRecord[] | null = null;
+
+async function fetchIntegrations(): Promise<IntegrationRecord[]> {
+  if (_integrationsCache) return _integrationsCache;
   try {
-    return parseSubnetYamlDocument(yaml.parse(text));
+    const res = await fetch("/api/engine/miner-dispatcher/integrations", { cache: "no-store" });
+    if (!res.ok) return [];
+    const data = (await res.json()) as IntegrationRecord[];
+    _integrationsCache = Array.isArray(data) ? data : [];
+    return _integrationsCache;
   } catch {
-    return null;
+    return [];
   }
+}
+
+function integrationToSubnetYaml(rec: IntegrationRecord): ParsedSubnetYaml {
+  const endpoints: SubnetEndpointSpec[] = (rec.endpoints ?? []).map((ep) => {
+    const method = (ep.method ?? "POST").toUpperCase();
+    const requiredKeys = rec.input_schema?.required ?? [];
+    return {
+      path: ep.path,
+      method,
+      description: ep.description,
+      telegraph_direct: requiredKeys.length > 0 ? { required_payload_keys: requiredKeys } : undefined,
+    };
+  });
+  return { id: rec.id, slug: rec.slug, name: rec.name, endpoints };
+}
+
+export async function fetchSubnetYamlBySlug(slug: string): Promise<ParsedSubnetYaml | null> {
+  const integrations = await fetchIntegrations();
+  const rec = integrations.find((r) => r.slug === slug);
+  if (!rec) return null;
+  return integrationToSubnetYaml(rec);
 }
 
 export function pickDefaultEndpoint(spec: ParsedSubnetYaml): SubnetEndpointSpec | null {

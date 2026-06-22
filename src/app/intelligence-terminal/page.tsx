@@ -18,9 +18,6 @@ import { apiClient } from "@/lib/api-client";
 import { getToken, authHeaders } from "@/lib/auth";
 import {
   normalizeEngineSubnets,
-  fetchSyncedSubnetSlugSet,
-  discoverSyncedSlugsByHead,
-  intersectSubnetsWithSyncedYaml,
   type SubnetPickItem,
 } from "@/lib/subnet-catalog";
 
@@ -94,21 +91,12 @@ export default function LiveChatPage() {
         const data = await apiClient.listSubnets();
         if (cancelled) return;
         const normalized = normalizeEngineSubnets(data);
-        let synced = await fetchSyncedSubnetSlugSet();
-        if (synced.size === 0) synced = await discoverSyncedSlugsByHead(normalized);
-        const filtered = intersectSubnetsWithSyncedYaml(normalized, synced);
-        setEngineSubnets(filtered);
-        if (filtered.length === 0 && normalized.length > 0) {
-          setSubnetsError(
-            "No engine subnets match bundled YAML — engine `slug` must match `public/engine-subnets/{slug}.yaml` in this app.",
-          );
-        } else {
-          setSubnetsError(null);
-        }
+        setEngineSubnets(normalized);
+        setSubnetsError(null);
       } catch {
         if (!cancelled) {
           setEngineSubnets([]);
-          setSubnetsError("Could not reach engine `/v1/subnets`. Is it running?");
+          setSubnetsError("Routing service is temporarily unavailable. Please try again shortly.");
         }
       } finally {
         if (!cancelled) setSubnetsLoading(false);

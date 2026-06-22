@@ -32,7 +32,7 @@ export function ConnectWalletModal({ onAuthenticated, onClose }: ConnectWalletMo
     try {
       // 1. Get nonce + message from backend
       const nonceRes = await fetch(`/api/auth/nonce?address=${encodeURIComponent(address)}`);
-      if (!nonceRes.ok) throw new Error("Failed to fetch nonce");
+      if (!nonceRes.ok) throw new Error("Unable to connect. Please try again.");
       const { message } = await nonceRes.json();
 
       // 2. Sign with connected wallet
@@ -48,13 +48,13 @@ export function ConnectWalletModal({ onAuthenticated, onClose }: ConnectWalletMo
       });
       if (!verifyRes.ok) {
         const body = await verifyRes.json().catch(() => ({}));
-        throw new Error(body.message ?? "Verification failed");
+        throw new Error(body.message ?? "Wallet verification failed. Please try again.");
       }
       const { token } = await verifyRes.json();
       setToken(token);
       onAuthenticated();
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : "Something went wrong");
+      setErrorMsg(err instanceof Error ? err.message : "Something went wrong. Please try again.");
       setStep("error");
     }
   }, [address, signMessageAsync, onAuthenticated]);

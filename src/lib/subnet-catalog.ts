@@ -16,7 +16,7 @@ export function scrubSubnetDisplayName(raw: string): string {
 
 export function normalizeEngineSubnets(data: unknown): SubnetPickItem[] {
   if (!data || typeof data !== "object") return [];
-  const subnets = (data as Record<string, unknown>).subnets;
+  const subnets = (data as Record<string, unknown>).miners ?? (data as Record<string, unknown>).subnets;
   if (!Array.isArray(subnets)) return [];
 
   const items: SubnetPickItem[] = [];

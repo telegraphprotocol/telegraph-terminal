@@ -271,7 +271,7 @@ export default function KrakenDashboard() {
       } catch {
         if (!cancelled) {
           setEngineSubnets([]);
-          setEngineSubnetsError("Could not reach engine `/v1/subnets`. Is it running?");
+          setEngineSubnetsError("Routing service is temporarily unavailable. Please try again shortly.");
         }
       } finally {
         if (!cancelled) setEngineSubnetsLoading(false);
@@ -486,7 +486,7 @@ export default function KrakenDashboard() {
               <section className="flex flex-col gap-4">
                 <div className="flex items-center gap-2.5">
                   <div className="h-3 w-px bg-foreground/50" />
-                  <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Engine Subnets</h2>
+                  <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Engine Miners</h2>
                 </div>
                 <KrakenSkillCards
                   engineSubnets={engineSubnets}

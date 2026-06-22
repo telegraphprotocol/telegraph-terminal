@@ -45,10 +45,9 @@ export function KrakenSkillCards({
         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center bg-amber-500/10 text-amber-600 dark:text-amber-400">
           <ServerOff size={28} />
         </div>
-        <h3 className="mb-2 text-lg font-bold text-foreground">No live engine subnets</h3>
+        <h3 className="mb-2 text-lg font-bold text-foreground">No live engine miners</h3>
         <p className="mx-auto max-w-lg text-sm leading-relaxed text-muted-foreground">
-          {subnetsError ??
-            "The dashboard only lists subnets returned by the engine at `/v1/subnets`. Start the engine or fix your API URL — placeholder protocol cards are not shown when data is unavailable."}
+          {subnetsError ?? "Routing service is temporarily unavailable. Check back shortly or open the Intelligence Terminal to send queries."}
         </p>
         <p className="mt-4 text-xs text-muted-foreground/80">
           Use the subnet picker in the header once the engine is reachable, or open the{" "}

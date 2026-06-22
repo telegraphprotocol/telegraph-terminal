@@ -17,12 +17,18 @@ export type KeyValueRow = {
   value: string;
 };
 
+export type SentenceScoreRow = {
+  sentence: string;
+  score: number;
+};
+
 export type StructuredResultSection =
   | { type: "text"; title?: string; body: string }
   | { type: "citations"; links: string[] }
   | { type: "forecast"; location?: string; rows: ForecastRow[] }
   | { type: "badges"; items: ResultBadge[] }
   | { type: "keyValues"; title?: string; rows: KeyValueRow[] }
+  | { type: "sentenceScores"; title?: string; rows: SentenceScoreRow[] }
   | { type: "json"; title?: string; body: string };
 
 export type ParsedExecutionResult = {
@@ -332,6 +338,46 @@ function executedToolRows(record: Record<string, unknown>): KeyValueRow[] {
   });
 }
 
+/** Sapling AI detector: { score, sentence_scores, text, tokens, token_probs } */
+function parseSaplingResult(
+  record: Record<string, unknown>,
+): { badges: ResultBadge[]; sentenceRows: SentenceScoreRow[] } | null {
+  const score = record.score;
+  const sentenceScores = record.sentence_scores;
+  if (typeof score !== "number" || !Array.isArray(sentenceScores)) return null;
+
+  const pct = (score * 100).toFixed(2);
+  const verdict = score >= 0.8 ? "AI-generated" : score >= 0.5 ? "Uncertain" : "Human-written";
+  const badges: ResultBadge[] = [
+    { label: "Verdict", value: verdict },
+    { label: "AI Probability", value: `${pct}%` },
+  ];
+
+  const sentenceRows: SentenceScoreRow[] = sentenceScores
+    .map((row) => {
+      const r = asRecord(row);
+      if (!r) return null;
+      const s = stringOrEmpty(r.sentence);
+      const sc = typeof r.score === "number" ? r.score : Number(r.score);
+      return s ? { sentence: s, score: Number.isFinite(sc) ? sc : 0 } : null;
+    })
+    .filter((r): r is SentenceScoreRow => r !== null);
+
+  return { badges, sentenceRows };
+}
+
+/** ItsAI detector: { answer: 0|1, status, segmentation_tokens } */
+function parseItsAiResult(record: Record<string, unknown>): ResultBadge[] | null {
+  const answer = record.answer;
+  const status = record.status;
+  if ((answer !== 0 && answer !== 1 && answer !== 0.0 && answer !== 1.0) || typeof status !== "string") return null;
+  const isAi = answer === 1 || answer === 1.0;
+  return [
+    { label: "Verdict", value: isAi ? "AI-generated" : "Human-written" },
+    { label: "Status", value: String(status) },
+  ];
+}
+
 /** One-line summary for feed tooltips and alert cards. */
 export function summarizeExecutionResult(result: unknown): string {
   const parsed = parseExecutionResult(result);
@@ -342,6 +388,9 @@ export function summarizeExecutionResult(result: unknown): string {
     }
     if (section.type === "badges" && section.items.length > 0) {
       return section.items.map((b) => `${b.label}: ${b.value}`).join(" · ");
+    }
+    if (section.type === "sentenceScores" && section.rows.length > 0) {
+      return `${section.rows.length} sentence${section.rows.length === 1 ? "" : "s"} analyzed`;
     }
     if (section.type === "forecast" && section.rows.length > 0) {
       const first = section.rows[0];
@@ -399,6 +448,23 @@ export function parseExecutionResult(result: unknown): ParsedExecutionResult {
     for (const k of keys) consumed.add(k);
   };
 
+  // Sapling AI detector
+  const sapling = parseSaplingResult(record);
+  if (sapling) {
+    sections.push({ type: "badges", items: sapling.badges });
+    if (sapling.sentenceRows.length > 0) {
+      sections.push({ type: "sentenceScores", title: "Per-sentence breakdown", rows: sapling.sentenceRows });
+    }
+    mark("score", "sentence_scores", "text", "token_probs", "tokens");
+  }
+
+  // ItsAI detector
+  const itsAi = !sapling ? parseItsAiResult(record) : null;
+  if (itsAi) {
+    sections.push({ type: "badges", items: itsAi });
+    mark("answer", "status", "segmentation_tokens");
+  }
+
   const openAi = extractOpenAiContent(record);
   if (openAi) {
     sections.push({ type: "text", title: "Answer", body: openAi });
@@ -406,7 +472,7 @@ export function parseExecutionResult(result: unknown): ParsedExecutionResult {
   }
 
   const answer = stringOrEmpty(record.answer);
-  if (answer && !openAi) {
+  if (answer && !openAi && !itsAi) {
     sections.push({ type: "text", title: "Answer", body: answer });
     mark("answer");
   }

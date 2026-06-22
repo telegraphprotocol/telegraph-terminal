@@ -126,7 +126,7 @@ export function EngineSubnetPicker({
             ) : subnets.length === 0 ? (
               <div className="px-3 py-2 text-[12px] text-muted-foreground">
                 No miners from engine. Start the service behind{" "}
-                <code className="text-[11px]">/v1/subnets</code>.
+                <code className="text-[11px]">/engine/v1/miners</code>.
               </div>
             ) : (
               subnets.map((s) => (

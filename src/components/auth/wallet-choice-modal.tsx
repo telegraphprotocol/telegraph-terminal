@@ -28,12 +28,12 @@ export function WalletChoiceModal({ onPrivyCreated, onExternalChosen }: WalletCh
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.message ?? "Failed to create wallet");
+        throw new Error(body.message ?? "Unable to create wallet. Please try again.");
       }
       const data = await res.json();
       onPrivyCreated(data.privyWalletAddress ?? "");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
       setLoading(null);
     }
   }
@@ -47,10 +47,10 @@ export function WalletChoiceModal({ onPrivyCreated, onExternalChosen }: WalletCh
         headers: { ...authHeaders(), "Content-Type": "application/json" },
         body: JSON.stringify({ mode: "external" }),
       });
-      if (!res.ok) throw new Error("Failed to set wallet mode");
+      if (!res.ok) throw new Error("Unable to connect wallet. Please try again.");
       onExternalChosen();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
       setLoading(null);
     }
   }

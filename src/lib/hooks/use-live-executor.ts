@@ -530,9 +530,7 @@ export function useLiveExecutor(opts?: {
       setSubnetSpecLoading(false);
       if (!spec) {
         setSubnetYamlSpec(null);
-        setSubnetSpecError(
-          `Missing /engine-subnets/${slug}.yaml. Add it under public/engine-subnets/ in this repo.`,
-        );
+        setSubnetSpecError(null);
         return;
       }
       setSubnetYamlSpec(spec);
@@ -1275,25 +1273,26 @@ export function useLiveExecutor(opts?: {
 
       let paidDirectBody: PaidDirectCallBody | null = null;
       if (paidForced && forcedSubnetId) {
-        if (subnetSpecLoading || !subnetYamlSpec || !directEndpointPath) {
-          setDirectGateError(
-            subnetSpecLoading
-              ? "Subnet spec is still loading."
-              : "Subnet spec or endpoint is not ready.",
-          );
+        if (subnetSpecLoading) {
+          setDirectGateError("Subnet spec is still loading.");
           return;
         }
-        const built = computePaidDirectBody(forcedSubnetId, subnetYamlSpec, directEndpointPath, userLine, {
-          model: directModel || X402_CHAT_MODEL,
-          imageUrl: directImageUrl,
-          lat: directLat,
-          lon: directLon,
-        });
-        if (!built.ok) {
-          setDirectGateError(built.error);
-          return;
+        if (subnetYamlSpec && directEndpointPath) {
+          // YAML available — build a direct call payload
+          const built = computePaidDirectBody(forcedSubnetId, subnetYamlSpec, directEndpointPath, userLine, {
+            model: directModel || X402_CHAT_MODEL,
+            imageUrl: directImageUrl,
+            lat: directLat,
+            lon: directLon,
+          });
+          if (!built.ok) {
+            setDirectGateError(built.error);
+            return;
+          }
+          paidDirectBody = built.body;
         }
-        paidDirectBody = built.body;
+        // No YAML — fall through with paidDirectBody = null; backend will route
+        // the natural-language query to the selected subnet via context.subnet_id.
         setDirectGateError(null);
       }
 
@@ -1371,26 +1370,24 @@ export function useLiveExecutor(opts?: {
       let paidDirectBody: PaidDirectCallBody | null = null;
       if (USE_TERMINAL_BACKEND_PAID_CHAT && forcedSubnetIdRef.current) {
         const sid = forcedSubnetIdRef.current;
-        if (!sid || !subnetYamlSpec || !directEndpointPath) {
-          setRuntimeError("Subnet spec not ready; wait for YAML to load before retrying.");
-          return;
+        if (subnetYamlSpec && directEndpointPath) {
+          const line =
+            text.trim() ||
+            (directImageUrl.trim() ? "Image verification" : "") ||
+            (directLat.trim() && directLon.trim() ? "Direct subnet request" : "") ||
+            "Direct subnet request";
+          const built = computePaidDirectBody(sid, subnetYamlSpec, directEndpointPath, line, {
+            model: directModel || X402_CHAT_MODEL,
+            imageUrl: directImageUrl,
+            lat: directLat,
+            lon: directLon,
+          });
+          if (!built.ok) {
+            setDirectGateError(built.error);
+            return;
+          }
+          paidDirectBody = built.body;
         }
-        const line =
-          text.trim() ||
-          (directImageUrl.trim() ? "Image verification" : "") ||
-          (directLat.trim() && directLon.trim() ? "Direct subnet request" : "") ||
-          "Direct subnet request";
-        const built = computePaidDirectBody(sid, subnetYamlSpec, directEndpointPath, line, {
-          model: directModel || X402_CHAT_MODEL,
-          imageUrl: directImageUrl,
-          lat: directLat,
-          lon: directLon,
-        });
-        if (!built.ok) {
-          setDirectGateError(built.error);
-          return;
-        }
-        paidDirectBody = built.body;
         setDirectGateError(null);
       }
 

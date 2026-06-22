@@ -234,7 +234,7 @@ function WalletModal({
               </div>
             </div>
             {error && data && (
-              <p className="text-[10px] text-amber-500 font-mono">Could not refresh: {error}</p>
+              <p className="text-[10px] text-amber-500 font-mono">Unable to refresh balance. Try again.</p>
             )}
           </div>
         ) : null}
@@ -322,10 +322,10 @@ export function GlobalWallet({ className }: Readonly<{ className?: string }>) {
       const res = await fetch("/api/user/wallet", { cache: "no-store", headers: authHeaders() });
       if (res.status === 401) { setData(null); return; }
       const text = await res.text();
-      if (!res.ok) { setError(text.slice(0, 200) || `HTTP ${res.status}`); return; }
+      if (!res.ok) { setError("Unable to load wallet. Please try again."); return; }
       setData(JSON.parse(text) as CoreWalletPayload);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Wallet load failed");
+    } catch {
+      setError("Unable to load wallet. Please try again.");
     } finally {
       setLoading(false);
       setHasLoaded(true);

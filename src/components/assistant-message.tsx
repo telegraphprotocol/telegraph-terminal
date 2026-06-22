@@ -5,6 +5,18 @@ import { Check, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ChatMessage } from "@/lib/mock-data";
 import { looksLikeMarkdown, MarkdownContent } from "@/components/markdown-content";
+import { KrakenStructuredResult } from "@/components/kraken/kraken-structured-result";
+import { parseExecutionResult } from "@/lib/kraken-signal-result";
+
+function tryParseStructured(text: string): unknown | null {
+  const t = text.trim();
+  if (!t.startsWith("{") && !t.startsWith("[")) return null;
+  try {
+    return JSON.parse(t);
+  } catch {
+    return null;
+  }
+}
 
 export function AssistantMessage({ message }: { message: ChatMessage }) {
   const [showRaw, setShowRaw] = useState(false);
@@ -13,7 +25,14 @@ export function AssistantMessage({ message }: { message: ChatMessage }) {
   const segments = message.content.map((c) => c.text);
   const fullText = useMemo(() => segments.join("\n\n"), [segments]);
 
-  const markdownPossible = useMemo(() => looksLikeMarkdown(fullText), [fullText]);
+  const structuredData = useMemo(() => tryParseStructured(fullText), [fullText]);
+  const structuredResult = useMemo(() => {
+    if (!structuredData) return null;
+    const parsed = parseExecutionResult(structuredData);
+    return parsed.sections.length > 0 ? parsed : null;
+  }, [structuredData]);
+
+  const markdownPossible = useMemo(() => !structuredData && looksLikeMarkdown(fullText), [fullText, structuredData]);
   const hasRenderableBody = segments.some((t) => t.length > 0);
 
   const copyResponse = useCallback(async () => {
@@ -33,7 +52,9 @@ export function AssistantMessage({ message }: { message: ChatMessage }) {
       </div>
       <div className="min-w-0 flex-1 pt-1">
         <div className="space-y-2">
-          {markdownPossible && !showRaw ? (
+          {structuredResult && !showRaw ? (
+            <KrakenStructuredResult result={structuredData} />
+          ) : markdownPossible && !showRaw ? (
             <div className="assistant-markdown">
               {fullText.trim() ? (
                 <MarkdownContent variant="chat">{fullText}</MarkdownContent>
@@ -58,7 +79,7 @@ export function AssistantMessage({ message }: { message: ChatMessage }) {
 
         {hasRenderableBody && (
           <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border/40 pt-2">
-            {markdownPossible && (
+            {(markdownPossible || structuredResult) && (
               <div
                 className="inline-flex rounded-md bg-muted/50 p-0.5 text-[11px] font-medium text-muted-foreground"
                 role="group"

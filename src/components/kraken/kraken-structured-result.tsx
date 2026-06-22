@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import type { ForecastRow, StructuredResultSection } from "@/lib/kraken-signal-result";
+import type { ForecastRow, SentenceScoreRow, StructuredResultSection } from "@/lib/kraken-signal-result";
 import { parseExecutionResult } from "@/lib/kraken-signal-result";
 import { cn } from "@/lib/utils";
 import { looksLikeMarkdown, MarkdownContent } from "@/components/markdown-content";
@@ -123,6 +123,41 @@ function KeyValueRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function SentenceScoresTable({ title, rows }: { title?: string; rows: SentenceScoreRow[] }) {
+  return (
+    <div className="space-y-2">
+      {title ? <div className="text-[11px] font-semibold text-muted-foreground">{title}</div> : null}
+      <div className="overflow-x-auto rounded-lg border border-border/40">
+        <table className="w-full text-left text-xs">
+          <thead>
+            <tr className="border-b border-border/40 bg-muted/20 text-muted-foreground">
+              <th className="px-3 py-2 font-semibold w-[72px]">AI Score</th>
+              <th className="px-3 py-2 font-semibold">Sentence</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => {
+              const pct = (row.score * 100).toFixed(1);
+              const isHigh = row.score >= 0.8;
+              const isMid = row.score >= 0.4;
+              return (
+                <tr key={i} className="border-b border-border/20 last:border-0">
+                  <td className="px-3 py-2 tabular-nums font-mono">
+                    <span className={cn("font-bold", isHigh ? "text-red-400" : isMid ? "text-amber-400" : "text-green-400")}>
+                      {pct}%
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 leading-relaxed text-foreground/90">{row.sentence}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function KeyValuesBlock({ title, rows }: { title?: string; rows: { label: string; value: string }[] }) {
   return (
     <div className="space-y-2">
@@ -161,6 +196,8 @@ function renderSection(section: StructuredResultSection, index: number) {
           <BadgesRow items={section.items} />
         </div>
       );
+    case "sentenceScores":
+      return <SentenceScoresTable key={index} title={section.title} rows={section.rows} />;
     case "keyValues":
       return <KeyValuesBlock key={index} title={section.title} rows={section.rows} />;
     case "json":
