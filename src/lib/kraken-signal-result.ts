@@ -370,8 +370,8 @@ function parseSaplingResult(
 function parseItsAiResult(record: Record<string, unknown>): ResultBadge[] | null {
   const answer = record.answer;
   const status = record.status;
-  if ((answer !== 0 && answer !== 1 && answer !== 0.0 && answer !== 1.0) || typeof status !== "string") return null;
-  const isAi = answer === 1 || answer === 1.0;
+  if ((answer !== 0 && answer !== 1) || typeof status !== "string") return null;
+  const isAi = answer === 1;
   return [
     { label: "Verdict", value: isAi ? "AI-generated" : "Human-written" },
     { label: "Status", value: String(status) },
