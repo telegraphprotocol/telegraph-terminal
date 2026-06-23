@@ -24,12 +24,13 @@ function DetailWithLink({ detail }: { detail: string }) {
   for (const m of detail.matchAll(URL_RE)) {
     if (m.index! > last) parts.push(detail.slice(last, m.index));
     const url = m[0];
+    const isBlockchainExplorer = /explorer\.solana\.com|basescan\.org|etherscan\.io|polygonscan\.com/i.test(url);
     parts.push(
       <a key={m.index} href={url} target="_blank" rel="noopener noreferrer"
         className="text-primary underline-offset-2 hover:underline"
         onClick={(e) => e.stopPropagation()}
       >
-        View on explorer
+        {isBlockchainExplorer ? "View on explorer" : url}
       </a>
     );
     last = m.index! + url.length;

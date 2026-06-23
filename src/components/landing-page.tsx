@@ -12,8 +12,8 @@ import { ThemeToggle } from "@/components/theme-toggle";
 const QUADRANTS = [
   {
     key: "terminal",
-    lines: ["INTELLIGENCE", "TERMINAL"],
-    sub: "Chatbot",
+    lines: ["VERIFIED", "CHATBOT"],
+    sub: "Open-Source Powered",
     who: "Analysts, researchers, and individuals who need quick, verified answers.",
     value: "Get trustworthy answers instantly, without building or maintaining your own AI systems.",
     cta: "Open Terminal →",
