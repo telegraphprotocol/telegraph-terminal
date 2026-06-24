@@ -1,15 +1,23 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePaymentNetwork, PAYMENT_NETWORKS } from "@/lib/network-context";
 import { cn } from "@/lib/utils";
+import { useAccount, useDisconnect } from "wagmi";
+import { useWallet } from "@solana/wallet-adapter-react";
 
 export function NetworkSelector() {
   const { network, setNetwork } = usePaymentNetwork();
   const [open, setOpen] = useState(false);
+  const [banner, setBanner] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  const bannerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const { isConnected: evmConnected } = useAccount();
+  const { disconnect: evmDisconnect } = useDisconnect();
+  const { publicKey: solanaPubkey, disconnect: solanaDisconnect } = useWallet();
 
   const current = PAYMENT_NETWORKS.find((n) => n.value === network)!;
 
@@ -20,6 +28,27 @@ export function NetworkSelector() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  function showBanner(msg: string) {
+    setBanner(msg);
+    if (bannerTimer.current) clearTimeout(bannerTimer.current);
+    bannerTimer.current = setTimeout(() => setBanner(null), 4000);
+  }
+
+  function handleSelect(value: string) {
+    if (value === network) { setOpen(false); return; }
+
+    if (value === "solana" && evmConnected) {
+      evmDisconnect();
+      showBanner("EVM wallet disconnected — connect a Solana wallet to pay.");
+    } else if (value === "base-sepolia" && solanaPubkey) {
+      solanaDisconnect().catch(() => undefined);
+      showBanner("Solana wallet disconnected — connect a Base Sepolia wallet to pay.");
+    }
+
+    setNetwork(value as typeof network);
+    setOpen(false);
+  }
 
   return (
     <div ref={ref} className="relative flex min-w-0 flex-col gap-0.5">
@@ -36,14 +65,11 @@ export function NetworkSelector() {
           "hover:border-emerald-600/70 hover:bg-emerald-500/15 hover:text-emerald-800 dark:hover:border-emerald-500/60 dark:hover:text-emerald-300",
         )}
       >
-        {/* pulse dot */}
         <span className="relative flex h-1.5 w-1.5 shrink-0">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-600 opacity-60 dark:bg-emerald-400" />
           <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-600 dark:bg-emerald-500" />
         </span>
-
         <span className="hidden sm:inline">{current.label}</span>
-
         <ChevronDown size={12} className="shrink-0 text-emerald-700/70 dark:text-emerald-400/70" aria-hidden />
       </button>
 
@@ -64,7 +90,7 @@ export function NetworkSelector() {
                 type="button"
                 role="option"
                 aria-selected={n.value === network}
-                onClick={() => { setNetwork(n.value); setOpen(false); }}
+                onClick={() => handleSelect(n.value)}
                 className={cn(
                   "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left text-[13px] font-medium transition-all duration-200",
                   n.value === network
@@ -78,6 +104,27 @@ export function NetworkSelector() {
                 )}
               </button>
             ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {banner && (
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.18 }}
+            className="absolute right-0 top-[calc(100%+8px)] z-50 flex w-[min(calc(100vw-2rem),320px)] items-start gap-2 border border-amber-500/40 bg-amber-500/10 px-3 py-2 backdrop-blur-sm"
+          >
+            <p className="flex-1 text-[11px] text-amber-400 leading-relaxed">{banner}</p>
+            <button
+              type="button"
+              onClick={() => setBanner(null)}
+              className="shrink-0 text-amber-400/60 hover:text-amber-400 transition-colors"
+            >
+              <X className="size-3.5" />
+            </button>
           </motion.div>
         )}
       </AnimatePresence>

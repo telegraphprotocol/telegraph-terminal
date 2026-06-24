@@ -18,6 +18,7 @@ export type TerminalScriptContext = {
   engineSubnets: Array<{ id: string; label: string }>;
   coreWallet: TerminalScriptWallet | null;
   useTerminalBackend: boolean;
+  network?: string;
 };
 
 export type ServerLogLine = {
@@ -77,10 +78,13 @@ export function buildPreflightScript(ctx: TerminalScriptContext): ScriptEntry[] 
       ctx.coreWallet.usdcBalance != null && ctx.coreWallet.usdcBalance !== ""
         ? ` · USDC ${ctx.coreWallet.usdcBalance}`
         : "";
+    const walletLabel = ctx.network === "solana"
+      ? `Checking balance on Solana admin wallet (${truncateAddress(ctx.coreWallet.address)})${bal}`
+      : `Checking balance on Privy wallet (${truncateAddress(ctx.coreWallet.address)})${bal}`;
     entries.push({
       section: "Initial Routing",
       label: "WALLET",
-      detail: `Checking balance on Privy wallet (${truncateAddress(ctx.coreWallet.address)})${bal}`,
+      detail: walletLabel,
     });
   }
 

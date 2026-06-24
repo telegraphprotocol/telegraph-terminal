@@ -31,6 +31,19 @@ export type MessageContent = { kind: "text"; text: string };
 /** Live chat only: optimistic send / failure / retry (omitted in stored mock scenarios). */
 export type MessageSendState = "ok" | "pending" | "failed";
 
+export type StoredReceipt = {
+  subnet: string;
+  subnetId: string;
+  costUsd: number;
+  durationMs: number;
+  timestamp: string;
+  intent?: string;
+  reasoning?: string;
+  x402TxHash?: string;
+  x402ExplorerUrl?: string;
+  x402Network?: string;
+};
+
 export type ChatMessage = {
   id: string;
   role: MessageRole;
@@ -38,6 +51,10 @@ export type ChatMessage = {
   sendState?: MessageSendState;
   /** Present when `sendState === "failed"` */
   sendError?: string;
+  /** Cached receipt for paid/free messages — enables click-to-view in TerminalPanel */
+  receipt?: StoredReceipt;
+  /** Cached terminal logs (capped at 30) for receipt click-to-view */
+  terminalLogs?: TerminalLogEntry[];
 };
 
 // ─── Terminal types ───────────────────────────────────────────────────────────

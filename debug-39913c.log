@@ -1,0 +1,2 @@
+{"sessionId":"39913c","location":"chat.service:paidChat","message":"Payment wallet routing","data":{"paymentWallet":"external","bodyPaymentWallet":"external","userWalletMode":"privy","network":"base-sepolia"},"timestamp":1782285604390,"hypothesisId":"H6"}
+{"sessionId":"39913c","location":"chat.service:paidChat","message":"Payment wallet routing","data":{"paymentWallet":"external","bodyPaymentWallet":"external","userWalletMode":"privy","network":"base-sepolia"},"timestamp":1782285614138,"hypothesisId":"H6"}

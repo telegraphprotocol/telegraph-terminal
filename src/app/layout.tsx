@@ -51,7 +51,7 @@ export default function RootLayout({
       className={`dark ${robotoMono.variable} h-dvh overflow-hidden antialiased`}
       suppressHydrationWarning
     >
-      <body className="flex h-dvh min-h-0 flex-col overflow-hidden bg-background text-foreground">
+      <body className="flex h-dvh min-h-0 flex-col overflow-hidden bg-background text-foreground" suppressHydrationWarning>
         <CursorGlow />
         <Providers>
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">

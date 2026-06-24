@@ -8,14 +8,18 @@ import { ChatInput } from "@/components/chat-input";
 import { DirectSubnetFields } from "@/components/direct-subnet-fields";
 import { EmptyState } from "@/components/empty-state";
 import { HowItWorksButton } from "@/components/how-it-works-button";
+import { ReceiptHistoryModal } from "@/components/receipt-history-modal";
 import { NetworkSelector } from "@/components/network-selector";
 import { MobileTerminalCollapsible, TerminalPanel } from "@/components/terminal-panel";
 import { ConnectWalletModal } from "@/components/auth/connect-wallet-modal";
 import { WalletChoiceModal } from "@/components/auth/wallet-choice-modal";
 import { DepositModal } from "@/components/auth/deposit-modal";
+import { SolanaDepositModal } from "@/components/auth/solana-deposit-modal";
 import { useLiveExecutor } from "@/lib/hooks/use-live-executor";
 import { apiClient } from "@/lib/api-client";
-import { getToken, authHeaders } from "@/lib/auth";
+import { getToken, authHeaders, AUTH_CHANGED_EVENT } from "@/lib/auth";
+import { usePaymentNetwork } from "@/lib/network-context";
+import { Receipt } from "lucide-react";
 import {
   normalizeEngineSubnets,
   type SubnetPickItem,
@@ -29,19 +33,20 @@ export default function LiveChatPage() {
   const [subnetsLoading, setSubnetsLoading] = useState(true);
   const [subnetsError, setSubnetsError] = useState<string | null>(null);
 
+  const { network: selectedNetwork } = usePaymentNetwork();
+
   // Auth state machine
   const [authState, setAuthState] = useState<AuthState>("loading");
-  const [depositWalletAddress, setDepositWalletAddress] = useState<string | null>(null);
+  const [depositEvmAddress, setDepositEvmAddress] = useState<string | null>(null);
+  const [depositSolanaAddress, setDepositSolanaAddress] = useState<string | null>(null);
   const [walletPromptOpen, setWalletPromptOpen] = useState(false);
 
-  // Check auth on mount
-  useEffect(() => {
+  const refreshAuthState = useCallback(() => {
     const token = getToken();
     if (!token) {
       setAuthState("unauthenticated");
       return;
     }
-    // Verify token is still valid and check walletMode
     fetch("/api/auth/me", { headers: authHeaders() })
       .then((r) => (r.ok ? r.json() : null))
       .then((me) => {
@@ -58,25 +63,22 @@ export default function LiveChatPage() {
       .catch(() => setAuthState("unauthenticated"));
   }, []);
 
+  useEffect(() => {
+    refreshAuthState();
+    const onAuthChanged = () => refreshAuthState();
+    window.addEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
+    return () => window.removeEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
+  }, [refreshAuthState]);
+
   const handleAuthenticated = useCallback(() => {
     setWalletPromptOpen(false);
-    // After JWT obtained, check walletMode
-    fetch("/api/auth/me", { headers: authHeaders() })
-      .then((r) => r.json())
-      .then((me) => {
-        if (!me?.walletMode) setAuthState("wallet-choice");
-        else setAuthState("ready");
-      })
-      .catch(() => setAuthState("wallet-choice"));
-  }, []);
+    refreshAuthState();
+  }, [refreshAuthState]);
 
-  const handlePrivyCreated = useCallback((walletAddress: string) => {
-    setDepositWalletAddress(walletAddress);
+  const handlePrivyCreated = useCallback((evmAddress: string, solanaAddress: string) => {
+    setDepositEvmAddress(evmAddress || null);
+    setDepositSolanaAddress(solanaAddress || null);
     setAuthState("deposit");
-  }, []);
-
-  const handleExternalChosen = useCallback(() => {
-    setAuthState("ready");
   }, []);
 
   const handleDepositClose = useCallback(() => {
@@ -128,6 +130,9 @@ export default function LiveChatPage() {
     anonAiExhausted,
     useX402Chat,
     coreWalletFooter,
+    selectedMsgReceipt,
+    selectedMsgLogs,
+    handleSelectMessageReceipt,
     handleSend,
     handleRetrySend,
     handleNewChat,
@@ -140,8 +145,13 @@ export default function LiveChatPage() {
     directSubnetPanel,
   } = useLiveExecutor({ forcedSubnetId, engineSubnets });
 
+  const [receiptHistoryOpen, setReceiptHistoryOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarLayoutReady, setSidebarLayoutReady] = useState(false);
+
+  // Active receipt/logs: prefer message-selected over live terminal
+  const activeReceipt = selectedMsgReceipt ?? terminalReceipt;
+  const activeLogs = selectedMsgLogs.length > 0 ? selectedMsgLogs : terminalLogs;
 
   useLayoutEffect(() => {
     setSidebarLayoutReady(true);
@@ -175,6 +185,8 @@ export default function LiveChatPage() {
 
   return (
     <>
+      {receiptHistoryOpen && <ReceiptHistoryModal onClose={() => setReceiptHistoryOpen(false)} />}
+
       {/* Auth modals — rendered above everything */}
       {authState === "unauthenticated" && walletPromptOpen && (
         <ConnectWalletModal onAuthenticated={handleAuthenticated} onClose={() => setWalletPromptOpen(false)} />
@@ -182,11 +194,14 @@ export default function LiveChatPage() {
       {authState === "wallet-choice" && (
         <WalletChoiceModal
           onPrivyCreated={handlePrivyCreated}
-          onExternalChosen={handleExternalChosen}
         />
       )}
-      {authState === "deposit" && depositWalletAddress && (
-        <DepositModal walletAddress={depositWalletAddress} onClose={handleDepositClose} />
+      {authState === "deposit" && (
+        selectedNetwork === "solana" && depositSolanaAddress
+          ? <SolanaDepositModal privySolanaAddress={depositSolanaAddress} onClose={handleDepositClose} />
+          : depositEvmAddress
+            ? <DepositModal walletAddress={depositEvmAddress} onClose={handleDepositClose} />
+            : null
       )}
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background bg-dot-grid md:flex-row">
@@ -240,6 +255,15 @@ export default function LiveChatPage() {
             extraActions={
               <>
                 {process.env.NEXT_PUBLIC_USE_TERMINAL_BACKEND_X402 === "true" && <NetworkSelector />}
+                <button
+                  type="button"
+                  onClick={() => setReceiptHistoryOpen(true)}
+                  className="inline-flex h-8 shrink-0 items-center gap-1 border border-foreground/50 bg-foreground/10 px-2 text-[10px] font-bold uppercase tracking-[0.1em] text-foreground transition-all hover:border-foreground/80 hover:bg-foreground/20 sm:gap-1.5 sm:px-2.5"
+                  title="View receipt history"
+                >
+                  <Receipt className="size-3" strokeWidth={2} />
+                  <span className="hidden sm:inline">History</span>
+                </button>
                 <HowItWorksButton />
               </>
             }
@@ -259,13 +283,14 @@ export default function LiveChatPage() {
                     isLoading={isLoading}
                     loadingHint={chatLoadingHint}
                     onRetrySend={handleRetrySend}
+                    onShowMessageReceipt={handleSelectMessageReceipt}
                     mobileTerminal={
                       showTerminal ? (
                         <div className="md:hidden">
                           <MobileTerminalCollapsible
-                            logs={terminalLogs}
-                            showReceipt={!!terminalReceipt}
-                            receipt={terminalReceipt}
+                            logs={activeLogs}
+                            showReceipt={!!activeReceipt}
+                            receipt={activeReceipt}
                             isLoading={isLoading}
                             isRevealing={terminalIsRevealing}
                           />
@@ -318,9 +343,9 @@ export default function LiveChatPage() {
             {showTerminal && (
               <div className="hidden md:flex">
                 <TerminalPanel
-                  logs={terminalLogs}
-                  showReceipt={!!terminalReceipt}
-                  receipt={terminalReceipt}
+                  logs={activeLogs}
+                  showReceipt={!!activeReceipt}
+                  receipt={activeReceipt}
                   isRevealing={terminalIsRevealing}
                 />
               </div>

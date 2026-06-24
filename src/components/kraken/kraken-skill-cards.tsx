@@ -50,7 +50,7 @@ export function KrakenSkillCards({
           {subnetsError ?? "Routing service is temporarily unavailable. Check back shortly or open the Intelligence Terminal to send queries."}
         </p>
         <p className="mt-4 text-xs text-muted-foreground/80">
-          Use the subnet picker in the header once the engine is reachable, or open the{" "}
+          Use the miner picker in the header once the engine is reachable, or open the{" "}
           <Link href="/intelligence-terminal" className="font-semibold text-foreground underline-offset-2 hover:underline">
             Intelligence Terminal
           </Link>{" "}
@@ -81,7 +81,7 @@ export function KrakenSkillCards({
 
           <h3 className="mb-2 text-xl font-bold tracking-tight text-foreground">{subnet.label}</h3>
           <p className="mb-6 flex-1 text-[13px] leading-relaxed text-muted-foreground">
-            Engine-registered subnet. Queries can be routed here from the Intelligence Terminal.
+            Engine-registered miner. Queries can be routed here from the Intelligence Terminal.
           </p>
 
           <Link

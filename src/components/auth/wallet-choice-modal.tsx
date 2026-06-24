@@ -1,26 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
 import { authHeaders } from "@/lib/auth";
-import { INSTANT_WALLET_LABEL, CONNECTED_WALLET_LABEL } from "@/lib/wallet-labels";
 
 interface WalletChoiceModalProps {
-  onPrivyCreated: (walletAddress: string) => void;
-  onExternalChosen: () => void;
+  onPrivyCreated: (evmAddress: string, solanaAddress: string) => void;
+  /** @deprecated kept for backward compat — no longer shown */
+  onExternalChosen?: () => void;
+  /** @deprecated kept for backward compat — no longer used */
+  solanaOnly?: boolean;
 }
 
-export function WalletChoiceModal({ onPrivyCreated, onExternalChosen }: WalletChoiceModalProps) {
-  const [loading, setLoading] = useState<"privy" | "external" | null>(null);
-  const [error, setError] = useState<string | null>(null);
+export function WalletChoiceModal({ onPrivyCreated }: WalletChoiceModalProps) {
+  const [status, setStatus] = useState<"loading" | "error">("loading");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  async function choosePrivy() {
-    setLoading("privy");
-    setError(null);
+  async function create() {
+    setStatus("loading");
+    setErrorMsg(null);
     try {
       const res = await fetch("/api/user/wallet/create", {
         method: "POST",
@@ -28,93 +26,47 @@ export function WalletChoiceModal({ onPrivyCreated, onExternalChosen }: WalletCh
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.message ?? "Unable to create wallet. Please try again.");
+        throw new Error(body.message ?? "Unable to set up wallets. Please try again.");
       }
-      const data = await res.json();
-      onPrivyCreated(data.privyWalletAddress ?? "");
+      const data = await res.json() as {
+        privyWalletAddress?: string | null;
+        privySolanaWalletAddress?: string | null;
+      };
+      onPrivyCreated(data.privyWalletAddress ?? "", data.privySolanaWalletAddress ?? "");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
-      setLoading(null);
+      setErrorMsg(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+      setStatus("error");
     }
   }
 
-  async function chooseExternal() {
-    setLoading("external");
-    setError(null);
-    try {
-      const res = await fetch("/api/user/wallet/set-mode", {
-        method: "POST",
-        headers: { ...authHeaders(), "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "external" }),
-      });
-      if (!res.ok) throw new Error("Unable to connect wallet. Please try again.");
-      onExternalChosen();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
-      setLoading(null);
-    }
-  }
+  useEffect(() => {
+    void create();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-background/80 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl flex flex-col gap-5">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-base font-semibold text-foreground">How do you want to pay?</h2>
-          <p className="text-xs text-muted-foreground">
-            Pick once — you can switch later from the wallet panel.
-          </p>
-        </div>
-
-        <Separator />
-
-        {error && (
-          <p className="rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</p>
+      <div className="w-full max-w-sm rounded-xl border border-border bg-card p-6 shadow-xl flex flex-col gap-4 items-center text-center">
+        {status === "loading" ? (
+          <>
+            <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+            <p className="text-sm font-medium text-foreground">Setting up your wallets…</p>
+            <p className="text-xs text-muted-foreground">Creating EVM and Solana Privy wallets for you.</p>
+          </>
+        ) : (
+          <>
+            <p className="text-sm font-medium text-destructive">Wallet setup failed</p>
+            {errorMsg && (
+              <p className="text-xs text-muted-foreground">{errorMsg}</p>
+            )}
+            <button
+              onClick={() => void create()}
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              Retry
+            </button>
+          </>
         )}
-
-        <div className="flex flex-col gap-3">
-          {/* Instant wallet (Privy custodial) — primary, visually dominant */}
-          <button
-            onClick={choosePrivy}
-            disabled={loading !== null}
-            className={cn(
-              "flex flex-col gap-2 rounded-xl border-2 border-primary/40 bg-primary/5 p-5 text-left shadow-sm transition-colors",
-              "hover:border-primary/60 hover:bg-primary/10 disabled:pointer-events-none disabled:opacity-60",
-            )}
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-base font-semibold text-foreground">{INSTANT_WALLET_LABEL}</span>
-              <Badge variant="secondary" className="text-[10px]">Recommended</Badge>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              We create a wallet for you instantly. Deposit once, then chat without signing every
-              message.
-            </p>
-            {loading === "privy" && (
-              <p className="text-xs text-primary">Creating wallet…</p>
-            )}
-          </button>
-
-          {/* External wallet — secondary, visually muted */}
-          <button
-            onClick={chooseExternal}
-            disabled={loading !== null}
-            className={cn(
-              "flex flex-col gap-1.5 rounded-lg border border-border/60 bg-muted/15 p-3.5 text-left opacity-80 transition-colors",
-              "hover:border-border hover:bg-muted/30 hover:opacity-100 disabled:pointer-events-none disabled:opacity-50",
-            )}
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-foreground">{CONNECTED_WALLET_LABEL}</span>
-              <Badge variant="outline" className="text-[10px]">Manual</Badge>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Pay with your connected external wallet — approve a quick signature for each subnet call.
-            </p>
-            {loading === "external" && (
-              <p className="text-xs text-muted-foreground">Saving preference…</p>
-            )}
-          </button>
-        </div>
       </div>
     </div>,
     document.body,

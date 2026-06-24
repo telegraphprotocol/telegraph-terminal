@@ -100,7 +100,7 @@ export function KrakenAlerts({ alerts, loading }: KrakenAlertsProps) {
                   <div className="flex shrink-0 items-center gap-3">
                     <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                       <ShieldCheck size={12} className="text-muted-foreground shrink-0" />
-                      <span className="max-w-[180px] truncate">{alert.routing.subnet_name || "Engine subnet"}</span>
+                      <span className="max-w-[180px] truncate">{alert.routing.subnet_name || "Engine miner"}</span>
                     </div>
                     <div className="text-[11px] font-bold text-foreground bg-muted px-2 py-0.5 whitespace-nowrap border border-border/50">
                       ${alert.execution.cost_usd.toFixed(4)}

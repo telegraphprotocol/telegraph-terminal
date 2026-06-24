@@ -68,7 +68,7 @@ const QUADRANTS = [
     key: "miners",
     lines: ["SUPPLY THE", "NETWORK"],
     sub: "For Miners",
-    who: "AI labs, subnets, and companies with trained models.",
+    who: "AI labs, miners, and companies with trained models.",
     value: "Connect your models and start earning by serving real demand from automated systems globally.",
     cta: "Integrate Now →",
     href: "https://integrate.telegraphprotocol.com",

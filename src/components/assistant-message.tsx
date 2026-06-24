@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, Receipt } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ChatMessage } from "@/lib/mock-data";
 import { looksLikeMarkdown, MarkdownContent } from "@/components/markdown-content";
@@ -18,7 +18,13 @@ function tryParseStructured(text: string): unknown | null {
   }
 }
 
-export function AssistantMessage({ message }: { message: ChatMessage }) {
+export function AssistantMessage({
+  message,
+  onShowReceipt,
+}: {
+  message: ChatMessage;
+  onShowReceipt?: (id: string) => void;
+}) {
   const [showRaw, setShowRaw] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -116,6 +122,17 @@ export function AssistantMessage({ message }: { message: ChatMessage }) {
             >
               {copied ? <Check className="size-4 text-success" strokeWidth={2} /> : <Copy className="size-4" strokeWidth={2} />}
             </button>
+            {message.receipt && onShowReceipt && (
+              <button
+                type="button"
+                onClick={() => onShowReceipt(message.id)}
+                className="inline-flex h-8 items-center gap-1.5 border border-border/50 px-2 text-[10px] font-bold uppercase tracking-wide text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                title="View receipt for this message"
+              >
+                <Receipt className="size-3" strokeWidth={2} />
+                <span className="hidden sm:inline">Receipt</span>
+              </button>
+            )}
           </div>
         )}
       </div>

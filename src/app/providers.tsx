@@ -7,9 +7,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { wagmiConfig } from "@/lib/wagmi-config";
 import { NetworkProvider } from "@/lib/network-context";
 import { ConnectionProvider, WalletProvider } from "@solana/wallet-adapter-react";
+import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import { PhantomWalletAdapter, SolflareWalletAdapter } from "@solana/wallet-adapter-wallets";
 import { clusterApiUrl } from "@solana/web3.js";
 import "@rainbow-me/rainbowkit/styles.css";
+import "@solana/wallet-adapter-react-ui/styles.css";
 
 const queryClient = new QueryClient();
 
@@ -19,7 +21,8 @@ const SOLANA_WALLETS = [new PhantomWalletAdapter(), new SolflareWalletAdapter()]
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ConnectionProvider endpoint={SOLANA_ENDPOINT}>
-      <WalletProvider wallets={SOLANA_WALLETS} autoConnect>
+      <WalletProvider wallets={SOLANA_WALLETS} autoConnect={false}>
+        <WalletModalProvider>
         <WagmiProvider config={wagmiConfig}>
           <QueryClientProvider client={queryClient}>
             <RainbowKitProvider
@@ -35,6 +38,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
             </RainbowKitProvider>
           </QueryClientProvider>
         </WagmiProvider>
+        </WalletModalProvider>
       </WalletProvider>
     </ConnectionProvider>
   );

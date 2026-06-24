@@ -6,12 +6,15 @@ import { Copy, Check, RefreshCw, LogOut, Wallet, ArrowDownToLine, X, ExternalLin
 import { AnimatePresence, motion } from "framer-motion";
 import { useAccount, useDisconnect, useReadContract } from "wagmi";
 import { baseSepolia } from "wagmi/chains";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { cn } from "@/lib/utils";
-import { authHeaders, clearToken } from "@/lib/auth";
+import { authHeaders, clearToken, getToken, AUTH_CHANGED_EVENT } from "@/lib/auth";
 import { DepositModal } from "@/components/auth/deposit-modal";
+import { SolanaDepositModal } from "@/components/auth/solana-deposit-modal";
 import { ConnectWalletModal } from "@/components/auth/connect-wallet-modal";
 import { INSTANT_WALLET_LABEL, CONNECTED_WALLET_LABEL } from "@/lib/wallet-labels";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { usePaymentNetwork } from "@/lib/network-context";
 
 const CHAIN_NAMES: Record<number, string> = {
   84532: "Base Sepolia",
@@ -27,8 +30,8 @@ export type CoreWalletPayload = {
   usdcBalance?: string;
   usdcDecimals?: number;
   walletMode?: "privy" | "external" | null;
-  /** Which wallet is actually debited for payments. Falls back to walletMode if absent. */
   activeForPayments?: "privy" | "external";
+  privySolanaWalletAddress?: string | null;
 };
 
 function truncateAddress(addr: string): string {
@@ -107,26 +110,27 @@ function SectionLabel({ children, tooltip }: { children: React.ReactNode; toolti
   );
 }
 
-/** Secondary wallet box — amber toned to distinguish from the primary payment wallet. */
 function SecondaryWalletBox({
   label,
   address,
   usdcBalance,
+  networkLabel,
 }: {
   label: string;
   address: string;
   usdcBalance: string | null;
+  networkLabel: string;
 }) {
   return (
     <div className="flex flex-col gap-2">
-      <SectionLabel tooltip="This is your external wallet (e.g. MetaMask). It is not used for payments directly. Use it to deposit USDC into your Telegraph Instant Wallet to fund miner calls.">
+      <SectionLabel tooltip="This is your external wallet. It is not used for payments directly. Use it to deposit USDC into your Telegraph Instant Wallet to fund miner calls.">
         {label}
       </SectionLabel>
       <div className="border-2 border-amber-500/30 bg-amber-500/5 p-3 flex flex-col gap-3">
         <AddressRow label="Address" address={address} badge="Connected" />
         <div className="flex items-center justify-between border-t border-amber-500/20 pt-2">
           <div className="flex flex-col gap-0.5">
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">USDC · Base Sepolia</span>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">USDC · {networkLabel}</span>
             <span className="text-[15px] font-bold tabular-nums text-foreground">
               {usdcBalance !== null ? formatUsd(usdcBalance) : "—"}
             </span>
@@ -143,6 +147,11 @@ function WalletModal({
   error,
   connectedAddress,
   connectedUsdcBalance,
+  isSolana,
+  solanaConnectedAddress,
+  solanaConnectedUsdcBalance,
+  solanaPrivyUsdcBalance,
+  solanaLoading,
   anchorRect,
   onRefresh,
   onDeposit,
@@ -154,6 +163,11 @@ function WalletModal({
   error: string | null;
   connectedAddress: string | undefined;
   connectedUsdcBalance: string | null;
+  isSolana: boolean;
+  solanaConnectedAddress: string | undefined;
+  solanaConnectedUsdcBalance: string | null;
+  solanaPrivyUsdcBalance: string | null;
+  solanaLoading: boolean;
   anchorRect: DOMRect;
   onRefresh: () => void;
   onDeposit: () => void;
@@ -165,6 +179,20 @@ function WalletModal({
 
   const top = anchorRect.bottom + 8;
   const right = Math.max(8, window.innerWidth - anchorRect.right);
+
+  // For Solana: show privySolanaWalletAddress in the primary slot
+  const primaryAddress = isSolana
+    ? (data?.privySolanaWalletAddress ?? data?.address ?? "")
+    : (isPrivy ? data?.address ?? "" : connectedAddress ?? data?.address ?? "");
+
+  const primaryUsdcBalance = isSolana
+    ? (solanaPrivyUsdcBalance ?? undefined)
+    : (isPrivy ? data?.usdcBalance : connectedAddress ? connectedUsdcBalance ?? undefined : data?.usdcBalance);
+
+  const networkLabel = isSolana ? "Solana Devnet" : (data?.chainId ? chainLabel(data.chainId) : "");
+  const secondaryAddress = isSolana ? solanaConnectedAddress : (isPrivy ? connectedAddress : undefined);
+  const secondaryBalance = isSolana ? solanaConnectedUsdcBalance : connectedUsdcBalance;
+  const showSecondary = isPrivy && !!secondaryAddress;
 
   return createPortal(
     <motion.div
@@ -190,7 +218,7 @@ function WalletModal({
 
       <div className="flex flex-col gap-4 p-4">
 
-        {/* Primary wallet — whichever one is actually debited for payments */}
+        {/* Primary wallet */}
         {loading && !data ? (
           <div className="flex items-center gap-2 py-2 text-[11px] text-muted-foreground">
             <RefreshCw className="size-3 animate-spin" />
@@ -203,33 +231,35 @@ function WalletModal({
             <SectionLabel
               tooltip={isPrivy
                 ? "This is your Telegraph Instant Wallet, powered by Privy. All miner payments are deducted from here. Deposit USDC into this wallet from your connected external wallet."
-                : "Your connected external wallet is used directly for payments. Each miner call requires a signature approval from this wallet."}
+                : "Your connected external wallet is used directly for payments."}
             >
-              {isPrivy ? INSTANT_WALLET_LABEL : CONNECTED_WALLET_LABEL}
+              {isPrivy
+                ? (isSolana ? "Instant Solana Wallet" : INSTANT_WALLET_LABEL)
+                : (isSolana ? "Connected Solana Wallet" : CONNECTED_WALLET_LABEL)}
             </SectionLabel>
             <div className="border-2 border-primary/30 bg-primary/5 p-3 flex flex-col gap-3">
               <AddressRow
                 label="Address"
-                address={isPrivy ? data.address : connectedAddress ?? data.address}
+                address={primaryAddress}
                 badge={isPrivy ? "Instant" : "Connected"}
               />
               <div className="flex items-center justify-between border-t border-primary/20 pt-2">
                 <div className="flex flex-col gap-0.5">
                   <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                    USDC{data.chainId ? ` · ${chainLabel(data.chainId)}` : ""}
+                    USDC{networkLabel ? ` · ${networkLabel}` : ""}
                   </span>
-                  <span className={cn("text-[15px] font-bold tabular-nums text-foreground", loading && "opacity-50")}>
-                    {formatUsd(isPrivy ? data.usdcBalance : connectedAddress ? connectedUsdcBalance ?? undefined : data.usdcBalance)}
+                  <span className={cn("text-[15px] font-bold tabular-nums text-foreground", (loading || solanaLoading) && "opacity-50")}>
+                    {formatUsd(primaryUsdcBalance)}
                   </span>
                 </div>
                 <button
                   type="button"
                   onClick={onRefresh}
-                  disabled={loading}
+                  disabled={loading || solanaLoading}
                   className="text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
                   title="Refresh balance"
                 >
-                  <RefreshCw className={cn("size-4", loading && "animate-spin")} />
+                  <RefreshCw className={cn("size-4", (loading || solanaLoading) && "animate-spin")} />
                 </button>
               </div>
             </div>
@@ -239,12 +269,13 @@ function WalletModal({
           </div>
         ) : null}
 
-        {/* Secondary wallet — connected-but-unused */}
-        {isPrivy && connectedAddress && (
+        {/* Secondary wallet */}
+        {showSecondary && secondaryAddress && (
           <SecondaryWalletBox
-            label={CONNECTED_WALLET_LABEL}
-            address={connectedAddress}
-            usdcBalance={connectedUsdcBalance}
+            label={isSolana ? "Connected Solana Wallet" : CONNECTED_WALLET_LABEL}
+            address={secondaryAddress}
+            usdcBalance={secondaryBalance}
+            networkLabel={isSolana ? "Solana Devnet" : "Base Sepolia"}
           />
         )}
 
@@ -259,22 +290,39 @@ function WalletModal({
               <ArrowDownToLine className="size-4 text-foreground/60 shrink-0 group-hover:text-foreground transition-colors" />
               <div className="flex-1 min-w-0">
                 <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-foreground leading-none">Deposit USDC</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5 font-mono">Fund your {INSTANT_WALLET_LABEL}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5 font-mono">
+                  Fund your {isSolana ? "Instant Solana Wallet" : INSTANT_WALLET_LABEL}
+                </p>
               </div>
             </button>
           )}
-          <a
-            href="https://faucet.circle.com/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group flex w-full items-center gap-3 border-2 border-sky-500/40 bg-sky-500/8 px-3 py-2.5 text-left transition-all hover:border-sky-500/70 hover:bg-sky-500/15 active:scale-[0.98]"
-          >
-            <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-sky-400 leading-none group-hover:text-sky-300">Get Free Test USDC</p>
-              <p className="text-[10px] text-sky-400/50 mt-0.5">Circle Faucet · Base Sepolia</p>
-            </div>
-            <ExternalLink className="size-3.5 shrink-0 text-sky-400/50 group-hover:text-sky-300 transition-colors" />
-          </a>
+          {isSolana ? (
+            <a
+              href="https://faucet.solana.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex w-full items-center gap-3 border-2 border-sky-500/40 bg-sky-500/8 px-3 py-2.5 text-left transition-all hover:border-sky-500/70 hover:bg-sky-500/15 active:scale-[0.98]"
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-sky-400 leading-none group-hover:text-sky-300">Get Free Test USDC</p>
+                <p className="text-[10px] text-sky-400/50 mt-0.5">Circle Faucet · Solana Devnet</p>
+              </div>
+              <ExternalLink className="size-3.5 shrink-0 text-sky-400/50 group-hover:text-sky-300 transition-colors" />
+            </a>
+          ) : (
+            <a
+              href="https://faucet.circle.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex w-full items-center gap-3 border-2 border-sky-500/40 bg-sky-500/8 px-3 py-2.5 text-left transition-all hover:border-sky-500/70 hover:bg-sky-500/15 active:scale-[0.98]"
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-bold uppercase tracking-[0.1em] text-sky-400 leading-none group-hover:text-sky-300">Get Free Test USDC</p>
+                <p className="text-[10px] text-sky-400/50 mt-0.5">Circle Faucet · Base Sepolia</p>
+              </div>
+              <ExternalLink className="size-3.5 shrink-0 text-sky-400/50 group-hover:text-sky-300 transition-colors" />
+            </a>
+          )}
           <button
             type="button"
             onClick={onDisconnect}
@@ -291,6 +339,9 @@ function WalletModal({
 }
 
 export function GlobalWallet({ className }: Readonly<{ className?: string }>) {
+  const { network } = usePaymentNetwork();
+  const isSolana = network === "solana";
+
   const [open, setOpen] = useState(false);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
   const [data, setData] = useState<CoreWalletPayload | null>(null);
@@ -299,21 +350,51 @@ export function GlobalWallet({ className }: Readonly<{ className?: string }>) {
   const [hasLoaded, setHasLoaded] = useState(false);
   const [depositOpen, setDepositOpen] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
-  const { address: connectedAddress } = useAccount();
-  const { disconnect } = useDisconnect();
 
+  // EVM
+  const { address: connectedAddress } = useAccount();
+  const { disconnect: evmDisconnect } = useDisconnect();
   const { data: connectedUsdcRaw, refetch: refetchConnectedUsdc } = useReadContract({
     address: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
     abi: [{ name: "balanceOf", type: "function", stateMutability: "view", inputs: [{ name: "account", type: "address" }], outputs: [{ name: "", type: "uint256" }] }],
     functionName: "balanceOf",
     args: connectedAddress ? [connectedAddress] : undefined,
     chainId: baseSepolia.id,
-    query: { enabled: !!connectedAddress },
+    query: { enabled: !!connectedAddress && !isSolana },
   });
   const connectedUsdcBalance = connectedAddress && connectedUsdcRaw !== undefined
     ? (Number(connectedUsdcRaw) / 1e6).toString()
     : null;
+
+  // Solana
+  const { publicKey: solanaPubkey, disconnect: solanaDisconnect } = useWallet();
+  const solanaConnectedAddress = solanaPubkey?.toBase58();
+  const [solanaPrivyUsdcBalance, setSolanaPrivyUsdcBalance] = useState<string | null>(null);
+  const [solanaConnectedUsdcBalance, setSolanaConnectedUsdcBalance] = useState<string | null>(null);
+  const [solanaLoading, setSolanaLoading] = useState(false);
+
   const rootRef = useRef<HTMLDivElement>(null);
+
+  const loadSolanaBalances = useCallback(async () => {
+    if (!isSolana) return;
+    setSolanaLoading(true);
+    try {
+      const qs = solanaConnectedAddress ? `?externalAddress=${encodeURIComponent(solanaConnectedAddress)}` : "";
+      const res = await fetch(`/api/user/wallet/solana-balance${qs}`, {
+        cache: "no-store",
+        headers: authHeaders(),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setSolanaPrivyUsdcBalance(json.privySolanaUsdcBalance ?? null);
+        setSolanaConnectedUsdcBalance(json.externalSolanaUsdcBalance ?? null);
+      }
+    } catch {
+      // silently fail — balances stay at previous value
+    } finally {
+      setSolanaLoading(false);
+    }
+  }, [isSolana, solanaConnectedAddress]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -334,11 +415,25 @@ export function GlobalWallet({ className }: Readonly<{ className?: string }>) {
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => {
+    const onAuthChanged = () => void load();
+    window.addEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
+    return () => window.removeEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
+  }, [load]);
+  useEffect(() => {
     if (open) {
       void load();
-      void refetchConnectedUsdc();
+      if (isSolana) {
+        void loadSolanaBalances();
+      } else {
+        void refetchConnectedUsdc();
+      }
     }
-  }, [open, load, refetchConnectedUsdc]);
+  }, [open, load, refetchConnectedUsdc, isSolana, loadSolanaBalances]);
+
+  // Reload Solana balances when network switches to Solana
+  useEffect(() => {
+    if (isSolana && data) void loadSolanaBalances();
+  }, [isSolana, data, loadSolanaBalances]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -350,31 +445,41 @@ export function GlobalWallet({ className }: Readonly<{ className?: string }>) {
 
   useEffect(() => {
     if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [open]);
 
   const onDisconnect = () => {
-    disconnect();
+    evmDisconnect();
+    solanaDisconnect().catch(() => undefined);
     clearToken();
     setData(null);
+    setHasLoaded(true);
     setOpen(false);
-    window.location.reload();
   };
+
+  const handleRefresh = () => {
+    void load();
+    if (isSolana) void loadSolanaBalances();
+    else void refetchConnectedUsdc();
+  };
+
+  const displayBalance = isSolana
+    ? (solanaPrivyUsdcBalance ?? data?.usdcBalance)
+    : data?.usdcBalance;
 
   const triggerLabel = loading && !data
     ? "…"
-    : data?.usdcBalance != null
-      ? formatUsd(data.usdcBalance)
-      : connectedAddress
-        ? truncateAddress(connectedAddress)
+    : displayBalance != null
+      ? formatUsd(displayBalance)
+      : (isSolana ? solanaConnectedAddress : connectedAddress)
+        ? truncateAddress((isSolana ? solanaConnectedAddress : connectedAddress) ?? "")
         : "Wallet";
 
-  // Not yet signed in — show a connect button
-  if (hasLoaded && !data) {
+  const isLoggedIn = Boolean(getToken());
+
+  if (hasLoaded && !isLoggedIn) {
     return (
       <>
         <button
@@ -399,6 +504,9 @@ export function GlobalWallet({ className }: Readonly<{ className?: string }>) {
     );
   }
 
+  const privySolanaAddress = data?.privySolanaWalletAddress ?? null;
+  const canDeposit = data?.walletMode === "privy";
+
   return (
     <>
       <div ref={rootRef} className={cn("relative shrink-0", className)}>
@@ -413,14 +521,14 @@ export function GlobalWallet({ className }: Readonly<{ className?: string }>) {
           aria-haspopup="dialog"
           aria-label="Open wallet"
           className={cn(
-            "flex h-8 items-center gap-2 border border-border/60 px-3 text-[11px] font-bold uppercase tracking-[0.08em] transition-colors",
-            "hover:border-foreground/30 hover:text-foreground focus:outline-none",
-            open && "border-foreground/30",
+            "flex h-8 items-center gap-2 border border-foreground/50 bg-foreground/10 px-3 text-[11px] font-bold uppercase tracking-[0.08em] transition-colors",
+            "hover:border-foreground/80 hover:bg-foreground/20 focus:outline-none",
+            open && "border-foreground/80 bg-foreground/20",
           )}
         >
           <Wallet className="size-3 text-foreground/60 shrink-0" />
           <span className="tabular-nums text-foreground">{triggerLabel}</span>
-          {loading && data && (
+          {(loading || solanaLoading) && (
             <RefreshCw className="size-3 shrink-0 animate-spin text-muted-foreground" />
           )}
         </button>
@@ -433,8 +541,13 @@ export function GlobalWallet({ className }: Readonly<{ className?: string }>) {
               error={error}
               connectedAddress={connectedAddress}
               connectedUsdcBalance={connectedUsdcBalance}
+              isSolana={isSolana}
+              solanaConnectedAddress={solanaConnectedAddress}
+              solanaConnectedUsdcBalance={solanaConnectedUsdcBalance}
+              solanaPrivyUsdcBalance={solanaPrivyUsdcBalance}
+              solanaLoading={solanaLoading}
               anchorRect={anchorRect}
-              onRefresh={() => void load()}
+              onRefresh={handleRefresh}
               onDeposit={() => { setOpen(false); setDepositOpen(true); }}
               onDisconnect={onDisconnect}
               onClose={() => setOpen(false)}
@@ -443,10 +556,17 @@ export function GlobalWallet({ className }: Readonly<{ className?: string }>) {
         </AnimatePresence>
       </div>
 
-      {depositOpen && data?.address && data.walletMode === "privy" && (
+      {depositOpen && canDeposit && !isSolana && data?.address && (
         <DepositModal
           walletAddress={data.address}
           connectedUsdcBalance={connectedUsdcBalance}
+          onClose={() => setDepositOpen(false)}
+        />
+      )}
+
+      {depositOpen && canDeposit && isSolana && privySolanaAddress && (
+        <SolanaDepositModal
+          privySolanaAddress={privySolanaAddress}
           onClose={() => setDepositOpen(false)}
         />
       )}

@@ -8,6 +8,7 @@ import { createTransferInstruction, getAssociatedTokenAddressSync } from "@solan
 import { usePaymentNetwork } from "@/lib/network-context";
 import {
   ChatMessage,
+  StoredReceipt,
   TerminalLogEntry,
   type ConversationGroup,
   type MessageSendState,
@@ -370,6 +371,10 @@ export function useLiveExecutor(opts?: {
   /** Daily free AI chat quota. */
   const [anonAiUsage, setAnonAiUsage] = useState<{ remaining: number; limit: number } | null>(null);
 
+  // Selected-message receipt — set when user clicks "Receipt" on a past message
+  const [selectedMsgReceipt, setSelectedMsgReceipt] = useState<LiveTerminalReceipt | null>(null);
+  const [selectedMsgLogs, setSelectedMsgLogs] = useState<TerminalLogEntry[]>([]);
+
   const refreshAnonUsage = useCallback(async () => {
     try {
       const res = await fetch("/api/anon/usage", { cache: "no-store" });
@@ -397,7 +402,7 @@ export function useLiveExecutor(opts?: {
         await sleep(WALLET_RETRY_DELAY_MS);
       }
       try {
-        const res = await fetch("/api/core/wallet", { cache: "no-store", headers: authHeaders() });
+        const res = await fetch(`/api/core/wallet?network=${selectedNetwork}`, { cache: "no-store", headers: authHeaders() });
         const text = await res.text();
         if (!res.ok) {
           lastError = text.slice(0, 400) || `HTTP ${res.status}`;
@@ -416,7 +421,7 @@ export function useLiveExecutor(opts?: {
     }
     setCoreWalletError(lastError);
     setBackendWalletStatus("unavailable");
-  }, []);
+  }, [selectedNetwork]);
 
   useEffect(() => {
     void fetchCoreWallet();
@@ -448,8 +453,9 @@ export function useLiveExecutor(opts?: {
           }
         : null,
       useTerminalBackend: USE_TERMINAL_BACKEND_PAID_CHAT,
+      network: selectedNetwork,
     };
-  }, [forcedSubnetId, engineSubnets, coreWallet]);
+  }, [forcedSubnetId, engineSubnets, coreWallet, selectedNetwork]);
 
   const startTerminalPreflight = useCallback(() => {
     resetTerminalPlayback();
@@ -809,6 +815,16 @@ export function useLiveExecutor(opts?: {
         const assistantText = extractAssistantText(resultData.result);
 
         const deliverAssistant = () => {
+          const engineReceipt: StoredReceipt = {
+            subnet: String(resultData.subnet_name ?? "Unknown"),
+            subnetId: String(resultData.subnet_used ?? resultData.subnet_id ?? "n/a"),
+            costUsd: typeof resultData.cost_usd === "number" ? resultData.cost_usd : 0,
+            durationMs: typeof resultData.duration_ms === "number" ? resultData.duration_ms : 0,
+            timestamp: typeof resultData.timestamp === "string" && resultData.timestamp ? resultData.timestamp : new Date().toISOString(),
+            intent: typeof resultData.intent === "string" ? resultData.intent : undefined,
+            reasoning: typeof resultData.reasoning === "string" ? resultData.reasoning : undefined,
+          };
+          const captureLogs = displayedLogsRef.current.slice(-30);
           appendToActiveMessages((prev) => {
             let lastUserIdx = -1;
             for (let i = prev.length - 1; i >= 0; i--) {
@@ -829,8 +845,10 @@ export function useLiveExecutor(opts?: {
               ...withOkUser,
               {
                 id: `live-assistant-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-                role: "assistant",
-                content: [{ kind: "text", text: assistantText }],
+                role: "assistant" as const,
+                content: [{ kind: "text" as const, text: assistantText }],
+                receipt: engineReceipt,
+                terminalLogs: captureLogs,
               },
             ];
           });
@@ -937,6 +955,10 @@ export function useLiveExecutor(opts?: {
                 ? rec.message
                 : "Daily free AI chat limit reached — try again tomorrow.";
             fail(new Error(msg), serverLogs);
+            return;
+          }
+          if (res.status === 502 && selectedNetwork === "solana") {
+            fail(new Error("Payment failed — check the funds on your Privy Solana Wallet."), serverLogs);
             return;
           }
           const errMsg =
@@ -1140,12 +1162,21 @@ export function useLiveExecutor(opts?: {
               mode: "append",
               revealReceiptAfter: Boolean(tr && typeof tr === "object"),
               onComplete: () => {
+                const captureLogs = displayedLogsRef.current.slice(-30);
+                const storedRec: StoredReceipt | undefined = tr ? {
+                  subnet: tr.subnet, subnetId: tr.subnetId, costUsd: tr.costUsd,
+                  durationMs: tr.durationMs, timestamp: tr.timestamp ?? new Date().toISOString(),
+                  intent: tr.intent, reasoning: tr.reasoning,
+                  x402TxHash: tr.x402TxHash, x402ExplorerUrl: tr.x402ExplorerUrl, x402Network: tr.x402Network,
+                } : undefined;
                 appendToSessionMessages(sessionId, (prev) => [
                   ...prev,
                   {
                     id: `live-assistant-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
                     role: "assistant" as const,
                     content: [{ kind: "text" as const, text: assistantText }],
+                    receipt: storedRec,
+                    terminalLogs: captureLogs,
                   },
                 ]);
                 setX402Phase("settled");
@@ -1197,12 +1228,21 @@ export function useLiveExecutor(opts?: {
             mode: "append",
             revealReceiptAfter: Boolean(tr && typeof tr === "object"),
             onComplete: () => {
+              const captureLogs = displayedLogsRef.current.slice(-30);
+              const storedRec: StoredReceipt | undefined = tr ? {
+                subnet: tr.subnet, subnetId: tr.subnetId, costUsd: tr.costUsd,
+                durationMs: tr.durationMs, timestamp: tr.timestamp ?? new Date().toISOString(),
+                intent: tr.intent, reasoning: tr.reasoning,
+                x402TxHash: tr.x402TxHash, x402ExplorerUrl: tr.x402ExplorerUrl, x402Network: tr.x402Network,
+              } : undefined;
               appendToSessionMessages(sessionId, (prev) => [
                 ...prev,
                 {
                   id: `live-assistant-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
                   role: "assistant" as const,
                   content: [{ kind: "text" as const, text: assistantText }],
+                  receipt: storedRec,
+                  terminalLogs: captureLogs,
                 },
               ]);
               setX402Phase("settled");
@@ -1451,6 +1491,25 @@ export function useLiveExecutor(opts?: {
     ],
   );
 
+  const handleSelectMessageReceipt = useCallback((messageId: string | null) => {
+    if (!messageId) {
+      setSelectedMsgReceipt(null);
+      setSelectedMsgLogs([]);
+      return;
+    }
+    const msg = sessionsRef.current
+      .find((s) => s.id === activeSessionIdRef.current)
+      ?.messages.find((m) => m.id === messageId);
+    if (!msg?.receipt) {
+      setSelectedMsgReceipt(null);
+      setSelectedMsgLogs([]);
+      return;
+    }
+    // StoredReceipt is structurally compatible with LiveTerminalReceipt (technicalDetails omitted is fine)
+    setSelectedMsgReceipt(msg.receipt as unknown as LiveTerminalReceipt);
+    setSelectedMsgLogs(msg.terminalLogs ?? []);
+  }, []);
+
   const handleNewChat = useCallback(() => {
     const row = emptySession();
     activeSessionIdRef.current = row.id;
@@ -1461,6 +1520,8 @@ export function useLiveExecutor(opts?: {
     setX402Phase(null);
     setRuntimeError(null);
     activeQueryCell.current.value = null;
+    setSelectedMsgReceipt(null);
+    setSelectedMsgLogs([]);
   }, [resetTerminalPlayback]);
 
   const handleSelectSession = useCallback(
@@ -1473,6 +1534,8 @@ export function useLiveExecutor(opts?: {
       setX402Phase(null);
       setRuntimeError(null);
       activeQueryCell.current.value = null;
+      setSelectedMsgReceipt(null);
+      setSelectedMsgLogs([]);
     },
     [hydrated, activeSessionId, resetTerminalPlayback],
   );
@@ -1531,6 +1594,9 @@ export function useLiveExecutor(opts?: {
           initials: connectedAddress.slice(2, 4).toUpperCase(),
         }
       : null,
+    selectedMsgReceipt,
+    selectedMsgLogs,
+    handleSelectMessageReceipt,
     handleSend,
     handleRetrySend,
     handleNewChat,

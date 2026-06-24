@@ -14,6 +14,8 @@ interface ChatAreaProps {
   mobileTerminal?: ReactNode;
   /** Retry a user message that failed to send (x402 / engine). */
   onRetrySend?: (messageId: string) => void;
+  /** Called when user clicks the Receipt button on a past assistant message. */
+  onShowMessageReceipt?: (messageId: string) => void;
 }
 
 function UserMessage({
@@ -117,6 +119,7 @@ export function ChatArea({
   loadingHint,
   mobileTerminal,
   onRetrySend,
+  onShowMessageReceipt,
 }: ChatAreaProps) {
   const scrollRootRef = useRef<HTMLDivElement>(null);
 
@@ -157,7 +160,7 @@ export function ChatArea({
           onRetrySend={onRetrySend}
         />
       ) : (
-        <AssistantMessage message={message} />
+        <AssistantMessage message={message} onShowReceipt={onShowMessageReceipt} />
       )}
     </motion.div>
     );
