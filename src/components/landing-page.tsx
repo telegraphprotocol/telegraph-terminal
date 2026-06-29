@@ -84,7 +84,7 @@ const QUADRANTS = [
   },
 ] as const;
 
-const CONTACT_HREF = "mailto:team@telegraphprotocol.com";
+const CONTACT_HREF = "mailto:info@telegraphprotocol.com";
 
 function CornerBracket({ corner }: { corner: "tl" | "tr" | "bl" | "br" }) {
   const tl = corner === "tl", tr = corner === "tr", bl = corner === "bl";
