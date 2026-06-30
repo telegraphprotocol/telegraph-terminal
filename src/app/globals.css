@@ -344,3 +344,20 @@
 .wallet-adapter-modal-wrapper {
   z-index: 10001 !important;
 }
+
+@media print {
+  html, body {
+    overflow: visible !important;
+    height: auto !important;
+    background: white !important;
+    color: black !important;
+  }
+  header, nav, footer, .print\:hidden {
+    display: none !important;
+  }
+  #guide-print-area {
+    border: none !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+}

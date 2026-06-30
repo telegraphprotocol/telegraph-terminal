@@ -12,6 +12,7 @@ import {
   Archive,
   Trash2,
   RotateCcw,
+  Hammer,
 } from "lucide-react";
 import { conversationHistory, type ConversationGroup } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
@@ -317,25 +318,34 @@ export function Sidebar({
             <Settings size={14} className="text-muted-foreground/60 dark:text-muted-foreground/40 group-hover:text-foreground transition-colors" />
           </div>
           
-          <div className="flex items-center justify-center gap-4 pt-2">
+          <div className="flex flex-col items-center gap-2 pt-2">
             <a
-              href={SUPPORT_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[10px] font-bold text-muted-foreground/70 dark:text-muted-foreground/40 hover:text-foreground uppercase tracking-widest transition-colors inline-flex items-center gap-1"
+              href="/build"
+              className="inline-flex items-center gap-1.5 border border-foreground/40 bg-foreground/8 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-foreground transition-colors hover:border-foreground/70 hover:bg-foreground/15 w-full justify-center"
             >
-              <HelpCircle size={12} />
-              Support
+              <Hammer size={11} />
+              Build with Telegraph
             </a>
-            <div className="w-1 h-1 rounded-full bg-border" />
-            <a
-              href={DOCS_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[10px] font-bold text-muted-foreground/70 dark:text-muted-foreground/40 hover:text-foreground uppercase tracking-widest transition-colors"
-            >
-              Docs
-            </a>
+            <div className="flex items-center gap-4">
+              <a
+                href={SUPPORT_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[10px] font-bold text-muted-foreground/70 dark:text-muted-foreground/40 hover:text-foreground uppercase tracking-widest transition-colors inline-flex items-center gap-1"
+              >
+                <HelpCircle size={12} />
+                Support
+              </a>
+              <div className="w-1 h-1 rounded-full bg-border" />
+              <a
+                href={DOCS_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[10px] font-bold text-muted-foreground/70 dark:text-muted-foreground/40 hover:text-foreground uppercase tracking-widest transition-colors"
+              >
+                Docs
+              </a>
+            </div>
           </div>
         </div>
       </div>

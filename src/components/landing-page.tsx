@@ -30,12 +30,12 @@ const QUADRANTS = [
   },
   {
     key: "api",
-    lines: ["DEVELOPER", "APIs"],
-    sub: "Direct Access",
+    lines: ["BUILD WITH", "TELEGRAPH"],
+    sub: "For Builders",
     who: "Software engineers, quants, and developers building applications.",
-    value: "Build smarter apps and trading systems connected directly to verified machine intelligence.",
-    cta: "View Docs →",
-    href: "https://docs.telegraphprotocol.com",
+    value: "Tell us what you're building. We'll match you with the right miners and show you exactly how to integrate.",
+    cta: "Start Building →",
+    href: "/build",
     isTop: true,
     groupPos: "bottom-10 left-10",
     groupAlign: "items-start",
@@ -209,13 +209,11 @@ export function LandingPage() {
           </a>
           <div className="h-3 w-px bg-foreground/20" />
           <a
-            href="https://docs.telegraphprotocol.com"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="/build"
             className="text-[10px] font-bold uppercase tracking-[0.14em] text-foreground no-underline"
             style={{ opacity: 0.50 }}
           >
-            Docs
+            Build
           </a>
           <div className="h-3 w-px bg-foreground/20" />
           <ThemeToggle />
