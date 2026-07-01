@@ -3,11 +3,13 @@
 import { useState } from "react";
 import { ProductTypeCards } from "./product-type-cards";
 import { GuideOutput } from "./guide-output";
-import { cn } from "@/lib/utils";
 
-type Step = "select" | "context" | "loading" | "result";
+type Step = "select" | "loading" | "result";
 
-const WHO_OPTIONS = ["Developer / Engineer", "Enterprise / Company", "Researcher", "Founder / Builder", "Other"];
+const PERSONA_EXAMPLES = [
+  "Hedge fund", "Agricultural investor", "TradFi bank", "AI startup",
+  "Enterprise CTO", "Quant researcher", "Government agency", "NGO",
+];
 
 export function BuildWizard() {
   const [step, setStep] = useState<Step>("select");
@@ -15,7 +17,6 @@ export function BuildWizard() {
   const [productType, setProductType] = useState("");
   const [customIdea, setCustomIdea] = useState("");
   const [whoAreYou, setWhoAreYou] = useState("");
-  const [aim, setAim] = useState("");
   const [vision, setVision] = useState("");
   const [guide, setGuide] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -24,18 +25,21 @@ export function BuildWizard() {
     setSelectedKey(key);
     setProductType(label);
     setCustomIdea("");
-    // slight delay so user sees the card highlight before advancing
-    setTimeout(() => setStep("context"), 150);
   }
 
-  function handleCustomSubmit() {
-    if (!customIdea.trim()) return;
-    setSelectedKey(null);
-    setProductType(customIdea.trim());
-    setStep("context");
+  function handleCustomIdea(val: string) {
+    setCustomIdea(val);
+    if (val.trim()) {
+      setSelectedKey(null);
+      setProductType(val.trim());
+    }
   }
+
+  const canGenerate = productType.trim().length > 0 || customIdea.trim().length > 0;
 
   async function handleGenerate() {
+    const finalProductType = customIdea.trim() || productType;
+    if (!finalProductType) return;
     setError(null);
     setStep("loading");
     try {
@@ -43,10 +47,9 @@ export function BuildWizard() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          productType,
-          whoAreYou: whoAreYou || undefined,
-          aim: aim || undefined,
-          vision: vision || undefined,
+          productType: finalProductType,
+          whoAreYou: whoAreYou.trim() || undefined,
+          vision: vision.trim() || undefined,
         }),
       });
       const data = await res.json();
@@ -55,7 +58,7 @@ export function BuildWizard() {
       setStep("result");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
-      setStep("context");
+      setStep("select");
     }
   }
 
@@ -65,7 +68,6 @@ export function BuildWizard() {
     setProductType("");
     setCustomIdea("");
     setWhoAreYou("");
-    setAim("");
     setVision("");
     setGuide("");
     setError(null);
@@ -73,56 +75,67 @@ export function BuildWizard() {
 
   return (
     <div className="mx-auto w-full max-w-4xl">
-      {/* Step: select product type */}
+
       {step === "select" && (
-        <div className="flex flex-col gap-6">
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-3">
-              What are you building?
-            </p>
-            <ProductTypeCards selected={selectedKey} onSelect={handlePresetSelect} />
+        <div className="flex flex-col gap-8">
+
+          {/* I'm a: free text */}
+          <div className="flex flex-col gap-2">
+            <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+              I'm a…
+            </label>
+            <input
+              type="text"
+              value={whoAreYou}
+              onChange={(e) => setWhoAreYou(e.target.value)}
+              placeholder="e.g. Hedge fund, agricultural investor, AI startup, TradFi bank…"
+              className="w-full border border-foreground/30 bg-foreground/[0.03] px-4 py-3 text-[13px] text-foreground placeholder:text-muted-foreground/40 outline-none focus:border-foreground/70 focus:bg-foreground/[0.05] transition-colors ring-0"
+            />
+            {/* Example chips */}
+            <div className="flex flex-wrap gap-1.5 mt-0.5">
+              {PERSONA_EXAMPLES.map((ex) => (
+                <button
+                  key={ex}
+                  type="button"
+                  onClick={() => setWhoAreYou(ex)}
+                  className="border border-border/40 px-2.5 py-1 text-[10px] text-muted-foreground/70 hover:border-foreground/30 hover:text-foreground transition-colors"
+                >
+                  {ex}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* Custom idea input */}
-          <div className="flex flex-col gap-2">
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/70 font-medium">
-              Or describe your own idea
-            </p>
-            <div className="flex gap-2">
+          {/* What are you building */}
+          <div className="flex flex-col gap-3">
+            <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+              What are you building?
+            </label>
+            <ProductTypeCards selected={selectedKey} onSelect={handlePresetSelect} />
+            <div className="flex gap-2 mt-1">
               <input
                 type="text"
                 value={customIdea}
-                onChange={(e) => setCustomIdea(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleCustomSubmit()}
-                placeholder="e.g. I want to build an autonomous trading bot…"
-                className="flex-1 border border-border/50 bg-transparent px-3 py-2.5 text-[13px] text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-foreground/40 transition-colors"
+                onChange={(e) => handleCustomIdea(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && canGenerate && handleGenerate()}
+                placeholder="Or describe your own idea…"
+                className="flex-1 border border-foreground/30 bg-foreground/[0.03] px-4 py-2.5 text-[13px] text-foreground placeholder:text-muted-foreground/40 outline-none focus:border-foreground/70 focus:bg-foreground/[0.05] transition-colors"
               />
-              <button
-                type="button"
-                onClick={handleCustomSubmit}
-                disabled={!customIdea.trim()}
-                className="border border-foreground/50 bg-foreground/10 px-4 py-2 text-[11px] font-bold uppercase tracking-widest text-foreground transition-colors hover:bg-foreground/20 disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                Next →
-              </button>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Step: context questions */}
-      {step === "context" && (
-        <div className="flex flex-col gap-6">
-          <div className="border border-border/40 bg-foreground/[0.02] px-4 py-3">
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-medium mb-0.5">Building</p>
-            <p className="text-[13px] font-medium text-foreground">{productType}</p>
-            <button
-              type="button"
-              onClick={() => setStep("select")}
-              className="mt-1 text-[10px] text-muted-foreground/60 hover:text-muted-foreground transition-colors underline underline-offset-2"
-            >
-              Change
-            </button>
+          {/* Vision */}
+          <div className="flex flex-col gap-2">
+            <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+              Anything else we should know? <span className="normal-case tracking-normal font-normal text-muted-foreground/40">(optional)</span>
+            </label>
+            <textarea
+              value={vision}
+              onChange={(e) => setVision(e.target.value)}
+              rows={2}
+              placeholder="Scale, timeline, existing stack, specific data sources you care about…"
+              className="border border-foreground/30 bg-foreground/[0.03] px-4 py-2.5 text-[13px] text-foreground placeholder:text-muted-foreground/40 outline-none focus:border-foreground/70 focus:bg-foreground/[0.05] transition-colors resize-none"
+            />
           </div>
 
           {error && (
@@ -131,62 +144,12 @@ export function BuildWizard() {
             </div>
           )}
 
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">
-                Who are you? <span className="text-muted-foreground/40 normal-case tracking-normal font-normal">(optional)</span>
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {WHO_OPTIONS.map((opt) => (
-                  <button
-                    key={opt}
-                    type="button"
-                    onClick={() => setWhoAreYou(whoAreYou === opt ? "" : opt)}
-                    className={cn(
-                      "border px-3 py-1.5 text-[11px] font-medium transition-all",
-                      whoAreYou === opt
-                        ? "border-foreground/60 bg-foreground/10 text-foreground"
-                        : "border-border/50 text-muted-foreground hover:border-foreground/30 hover:text-foreground",
-                    )}
-                  >
-                    {opt}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">
-                What's your main aim? <span className="text-muted-foreground/40 normal-case tracking-normal font-normal">(optional)</span>
-              </label>
-              <input
-                type="text"
-                value={aim}
-                onChange={(e) => setAim(e.target.value)}
-                placeholder="e.g. Launch a beta in 3 months, integrate into existing SaaS…"
-                className="border border-border/50 bg-transparent px-3 py-2.5 text-[13px] text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-foreground/40 transition-colors"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">
-                Describe your vision <span className="text-muted-foreground/40 normal-case tracking-normal font-normal">(optional)</span>
-              </label>
-              <textarea
-                value={vision}
-                onChange={(e) => setVision(e.target.value)}
-                rows={3}
-                placeholder="What does success look like? What problem are you solving?"
-                className="border border-border/50 bg-transparent px-3 py-2.5 text-[13px] text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-foreground/40 transition-colors resize-none"
-              />
-            </div>
-          </div>
-
           <div className="flex items-center gap-4">
             <button
               type="button"
               onClick={handleGenerate}
-              className="border border-foreground/70 bg-foreground/10 px-6 py-2.5 text-[11px] font-bold uppercase tracking-widest text-foreground transition-colors hover:bg-foreground/20 hover:border-foreground"
+              disabled={!canGenerate}
+              className="border border-foreground/70 bg-foreground/10 px-6 py-2.5 text-[11px] font-bold uppercase tracking-widest text-foreground transition-colors hover:bg-foreground/20 hover:border-foreground disabled:opacity-30 disabled:cursor-not-allowed"
             >
               Generate my guide →
             </button>
@@ -194,7 +157,7 @@ export function BuildWizard() {
               href="https://docs.telegraphprotocol.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[10px] uppercase tracking-widest text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+              className="text-[10px] uppercase tracking-widest text-muted-foreground/50 hover:text-muted-foreground transition-colors"
             >
               Skip → go straight to Docs ↗
             </a>
@@ -202,7 +165,6 @@ export function BuildWizard() {
         </div>
       )}
 
-      {/* Step: loading */}
       {step === "loading" && (
         <div className="flex flex-col items-center gap-4 py-16 text-center">
           <div className="flex gap-1.5">
@@ -215,13 +177,12 @@ export function BuildWizard() {
             ))}
           </div>
           <p className="text-[12px] font-medium text-muted-foreground">
-            Querying miners and building your guide…
+            Searching miners, pricing intelligence, and building your guide…
           </p>
           <p className="text-[10px] text-muted-foreground/50">This takes 30 seconds to 1 minute</p>
         </div>
       )}
 
-      {/* Step: result */}
       {step === "result" && (
         <GuideOutput guide={guide} onReset={reset} />
       )}
