@@ -217,7 +217,7 @@ export function BuildWizard() {
           <p className="text-[12px] font-medium text-muted-foreground">
             Querying miners and building your guide…
           </p>
-          <p className="text-[10px] text-muted-foreground/50">This takes ~10 seconds</p>
+          <p className="text-[10px] text-muted-foreground/50">This takes 30 seconds to 1 minute</p>
         </div>
       )}
 
