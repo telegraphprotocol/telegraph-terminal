@@ -32,9 +32,13 @@ export function GuideOutput({ guide, onReset }: GuideOutputProps) {
     code { background: #f3f3f3; padding: 1px 5px; font-size: 12px; }
     pre { background: #f3f3f3; padding: 14px; overflow-x: auto; margin: 12px 0; font-size: 11.5px; line-height: 1.5; }
     pre code { background: none; padding: 0; }
-    table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 12px; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 12px; page-break-inside: avoid; }
     th { background: #f3f3f3; font-weight: 700; text-align: left; padding: 6px 10px; border: 1px solid #ddd; }
     td { padding: 6px 10px; border: 1px solid #ddd; }
+    tr { page-break-inside: avoid; }
+    h2 { page-break-after: avoid; }
+    h3 { page-break-after: avoid; }
+    pre { page-break-inside: avoid; }
     a { color: #111; }
     strong { font-weight: 700; }
     .header { border-bottom: 2px solid #111; padding-bottom: 16px; margin-bottom: 32px; }
