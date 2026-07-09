@@ -278,8 +278,11 @@ export function Sidebar({
           </div>
         )}
 
-        {/* Free AI chat info — hidden once wallet is connected */}
-        {subnetPicker && !subnetPicker.selectedSubnetId && !walletFooter && (
+        {/* Free AI chat info — hidden once wallet is connected. LiteLLM miner (104) is
+            also free (counts against the AI quota, not the subnet quota). */}
+        {subnetPicker &&
+          (!subnetPicker.selectedSubnetId || subnetPicker.selectedSubnetId === "104") &&
+          !walletFooter && (
           <div className="px-3 pb-3 shrink-0 border-t border-border/30 pt-3">
             {anonAiExhausted ? (
               <div className="flex items-start gap-2 rounded-md border border-red-600/40 bg-red-500/8 px-2.5 py-2 dark:border-red-500/25">

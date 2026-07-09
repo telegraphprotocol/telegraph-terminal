@@ -1,9 +1,11 @@
 "use client";
 
 import { ChevronDown } from "lucide-react";
-import { useState, useLayoutEffect } from "react";
+import { useEffect, useState, useLayoutEffect } from "react";
 import { cn } from "@/lib/utils";
 import type { ParsedSubnetYaml, SubnetEndpointSpec } from "@/lib/subnet-direct-spec";
+
+const LITELLM_MODELS = ["nova-2-lite", "nova-pro", "nova-premier", "deepseek", "voxtral", "qwen", "kimi"];
 
 export type DirectSubnetFieldsProps = {
   spec: ParsedSubnetYaml | null;
@@ -53,9 +55,17 @@ export function DirectSubnetFields({
   const selected = endpoints.find((e) => e.path === endpointPath) ?? null;
   const req = selected?.telegraph_direct?.required_payload_keys ?? [];
   const needsModel = req.includes("model") || selected?.path === "/chat";
+  const isLiteLLM = spec?.slug === "litellm" || spec?.id === "104";
   const needsImage = req.includes("image");
   const needsLat = req.includes("lat");
   const needsLon = req.includes("lon");
+
+  useEffect(() => {
+    if (isLiteLLM && !LITELLM_MODELS.includes(model)) {
+      onModel(LITELLM_MODELS[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLiteLLM]);
 
   return (
     <div className="mx-auto w-full max-w-[720px] min-w-0 px-4 pb-2 sm:px-6">
@@ -118,17 +128,37 @@ export function DirectSubnetFields({
                   <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                     Model
                   </label>
-                  <input
-                    type="text"
-                    value={model}
-                    onChange={(e) => onModel(e.target.value)}
-                    placeholder={modelPlaceholder}
-                    autoComplete="off"
-                    className={cn(
-                      "min-h-11 w-full min-w-0 rounded-lg border border-border bg-background px-3 py-2.5 text-[14px] text-foreground shadow-sm outline-none",
-                      "placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:ring-primary/35",
-                    )}
-                  />
+                  {isLiteLLM ? (
+                    <select
+                      value={model}
+                      onChange={(e) => onModel(e.target.value)}
+                      className={cn(
+                        "min-h-11 w-full min-w-0 rounded-lg border border-border bg-background px-3 py-2.5 text-[14px] text-foreground shadow-sm outline-none",
+                        "focus-visible:ring-2 focus-visible:ring-primary/35",
+                      )}
+                    >
+                      {!LITELLM_MODELS.includes(model) ? (
+                        <option value={model}>{model || "Select a model…"}</option>
+                      ) : null}
+                      {LITELLM_MODELS.map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={model}
+                      onChange={(e) => onModel(e.target.value)}
+                      placeholder={modelPlaceholder}
+                      autoComplete="off"
+                      className={cn(
+                        "min-h-11 w-full min-w-0 rounded-lg border border-border bg-background px-3 py-2.5 text-[14px] text-foreground shadow-sm outline-none",
+                        "placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:ring-primary/35",
+                      )}
+                    />
+                  )}
                 </div>
               ) : null}
 

@@ -63,9 +63,7 @@ export function EngineSubnetPicker({
           "focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/40",
           engineUnreachable
             ? "border-amber-600/50 bg-amber-500/5 hover:bg-amber-500/10 dark:border-amber-500/40"
-            : isAutoRouting
-              ? "border-orange-600 bg-orange-500/15 hover:bg-orange-500/20 dark:border-orange-500 shadow-[0_0_14px_rgba(249,115,22,0.18)]"
-              : "border-border hover:bg-muted/40",
+            : "border-orange-600 bg-orange-500/15 hover:bg-orange-500/20 dark:border-orange-500 shadow-[0_0_14px_rgba(249,115,22,0.18)]",
         )}
         aria-expanded={dropdownOpen}
         aria-haspopup="listbox"
@@ -73,13 +71,13 @@ export function EngineSubnetPicker({
       >
         <span className={cn(
           "hidden sm:inline truncate text-[10px] font-bold uppercase tracking-[0.1em] leading-tight",
-          isAutoRouting ? "text-orange-700 dark:text-orange-400" : "text-foreground",
+          engineUnreachable ? "text-foreground" : "text-orange-700 dark:text-orange-400",
         )}>
           {primaryLabel}
         </span>
         <ChevronDown
           size={12}
-          className={cn("shrink-0 transition-colors", isAutoRouting ? "text-orange-700/70 dark:text-orange-400/70" : "text-muted-foreground")}
+          className={cn("shrink-0 transition-colors", engineUnreachable ? "text-muted-foreground" : "text-orange-700/70 dark:text-orange-400/70")}
           aria-hidden
         />
       </button>
