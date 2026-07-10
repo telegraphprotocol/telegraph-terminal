@@ -62,7 +62,7 @@ function TimestampPill({ time }: { time: string }) {
         {main}
       </span>
       {frac ? (
-        <span className="mt-0.5 text-[8px] font-mono tabular-nums leading-none text-muted-foreground/50">
+        <span className="mt-0.5 text-[8px] font-mono tabular-nums leading-none text-muted-foreground/70">
           .{frac}
         </span>
       ) : null}
@@ -163,7 +163,7 @@ function ReceiptDetailBody({ receipt }: { receipt: TerminalReceiptLike }) {
       initial={{ opacity: 0, height: 0 }}
       animate={{ opacity: 1, height: "auto" }}
       exit={{ opacity: 0, height: 0 }}
-      className="overflow-hidden border-b border-border/35"
+      className="overflow-hidden border-b border-border/60"
     >
       <div className="max-h-[min(40vh,320px)] overflow-y-auto px-4 py-4 custom-scrollbar lg:px-5">
         <motion.div layout className="grid w-full grid-cols-2 gap-x-6 gap-y-4">
@@ -200,7 +200,7 @@ function ReceiptDetailBody({ receipt }: { receipt: TerminalReceiptLike }) {
             </motion.div>
           ))}
           {isLiveReceipt(receipt) && receipt.x402ExplorerUrl ? (
-            <motion.div layout className="col-span-2 min-w-0 space-y-1 border-t border-border/30 pt-3">
+            <motion.div layout className="col-span-2 min-w-0 space-y-1 border-t border-border/50 pt-3">
               <motion.div layout className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                 Payment (x402)
               </motion.div>
@@ -217,7 +217,7 @@ function ReceiptDetailBody({ receipt }: { receipt: TerminalReceiptLike }) {
             </motion.div>
           ) : null}
         </motion.div>
-        <motion.div layout className="mt-4 space-y-3 border-t border-border/40 pt-4">
+        <motion.div layout className="mt-4 space-y-3 border-t border-border/60 pt-4">
           <motion.div layout className="min-w-0 space-y-1">
             <motion.div layout className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
               Execution time
@@ -236,7 +236,7 @@ function ReceiptDetailBody({ receipt }: { receipt: TerminalReceiptLike }) {
               </p>
             </motion.div>
           ) : (
-            <p className="font-mono text-[10px] text-muted-foreground/70">TELEG_V1.0_PROD</p>
+            <p className="font-mono text-[10px] text-muted-foreground/85">TELEG_V1.0_PROD</p>
           )}
           {isLiveReceipt(receipt) ? (
             <TechnicalDetailsCopyRow payload={receipt.technicalDetails ?? null} />
@@ -256,7 +256,7 @@ function CompactReceiptFooter({ receipt }: { receipt: TerminalReceiptLike }) {
   const durationLabel = isLiveReceipt(receipt) ? `${receipt.durationMs}ms` : null;
 
   return (
-    <motion.div layout className="shrink-0 border-t border-border/40 bg-background/90 backdrop-blur-md">
+    <motion.div layout className="shrink-0 border-t border-border/60 bg-background/30">
       <AnimatePresence initial={false}>
         {expanded ? <ReceiptDetailBody receipt={receipt} /> : null}
       </AnimatePresence>
@@ -352,7 +352,7 @@ function TerminalFeed({
                   <div className={i > 0 ? "lg:mt-8 mt-6" : ""}>
                     <div className="flex items-center gap-3 py-2">
                       <div className="h-px flex-1 bg-border/40" />
-                      <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">
+                      <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80">
                         {log.section}
                       </span>
                       <div className="h-px flex-1 bg-border/40" />
@@ -410,7 +410,7 @@ export function MobileTerminalCollapsible({
   const expanded = isLoading || open;
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border/50 bg-background/50 backdrop-blur-md">
+    <div className="overflow-hidden rounded-xl border border-border/70 bg-background/50 backdrop-blur-md">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -437,7 +437,7 @@ export function MobileTerminalCollapsible({
       </button>
       <div
         className={cn(
-          "grid border-t border-border/40 transition-[grid-template-rows] duration-500 ease-[0.16, 1, 0.3, 1]",
+          "grid border-t border-border/60 transition-[grid-template-rows] duration-500 ease-[0.16, 1, 0.3, 1]",
           expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
         )}
       >
@@ -464,7 +464,7 @@ export function TerminalPanel({
   isRevealing,
 }: TerminalPanelProps) {
   return (
-    <aside className="relative flex h-full w-[360px] shrink-0 flex-col overflow-hidden border-l border-border/40 bg-background/30 backdrop-blur-sm">
+    <aside className="relative flex h-full w-[360px] shrink-0 flex-col overflow-hidden border-l border-border bg-background/30 backdrop-blur-sm">
       <div className="shrink-0 px-6 pt-6 pb-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -491,7 +491,7 @@ export function TerminalPanel({
             </Tooltip>
           </TooltipProvider>
         </div>
-        <p className="mt-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-widest opacity-60">
+        <p className="mt-1.5 text-[11px] font-medium text-muted-foreground uppercase tracking-widest opacity-80">
           Live Settlement and Logic Feed
         </p>
       </div>

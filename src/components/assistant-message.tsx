@@ -53,7 +53,7 @@ export function AssistantMessage({
 
   return (
     <div className="flex items-start gap-4 max-w-2xl">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center border border-border/60 bg-muted p-1">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center border border-border/70 bg-muted p-1">
         <img src="/logo.png" alt="Telegraph" className="h-full w-full object-contain" aria-hidden />
       </div>
       <div className="min-w-0 flex-1 pt-1">
@@ -84,7 +84,7 @@ export function AssistantMessage({
         </div>
 
         {hasRenderableBody && (
-          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border/40 pt-2">
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border/60 pt-2">
             {(markdownPossible || structuredResult) && (
               <div
                 className="inline-flex rounded-md bg-muted/50 p-0.5 text-[11px] font-medium text-muted-foreground"
@@ -126,7 +126,7 @@ export function AssistantMessage({
               <button
                 type="button"
                 onClick={() => onShowReceipt(message.id)}
-                className="inline-flex h-8 items-center gap-1.5 border border-border/50 px-2 text-[10px] font-bold uppercase tracking-wide text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="inline-flex h-8 items-center gap-1.5 border border-border/70 px-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 title="View receipt for this message"
               >
                 <Receipt className="size-3" strokeWidth={2} />

@@ -6,6 +6,7 @@ import { TopNav } from "@/components/top-nav";
 import { ChatArea } from "@/components/chat-area";
 import { ChatInput } from "@/components/chat-input";
 import { DirectSubnetFields } from "@/components/direct-subnet-fields";
+import { endpointNeedsImage } from "@/lib/subnet-direct-spec";
 import { EmptyState } from "@/components/empty-state";
 import { HowItWorksButton } from "@/components/how-it-works-button";
 import { ReceiptHistoryModal } from "@/components/receipt-history-modal";
@@ -183,6 +184,14 @@ export default function LiveChatPage() {
       ? "Payment service is temporarily unavailable. Please try again in a moment."
       : "Engine connection unavailable. Retrying...");
 
+  const subnetPickerProps = {
+    subnets: engineSubnets,
+    selectedSubnetId: forcedSubnetId,
+    onSubnetChange: setForcedSubnetId,
+    loading: subnetsLoading,
+    error: subnetsError,
+  };
+
   return (
     <>
       {receiptHistoryOpen && <ReceiptHistoryModal onClose={() => setReceiptHistoryOpen(false)} />}
@@ -226,13 +235,7 @@ export default function LiveChatPage() {
             onRestore: restoreSession,
             onDelete: deleteSession,
           }}
-          subnetPicker={{
-            subnets: engineSubnets,
-            selectedSubnetId: forcedSubnetId,
-            onSubnetChange: setForcedSubnetId,
-            loading: subnetsLoading,
-            error: subnetsError,
-          }}
+          subnetPicker={subnetPickerProps}
           anonAiExhausted={anonAiExhausted}
           anonUsage={anonUsage}
           anonExhausted={anonExhausted}
@@ -245,13 +248,7 @@ export default function LiveChatPage() {
             sidebarOpen={effectiveSidebarOpen}
             onToggleSidebar={() => setSidebarOpen((v) => !v)}
             backToDashboardHref="/"
-            subnetPicker={{
-              subnets: engineSubnets,
-              selectedSubnetId: forcedSubnetId,
-              onSubnetChange: setForcedSubnetId,
-              loading: subnetsLoading,
-              error: subnetsError,
-            }}
+            subnetPicker={subnetPickerProps}
             extraActions={
               <>
                 {process.env.NEXT_PUBLIC_USE_TERMINAL_BACKEND_X402 === "true" && <NetworkSelector />}
@@ -273,7 +270,7 @@ export default function LiveChatPage() {
             <div className="flex flex-col flex-1 overflow-hidden min-w-0">
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                 {showConnectionBanner && (
-                  <div className="mx-4 mb-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200 sm:mx-6">
+                  <div className="mx-4 mb-2 rounded-md border border-red-600/40 bg-red-500/8 px-3 py-2 text-xs text-red-700 dark:border-red-500/25 dark:text-red-400/90 sm:mx-6">
                     {connectionBannerMessage}
                   </div>
                 )}
@@ -302,25 +299,7 @@ export default function LiveChatPage() {
                   <EmptyState onQuestionClick={handleSend} />
                 )}
               </div>
-              {directSubnetPanel ? (
-                <DirectSubnetFields
-                  spec={directSubnetPanel.spec}
-                  loading={directSubnetPanel.loading}
-                  error={directSubnetPanel.error}
-                  endpointPath={directSubnetPanel.endpointPath}
-                  onEndpointPath={(p) => directSubnetPanel.setEndpointPath(p)}
-                  model={directSubnetPanel.model}
-                  onModel={(v) => directSubnetPanel.setModel(v)}
-                  modelPlaceholder={directSubnetPanel.modelPlaceholder}
-                  imageUrl={directSubnetPanel.imageUrl}
-                  onImageUrl={(v) => directSubnetPanel.setImageUrl(v)}
-                  lat={directSubnetPanel.lat}
-                  onLat={(v) => directSubnetPanel.setLat(v)}
-                  lon={directSubnetPanel.lon}
-                  onLon={(v) => directSubnetPanel.setLon(v)}
-                  gateError={directSubnetPanel.gateError}
-                />
-              ) : null}
+              {directSubnetPanel ? <DirectSubnetFields {...directSubnetPanel} /> : null}
               <ChatInput
                 onSend={(text) => {
                   const blocked =
@@ -337,6 +316,11 @@ export default function LiveChatPage() {
                   directSubnetPanel?.imageUrl.trim() ||
                     (directSubnetPanel?.lat.trim() && directSubnetPanel?.lon.trim()),
                 )}
+                onAttachImage={
+                  directSubnetPanel && endpointNeedsImage(directSubnetPanel.spec, directSubnetPanel.endpointPath)
+                    ? directSubnetPanel.onImageUrl
+                    : undefined
+                }
               />
             </div>
 

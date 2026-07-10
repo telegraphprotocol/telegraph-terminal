@@ -3,18 +3,30 @@
 import { useState, useRef, KeyboardEvent } from "react";
 import { Paperclip, ArrowUp, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { cn } from "@/lib/utils";
+import { cn, readImageFileAsDataUrl } from "@/lib/utils";
 
 interface ChatInputProps {
   onSend?: (message: string) => void;
   disabled?: boolean;
   allowEmptySend?: boolean;
+  /** Present only when the selected miner accepts an image payload (e.g. BitMind). */
+  onAttachImage?: (dataUrl: string) => void;
 }
 
-export function ChatInput({ onSend, disabled, allowEmptySend = false }: ChatInputProps) {
+export function ChatInput({ onSend, disabled, allowEmptySend = false, onAttachImage }: ChatInputProps) {
   const [value, setValue] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isFocused, setIsFocused] = useState(false);
+  const [attachError, setAttachError] = useState<string | null>(null);
+
+  const handleFileSelect = (file: File | undefined | null) => {
+    if (!file || !onAttachImage) return;
+    setAttachError(null);
+    readImageFileAsDataUrl(file)
+      .then(onAttachImage)
+      .catch((err: Error) => setAttachError(err.message));
+  };
 
   const handleSend = () => {
     if (disabled) return;
@@ -42,20 +54,37 @@ export function ChatInput({ onSend, disabled, allowEmptySend = false }: ChatInpu
   };
 
   return (
-    <div className="bg-background/90 pb-[max(2rem,calc(2rem+env(safe-area-inset-bottom,0px)))] pt-4 backdrop-blur-md">
+    <div className="pb-[max(2rem,calc(2rem+env(safe-area-inset-bottom,0px)))] pt-4">
       <div className="mx-auto w-full max-w-[720px] px-4 sm:px-6">
         <motion.div
           animate={{
             scale: isFocused ? 1.005 : 1,
           }}
           className={cn(
-            "relative flex items-end gap-2 bg-card border p-2 transition-all duration-300",
-            isFocused ? "border-foreground/20" : "border-border/50",
+            "relative flex items-end gap-2 border bg-secondary p-2 shadow-sm transition-all duration-300",
+            isFocused ? "border-primary/50 shadow-md" : "border-border",
           )}
         >
-          <button disabled className="p-3 text-muted-foreground/30 cursor-not-allowed shrink-0 mb-0.5">
-            <Paperclip size={20} />
-          </button>
+          {onAttachImage ? (
+            <>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="p-3 text-muted-foreground shrink-0 mb-0.5 transition-colors hover:text-foreground"
+                aria-label="Attach an image"
+                title="Attach an image"
+              >
+                <Paperclip size={20} />
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleFileSelect(e.target.files?.[0])}
+                className="hidden"
+              />
+            </>
+          ) : null}
 
           <textarea
             ref={textareaRef}
@@ -98,10 +127,14 @@ export function ChatInput({ onSend, disabled, allowEmptySend = false }: ChatInpu
           </AnimatePresence>
         </motion.div>
 
+        {attachError ? (
+          <p className="mt-1.5 text-center text-[11px] text-red-600 dark:text-red-400">{attachError}</p>
+        ) : null}
+
         <motion.p
           initial={{ opacity: 0 }}
-          animate={{ opacity: 0.3 }}
-          className="text-center text-[10px] font-mono text-muted-foreground uppercase tracking-[0.25em] mt-4"
+          animate={{ opacity: 1 }}
+          className="text-center text-[10px] font-mono font-medium text-foreground/60 uppercase tracking-[0.25em] mt-4"
         >
           Telegraph Intelligence Terminal
         </motion.p>

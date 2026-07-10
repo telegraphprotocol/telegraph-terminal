@@ -3,7 +3,9 @@
 import { Braces, CalendarDays, ShieldCheck, Terminal, Info, ChevronDown, Cpu, GitBranch, Trophy } from "lucide-react";
 import { promptScenarios } from "@/lib/mock-data";
 import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+const HOW_IT_WORKS_SEEN_KEY = "telegraph-how-it-works-seen";
 
 const iconMap: Record<string, React.ReactNode> = {
   plane: <CalendarDays size={18} />,
@@ -36,6 +38,19 @@ interface EmptyStateProps {
 export function EmptyState({ onQuestionClick }: EmptyStateProps) {
   const [howOpen, setHowOpen] = useState(false);
 
+  // First-time visitors see this expanded by default (it explains the core
+  // routing model); once dismissed, respect that choice on future visits.
+  useEffect(() => {
+    if (!localStorage.getItem(HOW_IT_WORKS_SEEN_KEY)) setHowOpen(true);
+  }, []);
+
+  const toggleHowOpen = () => {
+    setHowOpen((v) => {
+      if (v) localStorage.setItem(HOW_IT_WORKS_SEEN_KEY, "1");
+      return !v;
+    });
+  };
+
   return (
     <div className="flex flex-col items-center justify-center h-full gap-8 px-4 sm:px-6 max-w-4xl mx-auto">
       <motion.div
@@ -43,7 +58,7 @@ export function EmptyState({ onQuestionClick }: EmptyStateProps) {
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-col items-center gap-4 text-center"
       >
-        <div className="relative w-16 h-16 border border-border/60 flex items-center justify-center mb-2 bg-card">
+        <div className="relative w-16 h-16 border border-border flex items-center justify-center mb-2 bg-card">
           <span className="absolute top-1 left-1 text-[10px] text-foreground/20 leading-none">┌</span>
           <span className="absolute top-1 right-1 text-[10px] text-foreground/20 leading-none">┐</span>
           <span className="absolute bottom-1 left-1 text-[10px] text-foreground/20 leading-none">└</span>
@@ -61,8 +76,8 @@ export function EmptyState({ onQuestionClick }: EmptyStateProps) {
         {/* How it works toggle */}
         <button
           type="button"
-          onClick={() => setHowOpen((v) => !v)}
-          className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground/60 hover:text-muted-foreground transition-colors mt-1"
+          onClick={toggleHowOpen}
+          className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.15em] text-muted-foreground/80 hover:text-muted-foreground transition-colors mt-1"
         >
           <Info size={11} />
           How does this work?
@@ -81,12 +96,12 @@ export function EmptyState({ onQuestionClick }: EmptyStateProps) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className="w-full max-w-[720px] border border-border/50 bg-card"
+            className="w-full max-w-[720px] border border-border bg-card"
           >
             {/* Panel header */}
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-border/40">
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-border/60">
               <div className="h-3 w-px bg-foreground/40" />
-              <p className="text-[9px] font-bold uppercase tracking-[0.25em] text-muted-foreground">
+              <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-muted-foreground">
                 How Telegraph Routes Your Query
               </p>
             </div>
@@ -101,15 +116,15 @@ export function EmptyState({ onQuestionClick }: EmptyStateProps) {
             </div>
 
             {/* Steps */}
-            <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border/40 px-0 pb-0">
+            <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border/60 px-0 pb-0">
               {HOW_IT_WORKS.map((step, i) => (
                 <div key={step.label} className="flex flex-col gap-2.5 p-4">
                   <div className="flex items-center gap-2">
-                    <div className="flex size-6 items-center justify-center border border-border/60 text-muted-foreground">
+                    <div className="flex size-6 items-center justify-center border border-border/70 text-muted-foreground">
                       {step.icon}
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[9px] font-bold text-muted-foreground/40 tabular-nums">0{i + 1}</span>
+                      <span className="text-[10px] font-bold text-muted-foreground/70 tabular-nums">0{i + 1}</span>
                       <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-foreground">{step.label}</span>
                     </div>
                   </div>
@@ -119,8 +134,8 @@ export function EmptyState({ onQuestionClick }: EmptyStateProps) {
             </div>
 
             {/* Footer note */}
-            <div className="border-t border-border/40 px-4 py-2.5">
-              <p className="text-[10px] text-muted-foreground/50 font-mono">
+            <div className="border-t border-border/60 px-4 py-2.5">
+              <p className="text-[11px] text-muted-foreground/75 font-mono">
                 ✦ The miner that answers your query is paid automatically via x402 micropayment — no intermediaries.
               </p>
             </div>
@@ -137,18 +152,18 @@ export function EmptyState({ onQuestionClick }: EmptyStateProps) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.08 }}
             onClick={() => onQuestionClick?.(s.prompt)}
-            className="relative flex flex-col gap-4 p-5 bg-card border border-border/60 hover:border-foreground/20 hover:bg-foreground/5 transition-all duration-200 text-left group overflow-hidden"
+            className="relative flex flex-col gap-4 p-5 bg-card border border-border/70 hover:border-foreground/20 hover:bg-foreground/5 transition-all duration-200 text-left group overflow-hidden"
           >
             <div className="absolute inset-0 bg-gradient-to-br from-foreground/[0.02] to-transparent pointer-events-none" />
             <span className="absolute top-1.5 left-1.5 text-[8px] text-foreground/15 leading-none">┌</span>
             <span className="absolute top-1.5 right-1.5 text-[8px] text-foreground/15 leading-none">┐</span>
 
-            <div className="w-9 h-9 border border-border/60 flex items-center justify-center text-muted-foreground group-hover:text-foreground group-hover:border-foreground/30 transition-all duration-200">
+            <div className="w-9 h-9 border border-border/70 flex items-center justify-center text-muted-foreground group-hover:text-foreground group-hover:border-foreground/30 transition-all duration-200">
               {iconMap[s.icon]}
             </div>
 
             <div className="space-y-1.5">
-              <p className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-[0.25em]">
+              <p className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-[0.25em]">
                 {s.category}
               </p>
               <p className="text-[12px] font-medium text-foreground/70 leading-snug group-hover:text-foreground transition-colors font-mono">

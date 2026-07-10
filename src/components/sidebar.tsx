@@ -124,7 +124,7 @@ export function Sidebar({
           : "-translate-x-full md:w-0 md:translate-x-0",
       )}
     >
-      <div className="flex flex-col h-full w-[260px] min-w-[260px] border-r border-border/40 bg-sidebar/80 backdrop-blur-2xl">
+      <div className="flex flex-col h-full w-[260px] min-w-[260px] border-r border-border/70 bg-sidebar/80 backdrop-blur-2xl">
         {/* Header Actions */}
         <div className="flex items-center justify-between px-4 py-4 shrink-0">
           <button
@@ -158,7 +158,7 @@ export function Sidebar({
             <AnimatePresence mode="popLayout">
               {groups.map((group) => (
                 <div key={group.label} className="mt-4">
-                  <p className="px-3 mb-2 text-[10px] font-bold text-muted-foreground/80 dark:text-muted-foreground/60 uppercase tracking-[0.2em]">
+                  <p className="px-3 mb-2 text-[10px] font-bold text-muted-foreground/90 dark:text-muted-foreground/75 uppercase tracking-[0.2em]">
                     {group.label}
                   </p>
                   <ul className="space-y-1">
@@ -241,7 +241,7 @@ export function Sidebar({
 
         {/* Subnet free-trial quota */}
         {subnetPicker && showSubnetQuota && (
-          <div className="px-3 pb-3 shrink-0 border-t border-border/30 pt-3">
+          <div className="px-3 pb-3 shrink-0 border-t border-border/50 pt-3">
             {anonExhausted ? (
               <div className="flex items-start justify-between gap-2 rounded-md border border-amber-600/40 bg-amber-500/8 px-2.5 py-2 dark:border-amber-500/25">
                 <p className="text-[10px] leading-snug text-amber-700 dark:text-amber-400/90">
@@ -283,7 +283,7 @@ export function Sidebar({
         {subnetPicker &&
           (!subnetPicker.selectedSubnetId || subnetPicker.selectedSubnetId === "104") &&
           !walletFooter && (
-          <div className="px-3 pb-3 shrink-0 border-t border-border/30 pt-3">
+          <div className="px-3 pb-3 shrink-0 border-t border-border/50 pt-3">
             {anonAiExhausted ? (
               <div className="flex items-start gap-2 rounded-md border border-red-600/40 bg-red-500/8 px-2.5 py-2 dark:border-red-500/25">
                 <span className="mt-px shrink-0 text-[10px] text-red-600 dark:text-red-400">✦</span>
@@ -303,7 +303,7 @@ export function Sidebar({
         )}
 
         {/* Footer */}
-        <div className="p-4 space-y-2 border-t border-border/40">
+        <div className="p-4 space-y-2 border-t border-border/60">
           <div className="flex items-center gap-2 p-2 rounded-xl hover:bg-accent/50 cursor-pointer transition-all group">
             <div className="w-8 h-8 border border-border/60 flex items-center justify-center shrink-0 bg-muted">
               <span className="text-[11px] text-foreground font-black">
@@ -314,7 +314,7 @@ export function Sidebar({
               <p className="text-[13px] font-bold text-foreground/90 truncate group-hover:text-foreground transition-colors">
                 {walletLabel ?? "Test User"}
               </p>
-              <p className="text-[10px] text-muted-foreground/80 dark:text-muted-foreground/60 truncate uppercase tracking-widest font-medium">
+              <p className="text-[10px] text-muted-foreground/90 dark:text-muted-foreground/75 truncate uppercase tracking-widest font-medium">
                 {footerLine2}
               </p>
             </div>
@@ -334,7 +334,7 @@ export function Sidebar({
                 href={SUPPORT_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[10px] font-bold text-muted-foreground/70 dark:text-muted-foreground/40 hover:text-foreground uppercase tracking-widest transition-colors inline-flex items-center gap-1"
+                className="text-[10px] font-bold text-muted-foreground/85 dark:text-muted-foreground/70 hover:text-foreground uppercase tracking-widest transition-colors inline-flex items-center gap-1"
               >
                 <HelpCircle size={12} />
                 Support
@@ -344,7 +344,7 @@ export function Sidebar({
                 href={DOCS_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[10px] font-bold text-muted-foreground/70 dark:text-muted-foreground/40 hover:text-foreground uppercase tracking-widest transition-colors"
+                className="text-[10px] font-bold text-muted-foreground/85 dark:text-muted-foreground/70 hover:text-foreground uppercase tracking-widest transition-colors"
               >
                 Docs
               </a>

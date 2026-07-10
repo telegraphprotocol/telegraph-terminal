@@ -125,10 +125,34 @@ async function fetchIntegrations(): Promise<IntegrationRecord[]> {
   }
 }
 
+/**
+ * The Engine's /miner-dispatcher/integrations response never sends `input_schema.required`
+ * (it's schema-per-miner, not per-endpoint). Infer which properties belong to a given
+ * endpoint: unambiguous when there's only one endpoint, otherwise match property names
+ * explicitly named in that endpoint's own description (miner YAML authors quote them,
+ * e.g. "a JSON body with an 'image' field").
+ */
+function inferRequiredKeysForEndpoint(
+  rec: IntegrationRecord,
+  ep: IntegrationEndpoint,
+  allEndpoints: IntegrationEndpoint[],
+): string[] {
+  const propNames = Object.keys(rec.input_schema?.properties ?? {});
+  if (propNames.length === 0) return [];
+  if (allEndpoints.length === 1) return propNames;
+  const desc = (ep.description ?? "").toLowerCase();
+  return propNames.filter((name) => desc.includes(`'${name.toLowerCase()}'`) || desc.includes(`\`${name.toLowerCase()}\``));
+}
+
 function integrationToSubnetYaml(rec: IntegrationRecord): ParsedSubnetYaml {
-  const endpoints: SubnetEndpointSpec[] = (rec.endpoints ?? []).map((ep) => {
+  const allEndpoints = rec.endpoints ?? [];
+  const declaredRequired = rec.input_schema?.required;
+  const endpoints: SubnetEndpointSpec[] = allEndpoints.map((ep) => {
     const method = (ep.method ?? "POST").toUpperCase();
-    const requiredKeys = rec.input_schema?.required ?? [];
+    const requiredKeys =
+      declaredRequired && declaredRequired.length > 0
+        ? declaredRequired
+        : inferRequiredKeysForEndpoint(rec, ep, allEndpoints);
     return {
       path: ep.path,
       method,
@@ -149,6 +173,13 @@ export async function fetchSubnetYamlBySlug(slug: string): Promise<ParsedSubnetY
 export function pickDefaultEndpoint(spec: ParsedSubnetYaml): SubnetEndpointSpec | null {
   const prefer = spec.endpoints.find((e) => e.path === "/chat");
   return prefer ?? spec.endpoints[0] ?? null;
+}
+
+/** Does the given endpoint accept an image payload (e.g. BitMind's /detect-image)? */
+export function endpointNeedsImage(spec: ParsedSubnetYaml | null, endpointPath: string | null): boolean {
+  if (!spec || !endpointPath) return false;
+  const ep = findEndpoint(spec, endpointPath);
+  return Boolean(ep?.telegraph_direct?.required_payload_keys?.includes("image"));
 }
 
 export function findEndpoint(spec: ParsedSubnetYaml, path: string): SubnetEndpointSpec | null {
@@ -309,6 +340,10 @@ export function buildDirectPayload(
       payload.lon = Number.parseFloat(fields.lon.trim());
     } else if (key === "input") {
       payload.input = userText.trim();
+    } else if (key === "web_search_options") {
+      // Nova grounding toggle — must be an object, not a string. The empty
+      // object itself is what enables it; see LiteLLM's web_search_options docs.
+      payload.web_search_options = {};
     } else {
       payload[key] = userText.trim();
     }

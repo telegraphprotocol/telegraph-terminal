@@ -1614,9 +1614,9 @@ export function useLiveExecutor(opts?: {
             loading: subnetSpecLoading,
             error: subnetSpecError,
             endpointPath: directEndpointPath,
-            setEndpointPath: setDirectEndpointPath,
+            onEndpointPath: setDirectEndpointPath,
             model: directModel,
-            setModel: setDirectModel,
+            onModel: setDirectModel,
             modelPlaceholder:
               subnetYamlSpec &&
               forcedSubnetId &&
@@ -1625,11 +1625,11 @@ export function useLiveExecutor(opts?: {
                 ? getDefaultDirectModelForSpec(subnetYamlSpec, directEndpointPath) ?? X402_CHAT_MODEL
                 : X402_CHAT_MODEL,
             imageUrl: directImageUrl,
-            setImageUrl: setDirectImageUrl,
+            onImageUrl: setDirectImageUrl,
             lat: directLat,
-            setLat: setDirectLat,
+            onLat: setDirectLat,
             lon: directLon,
-            setLon: setDirectLon,
+            onLon: setDirectLon,
             gateError: directGateError,
           }
         : null,

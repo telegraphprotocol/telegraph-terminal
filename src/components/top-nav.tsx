@@ -67,7 +67,7 @@ export function TopNav({
     process.env.NEXT_PUBLIC_USE_TERMINAL_BACKEND_X402 === "true";
 
   return (
-    <header className="z-40 shrink-0 border-b border-border/60 bg-background/80 backdrop-blur-[14px]">
+    <header className="z-40 shrink-0 border-b border-border/80 bg-background/55 shadow-sm backdrop-blur-2xl backdrop-saturate-150 supports-[backdrop-filter]:bg-background/40">
       {/* Mobile: two-row layout */}
       <div className="flex flex-col md:hidden">
         {/* Row 1 */}
@@ -94,7 +94,7 @@ export function TopNav({
             <span className="truncate text-[13px] font-bold uppercase tracking-[0.12em] text-foreground leading-none">
               Telegraph
             </span>
-            <span className="truncate text-[9px] uppercase tracking-[0.1em] text-muted-foreground/60 leading-none mt-1">
+            <span className="truncate text-[10px] uppercase tracking-[0.1em] text-muted-foreground/80 leading-none mt-1">
               Intelligence Terminal
             </span>
           </Link>
@@ -104,7 +104,7 @@ export function TopNav({
         </div>
 
         {/* Row 2: subnet + wallet */}
-        <div className="flex h-10 items-center gap-2 border-t border-border/30 px-4">
+        <div className="flex h-10 items-center gap-2 border-t border-border/50 px-4">
           <div className="min-w-0 flex-1">
             <EngineSubnetPicker {...subnetPicker} menuAlign="end" />
           </div>
@@ -143,7 +143,7 @@ export function TopNav({
             <span className="text-[13px] font-bold uppercase tracking-[0.14em] text-foreground">
               Telegraph
             </span>
-            <span className="hidden text-[9px] uppercase tracking-[0.12em] text-muted-foreground/50 lg:block">
+            <span className="hidden text-[10px] uppercase tracking-[0.12em] text-muted-foreground/75 lg:block">
               Intelligence Terminal
             </span>
           </Link>
