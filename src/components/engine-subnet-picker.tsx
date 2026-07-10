@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -15,6 +16,17 @@ export type EngineSubnetPickerProps = {
   menuAlign?: "start" | "end";
 };
 
+const PANEL_MARGIN = 8;
+
+/** Clamped, viewport-relative geometry so the panel never gets clipped by an
+ * ancestor's overflow-hidden or pushed off-screen on narrow/mid-size viewports. */
+function computePanelGeometry(rect: DOMRect, align: "start" | "end") {
+  const width = Math.min(280, window.innerWidth - PANEL_MARGIN * 2);
+  const desiredLeft = align === "end" ? rect.right - width : rect.left;
+  const left = Math.max(PANEL_MARGIN, Math.min(desiredLeft, window.innerWidth - width - PANEL_MARGIN));
+  return { top: rect.bottom + PANEL_MARGIN, left, width };
+}
+
 export function EngineSubnetPicker({
   subnets,
   selectedSubnetId,
@@ -23,15 +35,19 @@ export function EngineSubnetPicker({
   error = null,
   menuAlign = "end",
 }: EngineSubnetPickerProps) {
+  const [mounted, setMounted] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [geometry, setGeometry] = useState<{ top: number; left: number; width: number } | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(e.target as Node)
-      ) {
+      const target = e.target as Node;
+      if (btnRef.current?.contains(target)) return;
+      if (dropdownRef.current && !dropdownRef.current.contains(target)) {
         setDropdownOpen(false);
       }
     };
@@ -50,13 +66,19 @@ export function EngineSubnetPicker({
         ? "Engine offline"
         : "Auto routing";
 
-  const menuPosition = menuAlign === "end" ? "right-0" : "left-0";
+  function toggle() {
+    if (!dropdownOpen && btnRef.current) {
+      setGeometry(computePanelGeometry(btnRef.current.getBoundingClientRect(), menuAlign));
+    }
+    setDropdownOpen((v) => !v);
+  }
 
   return (
-    <div className="relative flex min-w-0 flex-col gap-0.5" ref={dropdownRef}>
+    <div className="relative flex min-w-0 flex-col gap-0.5">
       <button
+        ref={btnRef}
         type="button"
-        onClick={() => setDropdownOpen((v) => !v)}
+        onClick={toggle}
         className={cn(
           "inline-flex h-8 w-full max-w-full items-center gap-1.5 border px-2.5 sm:px-3 text-left transition-all whitespace-nowrap",
           "lg:w-auto lg:max-w-[min(260px,calc(100vw-14rem))]",
@@ -70,7 +92,7 @@ export function EngineSubnetPicker({
         aria-label={`Miner routing: ${primaryLabel}`}
       >
         <span className={cn(
-          "hidden sm:inline truncate text-[10px] font-bold uppercase tracking-[0.1em] leading-tight",
+          "min-w-0 flex-1 truncate text-[10px] font-bold uppercase tracking-[0.1em] leading-tight",
           engineUnreachable ? "text-foreground" : "text-orange-700 dark:text-orange-400",
         )}>
           {primaryLabel}
@@ -82,21 +104,23 @@ export function EngineSubnetPicker({
         />
       </button>
 
-      <AnimatePresence>
-        {dropdownOpen && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 10 }}
-            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className={cn(
-              "absolute top-[calc(100%+8px)] z-50 min-w-[220px] max-w-[min(90vw,280px)] border backdrop-blur-xl shadow-2xl p-1.5 overflow-hidden",
-              isAutoRouting
-                ? "border-orange-500/40 bg-popover/95 shadow-orange-500/10"
-                : "border-border/60 bg-popover/95 shadow-black/50",
-              menuPosition,
-            )}
-          >
+      {mounted && createPortal(
+        <AnimatePresence>
+          {dropdownOpen && geometry && (
+            <motion.div
+              ref={dropdownRef}
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              style={{ position: "fixed", top: geometry.top, left: geometry.left, width: geometry.width }}
+              className={cn(
+                "z-50 border backdrop-blur-xl shadow-2xl p-1.5 overflow-hidden",
+                isAutoRouting
+                  ? "border-orange-500/40 bg-popover/95 shadow-orange-500/10"
+                  : "border-border/60 bg-popover/95 shadow-black/50",
+              )}
+            >
             {error ? (
               <p className="px-3 py-2 text-[11px] text-amber-600 dark:text-amber-400">{error}</p>
             ) : null}
@@ -149,9 +173,11 @@ export function EngineSubnetPicker({
                 </button>
               ))
             )}
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body,
+      )}
     </div>
   );
 }

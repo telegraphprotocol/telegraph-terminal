@@ -10,7 +10,6 @@ import { endpointNeedsImage } from "@/lib/subnet-direct-spec";
 import { EmptyState } from "@/components/empty-state";
 import { HowItWorksButton } from "@/components/how-it-works-button";
 import { ReceiptHistoryModal } from "@/components/receipt-history-modal";
-import { NetworkSelector } from "@/components/network-selector";
 import { MobileTerminalCollapsible, TerminalPanel } from "@/components/terminal-panel";
 import { ConnectWalletModal } from "@/components/auth/connect-wallet-modal";
 import { WalletChoiceModal } from "@/components/auth/wallet-choice-modal";
@@ -251,7 +250,6 @@ export default function LiveChatPage() {
             subnetPicker={subnetPickerProps}
             extraActions={
               <>
-                {process.env.NEXT_PUBLIC_USE_TERMINAL_BACKEND_X402 === "true" && <NetworkSelector />}
                 <button
                   type="button"
                   onClick={() => setReceiptHistoryOpen(true)}
@@ -259,7 +257,7 @@ export default function LiveChatPage() {
                   title="View receipt history"
                 >
                   <Receipt className="size-3" strokeWidth={2} />
-                  <span className="hidden sm:inline">History</span>
+                  <span>History</span>
                 </button>
                 <HowItWorksButton />
               </>

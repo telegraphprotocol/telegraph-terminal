@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, KeyboardEvent } from "react";
+import { useState, useRef, useLayoutEffect, KeyboardEvent } from "react";
 import { Paperclip, ArrowUp, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn, readImageFileAsDataUrl } from "@/lib/utils";
@@ -19,6 +19,15 @@ export function ChatInput({ onSend, disabled, allowEmptySend = false, onAttachIm
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isFocused, setIsFocused] = useState(false);
   const [attachError, setAttachError] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useLayoutEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)");
+    const apply = () => setIsMobile(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
 
   const handleFileSelect = (file: File | undefined | null) => {
     if (!file || !onAttachImage) return;
@@ -95,7 +104,7 @@ export function ChatInput({ onSend, disabled, allowEmptySend = false, onAttachIm
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={handleKeyDown}
             onInput={handleInput}
-            placeholder="Query miners or execute protocols..."
+            placeholder={isMobile ? "Query miners..." : "Query miners or execute protocols..."}
             disabled={disabled}
             className="flex-1 max-h-40 min-h-[48px] resize-none overflow-y-auto bg-transparent px-1 py-2.5 text-[14px] font-mono leading-snug text-foreground outline-none placeholder:text-muted-foreground/40 custom-scrollbar sm:py-3"
             style={{ height: "48px" }}

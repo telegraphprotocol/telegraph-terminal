@@ -3,6 +3,7 @@
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { GlobalWallet } from "@/components/global-wallet";
+import { NetworkSelector } from "@/components/network-selector";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
   EngineSubnetPicker,
@@ -71,45 +72,33 @@ export function TopNav({
       {/* Mobile: two-row layout */}
       <div className="flex flex-col md:hidden">
         {/* Row 1 */}
-        <div className="flex h-14 items-center gap-3 px-4">
+        <div className="flex h-14 items-center gap-2 px-3 sm:gap-3 sm:px-4">
           <HamburgerButton open={sidebarOpen} onClick={onToggleSidebar} />
-
-          {backToDashboardHref && (
-            <Link
-              href={backToDashboardHref}
-              className="flex h-9 min-w-[44px] items-center gap-1.5 border border-foreground/50 bg-foreground/10 px-2.5 text-[10px] font-bold uppercase tracking-[0.12em] text-foreground transition-colors hover:border-foreground/80 hover:bg-foreground/20"
-              title="Back to dashboard"
-            >
-              <ArrowLeft size={12} strokeWidth={2.5} />
-              <span>Go Back</span>
-            </Link>
-          )}
 
           <Link
             href="https://telegraphprotocol.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex min-w-0 flex-1 flex-col"
+            className="flex min-w-0 flex-1 items-center"
+            aria-label="Telegraph"
+            title="Telegraph"
           >
-            <span className="truncate text-[13px] font-bold uppercase tracking-[0.12em] text-foreground leading-none">
-              Telegraph
-            </span>
-            <span className="truncate text-[10px] uppercase tracking-[0.1em] text-muted-foreground/80 leading-none mt-1">
-              Intelligence Terminal
-            </span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="Telegraph" className="h-7 w-7 shrink-0 object-contain" />
           </Link>
 
           {extraActions}
           <ThemeToggle />
         </div>
 
-        {/* Row 2: subnet + wallet */}
+        {/* Row 2: subnet + network + wallet */}
         <div className="flex h-10 items-center gap-2 border-t border-border/50 px-4">
           <div className="min-w-0 flex-1">
             <EngineSubnetPicker {...subnetPicker} menuAlign="end" />
           </div>
           {showGlobalWallet && (
-            <div className="shrink-0">
+            <div className="flex shrink-0 items-center gap-2">
+              <NetworkSelector />
               <GlobalWallet />
             </div>
           )}
@@ -159,7 +148,12 @@ export function TopNav({
           </div>
           {extraActions}
           <ThemeToggle />
-          {showGlobalWallet && <GlobalWallet className="shrink-0" />}
+          {showGlobalWallet && (
+            <>
+              <NetworkSelector />
+              <GlobalWallet className="shrink-0" />
+            </>
+          )}
         </div>
       </div>
     </header>

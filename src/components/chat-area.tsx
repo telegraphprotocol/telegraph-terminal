@@ -171,7 +171,7 @@ export function ChatArea({
       ref={scrollRootRef}
       className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain py-8 custom-scrollbar [scrollbar-gutter:stable]"
     >
-      <div className="mx-auto w-full max-w-[720px] space-y-8 px-6">
+      <div className="mx-auto w-full max-w-[720px] space-y-8 px-4 sm:px-6">
         <AnimatePresence mode="sync">
           {lastUserIdx >= 0 ? (
             <Fragment key="chat-split">

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Roboto_Mono } from "next/font/google";
 import { Providers } from "@/app/providers";
 import { CursorGlow } from "@/components/cursor-glow";
@@ -38,6 +38,13 @@ export const metadata: Metadata = {
     description: "Verified machine intelligence for analysts, developers, and enterprises - trustworthy answers, developer APIs, and tamper-proof signal streams in one terminal.",
     images: ["/telegraph-social-card.jpg"],
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

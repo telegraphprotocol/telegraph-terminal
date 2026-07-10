@@ -66,10 +66,19 @@ export function HowItWorksButton({
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const panelId = useRef(`how-it-works-panel-${Math.random().toString(36).slice(2)}`).current;
 
   useEffect(() => { setMounted(true); }, []);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)");
+    const apply = () => setIsMobile(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -111,78 +120,101 @@ export function HowItWorksButton({
         )}
       >
         <Info size={13} aria-hidden />
-        <span className="hidden sm:inline">How it works</span>
+        <span>{isMobile ? "Info" : "How it works"}</span>
       </button>
 
       {mounted && createPortal(
         <AnimatePresence>
           {open && anchorRect && (
-            <motion.div
-              id={panelId}
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-              style={{
-                top: anchorRect.bottom + 8,
-                right: Math.max(8, window.innerWidth - anchorRect.right),
-                maxWidth: "calc(100vw - 1rem)",
-              }}
-              className="fixed z-[9999] w-[min(calc(100vw-1rem),26rem)] border border-border/50 bg-background/75 backdrop-blur-2xl shadow-2xl shadow-black/40"
-            >
-              {/* Header */}
-              <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-px bg-foreground/40" />
-                  <span className="text-[9px] font-bold uppercase tracking-[0.25em] text-muted-foreground">
-                    {title}
-                  </span>
-                </div>
-                <button
+            <>
+              {isMobile && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="fixed inset-0 z-[9998] bg-black/60"
                   onClick={() => setOpen(false)}
-                  className="text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <X size={13} />
-                </button>
-              </div>
-
-              {/* Intro */}
-              <div className="px-4 pt-3 pb-2">
-                <p className="text-[11px] font-mono text-muted-foreground leading-relaxed">
-                  {intro}
-                </p>
-              </div>
-
-              {/* Steps */}
-              <div className="flex flex-col divide-y divide-border/40 max-h-[60vh] overflow-y-auto">
-                {steps.map((step, i) => (
-                  <div key={step.label} className="flex gap-3 px-4 py-3">
-                    <div className="flex flex-col items-center gap-1.5 shrink-0 pt-0.5">
-                      <div className="flex size-6 items-center justify-center border border-border/60 text-muted-foreground">
-                        {step.icon}
-                      </div>
-                      {i < steps.length - 1 && (
-                        <div className="w-px flex-1 min-h-[12px] bg-border/40" />
-                      )}
-                    </div>
-                    <div className="flex flex-col gap-1 pb-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[9px] font-bold text-muted-foreground/40 tabular-nums">0{i + 1}</span>
-                        <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-foreground">{step.label}</span>
-                      </div>
-                      <p className="text-[11px] font-mono text-muted-foreground leading-relaxed">{step.desc}</p>
-                    </div>
+                  aria-hidden
+                />
+              )}
+              <motion.div
+                id={panelId}
+                initial={isMobile ? { opacity: 0, y: 16 } : { opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={isMobile ? { opacity: 0, y: 16 } : { opacity: 0, y: -6 }}
+                transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                style={
+                  isMobile
+                    ? undefined
+                    : {
+                        top: anchorRect.bottom + 8,
+                        right: Math.max(8, window.innerWidth - anchorRect.right),
+                        maxWidth: "calc(100vw - 1rem)",
+                      }
+                }
+                className={cn(
+                  "fixed z-[9999] flex flex-col overflow-y-auto border border-border/50 bg-background/95 shadow-2xl shadow-black/40 backdrop-blur-2xl sm:bg-background/75",
+                  isMobile
+                    ? "inset-x-3 top-[7vh] max-h-[86vh] rounded-xl"
+                    : "w-[min(calc(100vw-1rem),26rem)] max-h-[calc(100vh-2rem)]",
+                )}
+              >
+                {/* Header */}
+                <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between border-b border-border/40 bg-background/95 px-4 py-3 backdrop-blur-2xl sm:bg-transparent">
+                  <div className="flex items-center gap-2">
+                    <div className="h-3 w-px bg-foreground/40" />
+                    <span className="text-[9px] font-bold uppercase tracking-[0.25em] text-muted-foreground">
+                      {title}
+                    </span>
                   </div>
-                ))}
-              </div>
+                  <button
+                    onClick={() => setOpen(false)}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label="Close"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
 
-              {/* Footer */}
-              <div className="border-t border-border/40 px-4 py-2.5">
-                <p className="text-[10px] font-mono text-muted-foreground/40 leading-relaxed">
-                  {footer}
-                </p>
-              </div>
-            </motion.div>
+                {/* Intro */}
+                <div className="px-4 pt-3 pb-2">
+                  <p className="text-[11px] font-mono text-muted-foreground leading-relaxed">
+                    {intro}
+                  </p>
+                </div>
+
+                {/* Steps */}
+                <div className="flex flex-col divide-y divide-border/40">
+                  {steps.map((step, i) => (
+                    <div key={step.label} className="flex gap-3 px-4 py-3">
+                      <div className="flex flex-col items-center gap-1.5 shrink-0 pt-0.5">
+                        <div className="flex size-6 items-center justify-center border border-border/60 text-muted-foreground">
+                          {step.icon}
+                        </div>
+                        {i < steps.length - 1 && (
+                          <div className="w-px flex-1 min-h-[12px] bg-border/40" />
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-1 pb-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[9px] font-bold text-muted-foreground/40 tabular-nums">0{i + 1}</span>
+                          <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-foreground">{step.label}</span>
+                        </div>
+                        <p className="text-[11px] font-mono text-muted-foreground leading-relaxed">{step.desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Footer */}
+                <div className="border-t border-border/40 px-4 py-2.5">
+                  <p className="text-[10px] font-mono text-muted-foreground/40 leading-relaxed">
+                    {footer}
+                  </p>
+                </div>
+              </motion.div>
+            </>
           )}
         </AnimatePresence>,
         document.body,

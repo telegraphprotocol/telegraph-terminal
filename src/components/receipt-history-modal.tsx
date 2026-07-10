@@ -118,13 +118,13 @@ export function ReceiptHistoryModal({ onClose }: { onClose: () => void }) {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[260] flex items-end justify-center bg-black/55 backdrop-blur-[2px] sm:items-center sm:p-4"
+      className="fixed inset-0 z-[260] flex items-center justify-center bg-black/55 p-4 backdrop-blur-[2px]"
       role="dialog"
       aria-modal="true"
       aria-label="Receipt history"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="flex w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-border/60 bg-card shadow-2xl sm:rounded-2xl" style={{ maxHeight: "90dvh" }}>
+      <div className="flex w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-2xl" style={{ maxHeight: "85dvh" }}>
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-border/40 px-4 py-3 sm:px-6 sm:py-4">
           <h2 className="text-[14px] font-bold uppercase tracking-[0.08em] text-foreground sm:text-[15px]">
