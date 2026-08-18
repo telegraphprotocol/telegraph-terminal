@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { Link2, ServerOff } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import type { SubnetPickItem } from "@/lib/subnet-catalog";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -12,11 +13,24 @@ export type KrakenSkillCardsProps = {
   subnetsError: string | null;
 };
 
+const PAGE_SIZE = 9;
+
 export function KrakenSkillCards({
   engineSubnets,
   subnetsLoading,
   subnetsError,
 }: KrakenSkillCardsProps) {
+  const [page, setPage] = useState(0);
+  const pageCount = Math.max(1, Math.ceil(engineSubnets.length / PAGE_SIZE));
+
+  useEffect(() => {
+    setPage(0);
+  }, [engineSubnets]);
+
+  const pageItems = useMemo(
+    () => engineSubnets.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE),
+    [engineSubnets, page],
+  );
   if (subnetsLoading) {
     return (
       <div className="grid w-full grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -62,8 +76,9 @@ export function KrakenSkillCards({
   }
 
   return (
-    <div className="grid w-full grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {engineSubnets.slice(0, 9).map((subnet, i) => (
+    <div className="flex w-full flex-col gap-4">
+      <div className="grid w-full grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {pageItems.map((subnet, i) => (
         <motion.div
           key={subnet.id}
           initial={{ opacity: 0, y: 20 }}
@@ -93,6 +108,33 @@ export function KrakenSkillCards({
           </Link>
         </motion.div>
       ))}
+      </div>
+
+      {pageCount > 1 && (
+        <div className="flex items-center justify-between gap-2 text-[11px]">
+          <span className="text-muted-foreground">
+            Page {page + 1} of {pageCount} · {engineSubnets.length} subnets
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={page === 0}
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              className="h-8 border border-border/50 px-3 text-foreground uppercase tracking-wider disabled:opacity-40"
+            >
+              Prev
+            </button>
+            <button
+              type="button"
+              disabled={page >= pageCount - 1}
+              onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+              className="h-8 border border-border/50 px-3 text-foreground uppercase tracking-wider disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -27,7 +27,7 @@ function toDaemonUrl(path: string, query?: DaemonQueryParams): string {
 export const apiClient = {
   // Engine API (proxied by Next → ENGINE_INTERNAL_URL)
   async smartAsk(query: string, context?: Record<string, unknown>): Promise<EngineHttpAskResponse> {
-    const response = await fetch(`${ENGINE_PROXY_PREFIX}/v1/ask`, {
+    const response = await fetch(`${ENGINE_PROXY_PREFIX}/engine/v1/ask`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query, ...(context ? { context } : {}) }),
@@ -37,7 +37,7 @@ export const apiClient = {
   },
 
   async directAsk(subnetId: string, endpoint: string, payload: unknown) {
-    const response = await fetch(`${ENGINE_PROXY_PREFIX}/v1/ask/${subnetId}`, {
+    const response = await fetch(`${ENGINE_PROXY_PREFIX}/engine/v1/ask/${subnetId}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ method: "POST", endpoint, payload }),
@@ -47,7 +47,7 @@ export const apiClient = {
   },
 
   async listSubnets(): Promise<EngineListSubnetsResponse> {
-    const response = await fetch(`${ENGINE_PROXY_PREFIX}/v1/subnets`);
+    const response = await fetch(`${ENGINE_PROXY_PREFIX}/engine/v1/miners`);
     if (!response.ok) throw new Error("Engine API error");
     return response.json();
   },
